@@ -6,7 +6,7 @@ import {
   ChevronDown, ChevronUp, Pencil, Trash2, AlertTriangle, UserPlus,
   Camera, Video, Flower2, Music2, Disc3, UtensilsCrossed, Cake,
   Scissors, Heart, Landmark, Car, ClipboardList, Armchair,
-  Mail as MailIcon, Wine, Star,
+  Mail as MailIcon, Wine, Star, Link2,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { vendorsAPI } from '../services/unifiedAPI'
@@ -47,49 +47,45 @@ const ROLES = [
   'Makeup Artist', 'Officiant', 'Driver', 'Other',
 ]
 
-// ─── Individual member row inside a company card ─────────────────────────────
+// ─── Individual member row ────────────────────────────────────────────────────
 function MemberRow({ member, onEditMember, onDeleteMember }) {
   return (
-    <div className="flex items-center gap-3 py-3 px-4 border-b last:border-b-0 border-cowc-sand/40 bg-cowc-cream/30">
-      <div className="w-8 h-8 rounded-full bg-white border border-cowc-sand flex items-center justify-center flex-shrink-0">
-        <User className="w-4 h-4 text-cowc-gold" />
+    <div className="flex items-center gap-3 py-2.5 px-4 border-b last:border-b-0 border-cowc-sand/40 bg-cowc-cream/30">
+      <div className="w-7 h-7 rounded-full bg-white border border-cowc-sand flex items-center justify-center flex-shrink-0">
+        <User className="w-3.5 h-3.5 text-cowc-gold" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm font-semibold text-cowc-dark truncate">{member.name}</p>
           {member.role && (
-            <span className="text-xs bg-cowc-gold/10 text-cowc-gold font-medium px-2 py-0.5 rounded-full">
+            <span className="text-xs bg-cowc-gold/10 text-cowc-gold font-medium px-1.5 py-0.5 rounded-full">
               {member.role}
             </span>
           )}
-        </div>
-        {member.notes && (
-          <p className="text-xs text-cowc-gray italic truncate mt-0.5">{member.notes}</p>
-        )}
-        <div className="flex items-center gap-3 mt-1 flex-wrap">
           {member.contact_email && (
             <a href={`mailto:${member.contact_email}`}
-              className="text-xs text-cowc-gold hover:underline flex items-center gap-1">
+              className="text-xs text-cowc-gray hover:text-cowc-gold transition-colors flex items-center gap-1">
               <Mail className="w-3 h-3" />{member.contact_email}
             </a>
           )}
           {member.phone && (
             <a href={`tel:${member.phone}`}
-              className="text-xs text-cowc-gray hover:text-cowc-dark flex items-center gap-1">
+              className="text-xs text-cowc-gray hover:text-cowc-dark transition-colors flex items-center gap-1">
               <Phone className="w-3 h-3" />{member.phone}
             </a>
           )}
         </div>
+        {member.notes && (
+          <p className="text-xs text-cowc-gray italic truncate">{member.notes}</p>
+        )}
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
         <button onClick={() => onEditMember(member)}
-          className="p-1.5 hover:bg-blue-50 rounded-lg text-cowc-gray hover:text-blue-600 transition-colors"
-          title="Edit">
+          className="p-1.5 hover:bg-blue-50 rounded-lg text-cowc-gray hover:text-blue-600 transition-colors">
           <Pencil className="w-3.5 h-3.5" />
         </button>
         <button onClick={() => onDeleteMember(member)}
-          className="p-1.5 hover:bg-red-50 rounded-lg text-cowc-gray hover:text-red-500 transition-colors"
-          title="Remove">
+          className="p-1.5 hover:bg-red-50 rounded-lg text-cowc-gray hover:text-red-500 transition-colors">
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -97,8 +93,8 @@ function MemberRow({ member, onEditMember, onDeleteMember }) {
   )
 }
 
-// ─── Vendor card ──────────────────────────────────────────────────────────────
-function VendorCard({ vendor, index, onEdit, onDelete, onEditMember, onDeleteMember, onAddMember }) {
+// ─── Vendor list row ──────────────────────────────────────────────────────────
+function VendorRow({ vendor, index, onEdit, onDelete, onEditMember, onDeleteMember, onAddMember }) {
   const [expanded, setExpanded] = useState(false)
   const cat = getCat(vendor.category)
   const hasMembers = vendor.members?.length > 0
@@ -106,99 +102,85 @@ function VendorCard({ vendor, index, onEdit, onDelete, onEditMember, onDeleteMem
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.03 }}
-      className="card-premium overflow-hidden"
+      transition={{ delay: index * 0.02 }}
+      className="bg-white border-b border-cowc-sand/50 last:border-b-0"
     >
-      {/* Card body */}
-      <div className="p-5">
-        <div className="flex items-start gap-3">
-          {/* Category icon */}
-          <div
-            className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: `${cat.color}18` }}
-          >
-            <CatIcon className="w-5 h-5" style={{ color: cat.color }} />
-          </div>
+      {/* Main row */}
+      <div className="flex items-center gap-3 px-4 py-3">
+        {/* Category icon */}
+        <div
+          className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: `${cat.color}18` }}
+        >
+          <CatIcon className="w-4 h-4" style={{ color: cat.color }} />
+        </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h3 className="font-semibold text-cowc-dark text-base leading-snug truncate">
-                  {vendor.name}
-                </h3>
-                <p className="text-xs text-cowc-gray mt-0.5 font-medium">{cat.label}</p>
-              </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <button onClick={() => onEdit(vendor)}
-                  className="p-1.5 hover:bg-blue-50 rounded-lg text-cowc-gray hover:text-blue-600 transition-colors"
-                  title="Edit vendor">
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button onClick={() => onDelete(vendor)}
-                  className="p-1.5 hover:bg-red-50 rounded-lg text-cowc-gray hover:text-red-500 transition-colors"
-                  title="Delete vendor">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Contact links */}
-            <div className="mt-2.5 space-y-1.5">
-              {vendor.contact_email && (
-                <a href={`mailto:${vendor.contact_email}`}
-                  className="flex items-center gap-2 text-xs text-cowc-gray hover:text-cowc-gold transition-colors">
-                  <Mail className="w-3.5 h-3.5 flex-shrink-0 text-cowc-gold/70" />
-                  <span className="truncate">{vendor.contact_email}</span>
-                </a>
-              )}
-              {vendor.phone && (
-                <a href={`tel:${vendor.phone}`}
-                  className="flex items-center gap-2 text-xs text-cowc-gray hover:text-cowc-dark transition-colors">
-                  <Phone className="w-3.5 h-3.5 flex-shrink-0 text-cowc-gold/70" />
-                  <span>{vendor.phone}</span>
-                </a>
-              )}
-              {vendor.website && (
-                <a href={vendor.website} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-xs text-cowc-gray hover:text-cowc-dark transition-colors">
-                  <Globe className="w-3.5 h-3.5 flex-shrink-0 text-cowc-gold/70" />
-                  <span className="truncate">{vendor.website.replace(/^https?:\/\//, '')}</span>
-                </a>
-              )}
-            </div>
-
+        {/* Name + meta */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-cowc-dark text-sm leading-snug">{vendor.name}</span>
+            {vendor.wedding && (
+              <span className="inline-flex items-center gap-1 text-xs bg-cowc-gold/10 text-cowc-gold font-medium px-2 py-0.5 rounded-full">
+                <Link2 className="w-3 h-3" />
+                {vendor.wedding.couple_name}
+              </span>
+            )}
             {vendor.notes && (
-              <p className="mt-2.5 text-xs text-cowc-gray italic line-clamp-2 leading-relaxed">
-                {vendor.notes}
-              </p>
+              <span className="text-xs text-cowc-gray italic truncate max-w-[200px]">{vendor.notes}</span>
+            )}
+          </div>
+          {/* Contact links inline */}
+          <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+            {vendor.contact_email && (
+              <a href={`mailto:${vendor.contact_email}`}
+                className="text-xs text-cowc-gray hover:text-cowc-gold transition-colors flex items-center gap-1">
+                <Mail className="w-3 h-3" />{vendor.contact_email}
+              </a>
+            )}
+            {vendor.phone && (
+              <a href={`tel:${vendor.phone}`}
+                className="text-xs text-cowc-gray hover:text-cowc-dark transition-colors flex items-center gap-1">
+                <Phone className="w-3 h-3" />{vendor.phone}
+              </a>
+            )}
+            {vendor.website && (
+              <a href={vendor.website} target="_blank" rel="noopener noreferrer"
+                className="text-xs text-cowc-gray hover:text-cowc-dark transition-colors flex items-center gap-1">
+                <Globe className="w-3 h-3" />{vendor.website.replace(/^https?:\/\//, '')}
+              </a>
             )}
           </div>
         </div>
 
-        {/* Footer: add person + expand members */}
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-cowc-sand/50">
-          <button
-            onClick={() => onAddMember(vendor)}
-            className="flex items-center gap-1.5 text-xs text-cowc-gray hover:text-cowc-gold transition-colors font-medium"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            Add person
-          </button>
-
+        {/* Actions */}
+        <div className="flex items-center gap-1 flex-shrink-0">
           {hasMembers && (
             <button
               onClick={() => setExpanded((e) => !e)}
-              className="flex items-center gap-1.5 text-xs text-cowc-gray hover:text-cowc-dark transition-colors font-medium"
+              className="flex items-center gap-1 text-xs text-cowc-gray hover:text-cowc-dark transition-colors px-2 py-1.5 rounded-lg hover:bg-cowc-cream font-medium"
             >
               <Users className="w-3.5 h-3.5" />
-              {vendor.members.length} {vendor.members.length === 1 ? 'person' : 'people'}
-              {expanded
-                ? <ChevronUp className="w-3.5 h-3.5" />
-                : <ChevronDown className="w-3.5 h-3.5" />}
+              {vendor.members.length}
+              {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
           )}
+          <button onClick={() => onAddMember(vendor)}
+            className="p-1.5 hover:bg-cowc-cream rounded-lg text-cowc-gray hover:text-cowc-gold transition-colors"
+            title="Add person">
+            <UserPlus className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => onEdit(vendor)}
+            className="p-1.5 hover:bg-blue-50 rounded-lg text-cowc-gray hover:text-blue-600 transition-colors"
+            title="Edit vendor">
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => onDelete(vendor)}
+            className="p-1.5 hover:bg-red-50 rounded-lg text-cowc-gray hover:text-red-500 transition-colors"
+            title="Delete vendor">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
@@ -209,8 +191,8 @@ function VendorCard({ vendor, index, onEdit, onDelete, onEditMember, onDeleteMem
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="border-t border-cowc-sand/50 overflow-hidden"
+            transition={{ duration: 0.15 }}
+            className="border-t border-cowc-sand/40 overflow-hidden"
           >
             {vendor.members.map((m) => (
               <MemberRow
@@ -224,6 +206,25 @@ function VendorCard({ vendor, index, onEdit, onDelete, onEditMember, onDeleteMem
         )}
       </AnimatePresence>
     </motion.div>
+  )
+}
+
+// ─── Category section ────────────────────────────────────────────────────────
+function CategorySection({ category, vendors, ...rowProps }) {
+  const cat = getCat(category)
+  const CatIcon = cat.Icon || Star
+
+  return (
+    <div className="mb-4">
+      <div className="flex items-center gap-2 px-4 py-2 bg-cowc-cream/60 border-b border-cowc-sand/50">
+        <CatIcon className="w-3.5 h-3.5" style={{ color: cat.color }} />
+        <span className="text-xs font-bold uppercase tracking-wide text-cowc-gray">{cat.label}</span>
+        <span className="text-xs text-cowc-light-gray">({vendors.length})</span>
+      </div>
+      {vendors.map((vendor, i) => (
+        <VendorRow key={vendor.id} vendor={vendor} index={i} {...rowProps} />
+      ))}
+    </div>
   )
 }
 
@@ -277,11 +278,29 @@ export default function VendorListScreen() {
         v.contact_email?.toLowerCase().includes(q) ||
         v.phone?.includes(q) ||
         v.notes?.toLowerCase().includes(q) ||
+        v.wedding?.couple_name?.toLowerCase().includes(q) ||
         v.members?.some((m) => m.name?.toLowerCase().includes(q))
       )
     })
 
+  // Group by category for display
+  const byCategory = {}
+  filtered.forEach((v) => {
+    const key = v.category || 'other'
+    if (!byCategory[key]) byCategory[key] = []
+    byCategory[key].push(v)
+  })
+
+  // Sort categories by the CATEGORIES order
+  const sortedCategories = Object.keys(byCategory).sort((a, b) => {
+    const ai = CATEGORIES.findIndex(c => c.value === a)
+    const bi = CATEGORIES.findIndex(c => c.value === b)
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+  })
+
   const usedCats = [...new Set(vendors.map((v) => v.category).filter(Boolean))]
+  const totalPeople = vendors.reduce((n, v) => n + 1 + (v.members?.length || 0), 0)
+  const totalCats   = new Set(vendors.map((v) => v.category).filter(Boolean)).size
 
   // ── Vendor add / edit ──────────────────────────────────────────────────────
   const openAdd = () => {
@@ -423,9 +442,13 @@ export default function VendorListScreen() {
     }
   }
 
-  // ── Stats ──────────────────────────────────────────────────────────────────
-  const totalPeople = vendors.reduce((n, v) => n + 1 + (v.members?.length || 0), 0)
-  const totalCats   = new Set(vendors.map((v) => v.category).filter(Boolean)).size
+  const rowProps = {
+    onEdit: openEdit,
+    onDelete: setDeleteTarget,
+    onEditMember: openEditMember,
+    onDeleteMember: setDeleteMemberTarget,
+    onAddMember: openAddMember,
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   if (loading) {
@@ -444,7 +467,7 @@ export default function VendorListScreen() {
 
       {/* ── Header ──────────────────────────────────────────────── */}
       <div className="bg-gradient-to-br from-cowc-dark via-cowc-dark to-gray-800 text-white pt-12 pb-16 px-6">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <button
             onClick={() => navigate('/admin')}
             className="flex items-center gap-2 text-white/60 hover:text-white transition-colors mb-8"
@@ -457,7 +480,7 @@ export default function VendorListScreen() {
             <div>
               <h1 className="text-4xl sm:text-5xl font-serif font-light">Vendor Directory</h1>
               <p className="text-white/60 mt-1.5 text-sm">
-                Master contact database — companies &amp; individuals
+                All vendors across your weddings
               </p>
             </div>
             <button
@@ -473,7 +496,7 @@ export default function VendorListScreen() {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Companies',    value: vendors.length },
+              { label: 'Vendors',    value: vendors.length },
               { label: 'Total People', value: totalPeople },
               { label: 'Categories',   value: totalCats },
             ].map(({ label, value }) => (
@@ -486,22 +509,22 @@ export default function VendorListScreen() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 -mt-8 relative z-20">
+      <div className="max-w-4xl mx-auto px-6 -mt-8 relative z-20">
 
         {/* ── Search + Category pills ───────────────────────────── */}
-        <div className="card-premium p-5 mb-8">
-          <div className="relative mb-4">
+        <div className="card-premium p-4 mb-6">
+          <div className="relative mb-3">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-cowc-gray" />
             <input
               type="text"
-              placeholder="Search by name, email, phone, notes…"
+              placeholder="Search by name, email, wedding…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-11 pr-4 py-2.5 rounded-lg bg-cowc-cream border-2 border-transparent focus:border-cowc-gold focus:outline-none text-sm"
             />
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => setCatFilter('all')}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
@@ -512,29 +535,35 @@ export default function VendorListScreen() {
             >
               All
             </button>
-            {usedCats.map((val) => {
-              const c = getCat(val)
-              const PillIcon = c.Icon || Star
-              return (
-                <button
-                  key={val}
-                  onClick={() => setCatFilter(catFilter === val ? 'all' : val)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                    catFilter === val
-                      ? 'text-white'
-                      : 'bg-cowc-cream text-cowc-gray hover:bg-cowc-sand'
-                  }`}
-                  style={catFilter === val ? { backgroundColor: c.color } : {}}
-                >
-                  <PillIcon className="w-3 h-3" />
-                  {c.label}
-                </button>
-              )
-            })}
+            {usedCats
+              .sort((a, b) => {
+                const ai = CATEGORIES.findIndex(c => c.value === a)
+                const bi = CATEGORIES.findIndex(c => c.value === b)
+                return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+              })
+              .map((val) => {
+                const c = getCat(val)
+                const PillIcon = c.Icon || Star
+                return (
+                  <button
+                    key={val}
+                    onClick={() => setCatFilter(catFilter === val ? 'all' : val)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                      catFilter === val
+                        ? 'text-white'
+                        : 'bg-cowc-cream text-cowc-gray hover:bg-cowc-sand'
+                    }`}
+                    style={catFilter === val ? { backgroundColor: c.color } : {}}
+                  >
+                    <PillIcon className="w-3 h-3" />
+                    {c.label}
+                  </button>
+                )
+              })}
           </div>
         </div>
 
-        {/* ── Card grid ─────────────────────────────────────────── */}
+        {/* ── Vendor list ────────────────────────────────────────── */}
         {filtered.length === 0 ? (
           <div className="card-premium p-12 text-center">
             <Building2 className="w-16 h-16 text-cowc-light-gray mx-auto mb-4" />
@@ -554,17 +583,13 @@ export default function VendorListScreen() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((vendor, i) => (
-              <VendorCard
-                key={vendor.id}
-                vendor={vendor}
-                index={i}
-                onEdit={openEdit}
-                onDelete={setDeleteTarget}
-                onEditMember={openEditMember}
-                onDeleteMember={setDeleteMemberTarget}
-                onAddMember={openAddMember}
+          <div className="card-premium overflow-hidden">
+            {sortedCategories.map((category) => (
+              <CategorySection
+                key={category}
+                category={category}
+                vendors={byCategory[category]}
+                {...rowProps}
               />
             ))}
           </div>
@@ -611,7 +636,7 @@ export default function VendorListScreen() {
                     className="input-premium">
                     <option value="">Select a category…</option>
                     {CATEGORIES.map((c) => (
-                      <option key={c.value} value={c.value}>{c.emoji} {c.label}</option>
+                      <option key={c.value} value={c.value}>{c.label}</option>
                     ))}
                   </select>
                 </div>
@@ -775,12 +800,15 @@ export default function VendorListScreen() {
                   <AlertTriangle className="w-6 h-6 text-red-500" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-serif text-cowc-dark mb-1">Remove from Directory?</h2>
+                  <h2 className="text-2xl font-serif text-cowc-dark mb-1">Remove Vendor?</h2>
                   <p className="text-cowc-gray text-sm">
                     <span className="font-semibold text-cowc-dark">{deleteTarget.name}</span>
+                    {deleteTarget.wedding && (
+                      <> ({deleteTarget.wedding.couple_name})</>
+                    )}
                     {deleteTarget.members?.length > 0 && (
                       <> and their {deleteTarget.members.length} team member{deleteTarget.members.length !== 1 ? 's' : ''}</>
-                    )} will be permanently deleted. This cannot be undone.
+                    )} will be permanently deleted.
                   </p>
                 </div>
               </div>
