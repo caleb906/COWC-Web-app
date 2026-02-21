@@ -18,6 +18,7 @@ import { useToast } from './Toast'
 import { formatDate, daysUntil, isPastDue } from '../utils/dates'
 import { primaryGradient, primaryAccent, primaryAlpha, primaryPageBg, primaryCardBg } from '../utils/colorUtils'
 import { AddTaskModal, AddVendorModal, AddTimelineModal } from './AddModals'
+import InternalNotesWidget from './InternalNotesWidget'
 
 // Default timeline templates
 const DEFAULT_TIMELINE = [
@@ -676,6 +677,7 @@ export default function WeddingDetailPageFull() {
             { id: 'timeline',  label: `Timeline (${wedding.timeline_items?.length || 0})` },
             { id: 'style',     label: 'Style' },
             ...(canEdit ? [{ id: 'rentals', label: `Rentals${rentals.length > 0 ? ` (${rentals.length})` : ''}` }] : []),
+            ...(canEdit ? [{ id: 'notes', label: 'Notes' }] : []),
           ].map((tab) => (
             <button
               key={tab.id}
@@ -787,9 +789,9 @@ export default function WeddingDetailPageFull() {
                   </h3>
                   <div className="flex flex-wrap gap-3">
                     {[
-                      { value: 'FP',  label: 'FP — Full Planning',        color: 'bg-amber-100 text-amber-800 border-amber-300' },
-                      { value: 'PP',  label: 'PP — Partial Planning',     color: 'bg-purple-100 text-purple-800 border-purple-300' },
-                      { value: 'DOC', label: 'DOC — Day of Coordination', color: 'bg-sky-100 text-sky-800 border-sky-300' },
+                      { value: 'FP',  label: 'Full Planning',        color: 'bg-amber-100 text-amber-800 border-amber-300' },
+                      { value: 'PP',  label: 'Partial Planning',     color: 'bg-purple-100 text-purple-800 border-purple-300' },
+                      { value: 'DOC', label: 'Day of Coordination', color: 'bg-sky-100 text-sky-800 border-sky-300' },
                     ].map(pkg => {
                       const current = editing ? editedWedding.package_type : wedding.package_type
                       const isActive = current === pkg.value
@@ -1209,6 +1211,16 @@ export default function WeddingDetailPageFull() {
                   </div>
                 )
               )}
+            </div>
+          )}
+
+          {/* Notes Tab */}
+          {activeTab === 'notes' && canEdit && (
+            <div className="space-y-4">
+              <InternalNotesWidget
+                weddingId={wedding.id}
+                compactMode={false}
+              />
             </div>
           )}
         </motion.div>

@@ -176,6 +176,8 @@ export const weddingsAPI = {
       .from('weddings')
       .insert({
         couple_name: wedding.couple_name,
+        bride_first_name: wedding.bride_first_name || null,
+        groom_first_name: wedding.groom_first_name || null,
         couple_user_id: wedding.couple_user_id || null,
         couple_email: wedding.couple_email || null,
         wedding_date: wedding.wedding_date,
@@ -205,6 +207,8 @@ export const weddingsAPI = {
 
     // Map app fields to database fields
     if (updates.couple_name !== undefined) updateData.couple_name = updates.couple_name
+    if (updates.bride_first_name !== undefined) updateData.bride_first_name = updates.bride_first_name
+    if (updates.groom_first_name !== undefined) updateData.groom_first_name = updates.groom_first_name
     if (updates.couple_user_id !== undefined) updateData.couple_user_id = updates.couple_user_id
     if (updates.couple_email !== undefined) updateData.couple_email = updates.couple_email
     if (updates.couple_invite_sent_at !== undefined) updateData.couple_invite_sent_at = updates.couple_invite_sent_at
@@ -766,6 +770,8 @@ function transformWedding(data) {
   return {
     id: data.id,
     couple_name: data.couple_name,
+    bride_first_name: data.bride_first_name || null,
+    groom_first_name: data.groom_first_name || null,
     couple_user_id: data.couple_user_id,
     couple_email: data.couple_email || null,
     couple_invite_sent_at: data.couple_invite_sent_at || null,
