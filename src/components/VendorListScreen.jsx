@@ -47,10 +47,52 @@ const ROLES = [
   'Makeup Artist', 'Officiant', 'Driver', 'Other',
 ]
 
+// ─── Normalise company name for grouping ─────────────────────────────────────
+const normalise = (name) => (name || '').toLowerCase().trim()
+
+// ─── Group vendors by company name ───────────────────────────────────────────
+// Returns array of { key, name, category, contact_email, phone, website, notes,
+//                    weddings: [{...}], members: [{...}], vendorIds: [id,...] }
+function groupVendors(vendors) {
+  const map = {}
+  vendors.forEach((v) => {
+    const key = normalise(v.name)
+    if (!map[key]) {
+      map[key] = {
+        key,
+        name: v.name,
+        category: v.category,
+        contact_email: v.contact_email,
+        phone: v.phone,
+        website: v.website,
+        notes: v.notes,
+        weddings: [],
+        members: [],
+        vendorIds: [],
+        _firstVendor: v,
+      }
+    }
+    // Collect weddings
+    if (v.wedding) {
+      const alreadyAdded = map[key].weddings.some((w) => w.id === v.wedding.id)
+      if (!alreadyAdded) map[key].weddings.push(v.wedding)
+    }
+    // Collect members
+    if (v.members?.length) {
+      v.members.forEach((m) => {
+        const already = map[key].members.some((x) => x.id === m.id)
+        if (!already) map[key].members.push(m)
+      })
+    }
+    map[key].vendorIds.push(v.id)
+  })
+  return Object.values(map)
+}
+
 // ─── Individual member row ────────────────────────────────────────────────────
 function MemberRow({ member, onEditMember, onDeleteMember }) {
   return (
-    <div className="flex items-center gap-3 py-2.5 px-4 border-b last:border-b-0 border-cowc-sand/40 bg-cowc-cream/30">
+    <div className="flex items-center gap-3 py-2.5 px-5 border-b last:border-b-0 border-cowc-sand/40 bg-cowc-cream/30 pl-14">
       <div className="w-7 h-7 rounded-full bg-white border border-cowc-sand flex items-center justify-center flex-shrink-0">
         <User className="w-3.5 h-3.5 text-cowc-gold" />
       </div>
@@ -93,12 +135,12 @@ function MemberRow({ member, onEditMember, onDeleteMember }) {
   )
 }
 
-// ─── Vendor list row ──────────────────────────────────────────────────────────
-function VendorRow({ vendor, index, onEdit, onDelete, onEditMember, onDeleteMember, onAddMember }) {
+// ─── Company row (grouped) ────────────────────────────────────────────────────
+function CompanyRow({ group, index, onEdit, onDelete, onEditMember, onDeleteMember, onAddMember }) {
   const [expanded, setExpanded] = useState(false)
-  const cat = getCat(vendor.category)
-  const hasMembers = vendor.members?.length > 0
+  const cat = getCat(group.category)
   const CatIcon = cat.Icon || Star
+  const hasMembers = group.members.length > 0
 
   return (
     <motion.div
@@ -107,7 +149,7 @@ function VendorRow({ vendor, index, onEdit, onDelete, onEditMember, onDeleteMemb
       transition={{ delay: index * 0.02 }}
       className="bg-white border-b border-cowc-sand/50 last:border-b-0"
     >
-      {/* Main row */}
+      {/* Company row */}
       <div className="flex items-center gap-3 px-4 py-3">
         {/* Category icon */}
         <div
@@ -117,39 +159,43 @@ function VendorRow({ vendor, index, onEdit, onDelete, onEditMember, onDeleteMemb
           <CatIcon className="w-4 h-4" style={{ color: cat.color }} />
         </div>
 
-        {/* Name + meta */}
+        {/* Company name + wedding pills + contact */}
         <div className="flex-1 min-w-0">
+          {/* Line 1: Company name + wedding pills */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-cowc-dark text-sm leading-snug">{vendor.name}</span>
-            {vendor.wedding && (
-              <span className="inline-flex items-center gap-1 text-xs bg-cowc-gold/10 text-cowc-gold font-medium px-2 py-0.5 rounded-full">
+            <span className="font-bold text-cowc-dark text-sm leading-snug">{group.name}</span>
+            {group.weddings.map((w) => (
+              <span
+                key={w.id}
+                className="inline-flex items-center gap-1 text-xs bg-cowc-gold/10 text-cowc-gold font-medium px-2 py-0.5 rounded-full"
+              >
                 <Link2 className="w-3 h-3" />
-                {vendor.wedding.couple_name}
+                {w.couple_name}
               </span>
-            )}
-            {vendor.notes && (
-              <span className="text-xs text-cowc-gray italic truncate max-w-[200px]">{vendor.notes}</span>
-            )}
+            ))}
           </div>
-          {/* Contact links inline */}
+          {/* Line 2: contact links */}
           <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-            {vendor.contact_email && (
-              <a href={`mailto:${vendor.contact_email}`}
+            {group.contact_email && (
+              <a href={`mailto:${group.contact_email}`}
                 className="text-xs text-cowc-gray hover:text-cowc-gold transition-colors flex items-center gap-1">
-                <Mail className="w-3 h-3" />{vendor.contact_email}
+                <Mail className="w-3 h-3" />{group.contact_email}
               </a>
             )}
-            {vendor.phone && (
-              <a href={`tel:${vendor.phone}`}
+            {group.phone && (
+              <a href={`tel:${group.phone}`}
                 className="text-xs text-cowc-gray hover:text-cowc-dark transition-colors flex items-center gap-1">
-                <Phone className="w-3 h-3" />{vendor.phone}
+                <Phone className="w-3 h-3" />{group.phone}
               </a>
             )}
-            {vendor.website && (
-              <a href={vendor.website} target="_blank" rel="noopener noreferrer"
+            {group.website && (
+              <a href={group.website} target="_blank" rel="noopener noreferrer"
                 className="text-xs text-cowc-gray hover:text-cowc-dark transition-colors flex items-center gap-1">
-                <Globe className="w-3 h-3" />{vendor.website.replace(/^https?:\/\//, '')}
+                <Globe className="w-3 h-3" />{group.website.replace(/^https?:\/\//, '')}
               </a>
+            )}
+            {group.notes && (
+              <span className="text-xs text-cowc-gray italic truncate max-w-[200px]">{group.notes}</span>
             )}
           </div>
         </div>
@@ -162,21 +208,21 @@ function VendorRow({ vendor, index, onEdit, onDelete, onEditMember, onDeleteMemb
               className="flex items-center gap-1 text-xs text-cowc-gray hover:text-cowc-dark transition-colors px-2 py-1.5 rounded-lg hover:bg-cowc-cream font-medium"
             >
               <Users className="w-3.5 h-3.5" />
-              {vendor.members.length}
+              {group.members.length}
               {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
           )}
-          <button onClick={() => onAddMember(vendor)}
+          <button onClick={() => onAddMember(group._firstVendor)}
             className="p-1.5 hover:bg-cowc-cream rounded-lg text-cowc-gray hover:text-cowc-gold transition-colors"
             title="Add person">
             <UserPlus className="w-3.5 h-3.5" />
           </button>
-          <button onClick={() => onEdit(vendor)}
+          <button onClick={() => onEdit(group._firstVendor)}
             className="p-1.5 hover:bg-blue-50 rounded-lg text-cowc-gray hover:text-blue-600 transition-colors"
             title="Edit vendor">
             <Pencil className="w-3.5 h-3.5" />
           </button>
-          <button onClick={() => onDelete(vendor)}
+          <button onClick={() => onDelete(group._firstVendor)}
             className="p-1.5 hover:bg-red-50 rounded-lg text-cowc-gray hover:text-red-500 transition-colors"
             title="Delete vendor">
             <Trash2 className="w-3.5 h-3.5" />
@@ -194,7 +240,7 @@ function VendorRow({ vendor, index, onEdit, onDelete, onEditMember, onDeleteMemb
             transition={{ duration: 0.15 }}
             className="border-t border-cowc-sand/40 overflow-hidden"
           >
-            {vendor.members.map((m) => (
+            {group.members.map((m) => (
               <MemberRow
                 key={m.id}
                 member={m}
@@ -210,7 +256,7 @@ function VendorRow({ vendor, index, onEdit, onDelete, onEditMember, onDeleteMemb
 }
 
 // ─── Category section ────────────────────────────────────────────────────────
-function CategorySection({ category, vendors, ...rowProps }) {
+function CategorySection({ category, groups, ...rowProps }) {
   const cat = getCat(category)
   const CatIcon = cat.Icon || Star
 
@@ -219,10 +265,10 @@ function CategorySection({ category, vendors, ...rowProps }) {
       <div className="flex items-center gap-2 px-4 py-2 bg-cowc-cream/60 border-b border-cowc-sand/50">
         <CatIcon className="w-3.5 h-3.5" style={{ color: cat.color }} />
         <span className="text-xs font-bold uppercase tracking-wide text-cowc-gray">{cat.label}</span>
-        <span className="text-xs text-cowc-light-gray">({vendors.length})</span>
+        <span className="text-xs text-cowc-light-gray">({groups.length})</span>
       </div>
-      {vendors.map((vendor, i) => (
-        <VendorRow key={vendor.id} vendor={vendor} index={i} {...rowProps} />
+      {groups.map((group, i) => (
+        <CompanyRow key={group.key} group={group} index={i} {...rowProps} />
       ))}
     </div>
   )
@@ -236,7 +282,8 @@ export default function VendorListScreen() {
   const [vendors, setVendors]         = useState([])
   const [loading, setLoading]         = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [catFilter, setCatFilter]     = useState('all')
+  // multiselect: empty Set = All, otherwise filter to selected
+  const [selectedCats, setSelectedCats] = useState(new Set())
 
   // Add / edit vendor modal
   const [showModal, setShowModal]   = useState(false)
@@ -267,9 +314,20 @@ export default function VendorListScreen() {
     }
   }
 
-  // ── Filtering ─────────────────────────────────────────────────────────────
+  // ── Toggle a category in the multiselect ──────────────────────────────────
+  const toggleCat = (val) => {
+    setSelectedCats((prev) => {
+      const next = new Set(prev)
+      if (next.has(val)) { next.delete(val) } else { next.add(val) }
+      return next
+    })
+  }
+
+  const clearCats = () => setSelectedCats(new Set())
+
+  // ── Filtering & grouping ──────────────────────────────────────────────────
   const filtered = vendors
-    .filter((v) => catFilter === 'all' || v.category === catFilter)
+    .filter((v) => selectedCats.size === 0 || selectedCats.has(v.category))
     .filter((v) => {
       if (!searchQuery) return true
       const q = searchQuery.toLowerCase()
@@ -283,12 +341,13 @@ export default function VendorListScreen() {
       )
     })
 
-  // Group by category for display
+  // Group by company name, then by category
+  const grouped = groupVendors(filtered)
   const byCategory = {}
-  filtered.forEach((v) => {
-    const key = v.category || 'other'
+  grouped.forEach((g) => {
+    const key = g.category || 'other'
     if (!byCategory[key]) byCategory[key] = []
-    byCategory[key].push(v)
+    byCategory[key].push(g)
   })
 
   // Sort categories by the CATEGORIES order
@@ -299,8 +358,15 @@ export default function VendorListScreen() {
   })
 
   const usedCats = [...new Set(vendors.map((v) => v.category).filter(Boolean))]
-  const totalPeople = vendors.reduce((n, v) => n + 1 + (v.members?.length || 0), 0)
-  const totalCats   = new Set(vendors.map((v) => v.category).filter(Boolean)).size
+    .sort((a, b) => {
+      const ai = CATEGORIES.findIndex(c => c.value === a)
+      const bi = CATEGORIES.findIndex(c => c.value === b)
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+    })
+
+  const totalCompanies = groupVendors(vendors).length
+  const totalPeople    = vendors.reduce((n, v) => n + 1 + (v.members?.length || 0), 0)
+  const totalCats      = new Set(vendors.map((v) => v.category).filter(Boolean)).size
 
   // ── Vendor add / edit ──────────────────────────────────────────────────────
   const openAdd = () => {
@@ -496,7 +562,7 @@ export default function VendorListScreen() {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Vendors',    value: vendors.length },
+              { label: 'Companies',    value: totalCompanies },
               { label: 'Total People', value: totalPeople },
               { label: 'Categories',   value: totalCats },
             ].map(({ label, value }) => (
@@ -525,46 +591,47 @@ export default function VendorListScreen() {
           </div>
 
           <div className="flex flex-wrap gap-1.5">
+            {/* All pill — clears selection */}
             <button
-              onClick={() => setCatFilter('all')}
+              onClick={clearCats}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                catFilter === 'all'
+                selectedCats.size === 0
                   ? 'bg-cowc-dark text-white'
                   : 'bg-cowc-cream text-cowc-gray hover:bg-cowc-sand'
               }`}
             >
               All
             </button>
-            {usedCats
-              .sort((a, b) => {
-                const ai = CATEGORIES.findIndex(c => c.value === a)
-                const bi = CATEGORIES.findIndex(c => c.value === b)
-                return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
-              })
-              .map((val) => {
-                const c = getCat(val)
-                const PillIcon = c.Icon || Star
-                return (
-                  <button
-                    key={val}
-                    onClick={() => setCatFilter(catFilter === val ? 'all' : val)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                      catFilter === val
-                        ? 'text-white'
-                        : 'bg-cowc-cream text-cowc-gray hover:bg-cowc-sand'
-                    }`}
-                    style={catFilter === val ? { backgroundColor: c.color } : {}}
-                  >
-                    <PillIcon className="w-3 h-3" />
-                    {c.label}
-                  </button>
-                )
-              })}
+            {usedCats.map((val) => {
+              const c = getCat(val)
+              const PillIcon = c.Icon || Star
+              const active = selectedCats.has(val)
+              return (
+                <button
+                  key={val}
+                  onClick={() => toggleCat(val)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    active
+                      ? 'text-white ring-2 ring-offset-1'
+                      : 'bg-cowc-cream text-cowc-gray hover:bg-cowc-sand'
+                  }`}
+                  style={active ? { backgroundColor: c.color, ringColor: c.color } : {}}
+                >
+                  <PillIcon className="w-3 h-3" />
+                  {c.label}
+                </button>
+              )
+            })}
           </div>
+          {selectedCats.size > 1 && (
+            <p className="text-xs text-cowc-gold mt-2 font-semibold">
+              {selectedCats.size} categories selected
+            </p>
+          )}
         </div>
 
         {/* ── Vendor list ────────────────────────────────────────── */}
-        {filtered.length === 0 ? (
+        {grouped.length === 0 ? (
           <div className="card-premium p-12 text-center">
             <Building2 className="w-16 h-16 text-cowc-light-gray mx-auto mb-4" />
             <p className="text-xl text-cowc-gray font-serif mb-2">
@@ -588,7 +655,7 @@ export default function VendorListScreen() {
               <CategorySection
                 key={category}
                 category={category}
-                vendors={byCategory[category]}
+                groups={byCategory[category]}
                 {...rowProps}
               />
             ))}
@@ -622,11 +689,11 @@ export default function VendorListScreen() {
               <form onSubmit={handleSaveVendor} className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-cowc-dark mb-1.5">
-                    Name <span className="text-red-400">*</span>
+                    Company / Vendor Name <span className="text-red-400">*</span>
                   </label>
                   <input type="text" value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="input-premium" placeholder="Company or person name" required />
+                    className="input-premium" placeholder="e.g. Bleu Bite Catering" required />
                 </div>
 
                 <div>
