@@ -11,6 +11,7 @@ export const usersAPI = {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
+      .not('email', 'ilike', '%@cowc.dev')
       .order('created_at', { ascending: false })
 
     if (error) throw error
@@ -44,6 +45,7 @@ export const usersAPI = {
       .from('profiles')
       .select('*')
       .eq('role', role)
+      .not('email', 'ilike', '%@cowc.dev')
       .order('full_name')
 
     if (error) throw error
@@ -51,11 +53,13 @@ export const usersAPI = {
   },
 
   // Returns all staff who can be assigned as coordinators (coordinators + admins)
+  // Dev/test accounts (@cowc.dev) are excluded from all coordinator lists
   async getCoordinators() {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .in('role', ['coordinator', 'admin'])
+      .not('email', 'ilike', '%@cowc.dev')
       .order('full_name')
 
     if (error) throw error
@@ -98,8 +102,10 @@ export const weddingsAPI = {
 
     if (error) throw error
 
-    // Transform to match app format
-    return data.map(transformWedding)
+    // Transform to match app format, exclude dev/test weddings
+    return data
+      .filter(w => !w.couple?.email?.endsWith('@cowc.dev'))
+      .map(transformWedding)
   },
 
   async getById(id) {
