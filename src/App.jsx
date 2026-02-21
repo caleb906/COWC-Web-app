@@ -19,6 +19,7 @@ import UsersManagementScreen from './components/UsersManagementScreenNew'
 import TasksListScreen from './components/TasksListScreen'
 import VendorListScreen from './components/VendorListScreen'
 import CatalogueManagementScreen from './components/CatalogueManagementScreen'
+import VenuesScreen from './components/VenuesScreen'
 import AdminNotesScreen from './components/AdminNotesScreen'
 import CatalogueScreen from './components/CatalogueScreen'
 import DevPreview from './components/DevPreview'
@@ -176,6 +177,7 @@ function App() {
                 <Route path="/admin/invite-users" element={<InviteUsersScreen />} />
                 <Route path="/admin/assign-coordinators" element={<AssignCoordinatorsScreen />} />
                 <Route path="/admin/catalogue" element={<CatalogueManagementScreen />} />
+                <Route path="/admin/venues" element={<VenuesScreen />} />
                 <Route path="/admin/notes" element={<AdminNotesScreen />} />
                 <Route path="/admin/preview/couple/:id" element={<DevPreview />} />
                 <Route path="/wedding/:id" element={<WeddingDetailPage />} />

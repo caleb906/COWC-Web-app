@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Users, Check, Star, Save, Search, X, UserPlus, User, Sparkles } from 'lucide-react'
+import { ArrowLeft, Users, Check, Star, Save, Search, X, UserPlus, User, Sparkles, AlertCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { weddingsAPI, usersAPI, coordinatorAssignmentsAPI } from '../services/unifiedAPI'
 import { formatDate } from '../utils/dates'
@@ -170,10 +170,24 @@ export default function AssignCoordinatorsScreenNew() {
             <div className="w-16 h-16 bg-cowc-gold rounded-full flex items-center justify-center">
               <Users className="w-8 h-8 text-white" />
             </div>
-            <div>
+            <div className="flex-1">
               <h1 className="text-5xl font-serif font-light">Assign Coordinators</h1>
               <p className="text-white/70 mt-2">Match coordinators to upcoming weddings</p>
             </div>
+            {(() => {
+              const needsAssignment = weddings.filter(w => !w.coordinators || w.coordinators.length === 0).length
+              return needsAssignment > 0 ? (
+                <div className="flex items-center gap-2 bg-amber-500 text-white px-4 py-2 rounded-xl font-semibold text-sm">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  {needsAssignment} need{needsAssignment === 1 ? 's' : ''} assignment
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-green-500/80 text-white px-4 py-2 rounded-xl font-semibold text-sm">
+                  <Check className="w-4 h-4 flex-shrink-0" />
+                  All covered
+                </div>
+              )
+            })()}
           </div>
 
           {/* Search and Filter */}
@@ -246,10 +260,19 @@ export default function AssignCoordinatorsScreenNew() {
                           </p>
                         )}
                       </div>
-                      {hasCoordinators && (
+                      {hasCoordinators ? (
                         <Check className={`w-5 h-5 flex-shrink-0 ${
                           selectedWedding?.id === wedding.id ? 'text-white' : 'text-green-500'
                         }`} />
+                      ) : (
+                        <span className={`text-xs font-bold px-2 py-1 rounded-lg flex-shrink-0 flex items-center gap-1 ${
+                          selectedWedding?.id === wedding.id
+                            ? 'bg-white/20 text-white'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          <AlertCircle className="w-3 h-3" />
+                          Unassigned
+                        </span>
                       )}
                     </div>
                   </button>

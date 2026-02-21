@@ -4,7 +4,7 @@ import {
   Calendar, Users, Heart, Plus, TrendingUp,
   LogOut, Settings, Grid, List, Search, X,
   UserPlus, ClipboardList, ChevronDown, Archive,
-  RotateCcw, CheckCircle, ShoppingBag, Package, StickyNote,
+  RotateCcw, CheckCircle, ShoppingBag, Package, StickyNote, Building2,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/appStore'
 import { weddingsAPI, vendorsAPI } from '../services/unifiedAPI'
@@ -437,6 +437,7 @@ export default function AdminDashboard() {
             { label: 'Invite Users',         sub: 'Send invites to couples & coordinators',   path: '/admin/invite-users',         Icon: UserPlus },
             { label: 'Assign Coordinators',  sub: 'Match coordinators to weddings',           path: '/admin/assign-coordinators',  Icon: Calendar },
             { label: 'Catalogue',            sub: 'Manage items couples can reserve',         path: '/admin/catalogue',            Icon: ShoppingBag },
+            { label: 'Venues',               sub: 'Browse and manage your venue directory',   path: '/admin/venues',               Icon: Building2 },
           ].map(({ label, sub, path, Icon }) => (
             <button key={label} onClick={() => navigate(path)}
               className="card-premium p-8 text-left group hover:scale-105 transition-transform">
