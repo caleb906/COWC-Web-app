@@ -162,13 +162,34 @@ export default function InviteUsersScreenNew() {
                 <div className="flex-1">
                   <p className="font-semibold text-green-900 mb-1">Account Created!</p>
                   <p className="text-sm text-green-800 mb-3">
-                    A welcome email with login instructions has been sent to <strong>{createdUser.email}</strong>.
+                    Account ready for <strong>{createdUser.email}</strong>.
                     They'll be prompted to set a new password on first login.
                   </p>
-                  <div className="bg-white rounded-lg p-3 space-y-1 border border-green-200">
+                  <div className="bg-white rounded-lg p-3 space-y-1.5 border border-green-200">
                     <p className="text-sm"><span className="font-semibold text-gray-600">Name:</span> {createdUser.full_name}</p>
                     <p className="text-sm"><span className="font-semibold text-gray-600">Email:</span> {createdUser.email}</p>
                     <p className="text-sm"><span className="font-semibold text-gray-600">Role:</span> {createdUser.role}</p>
+                    {createdUser.tempPassword && (
+                      <div className="pt-1.5 border-t border-green-100 mt-1.5">
+                        <p className="text-xs font-semibold text-amber-700 mb-1">Temporary Password (share securely):</p>
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 bg-amber-50 border border-amber-200 rounded px-2 py-1 text-sm font-mono text-amber-900 select-all">
+                            {createdUser.tempPassword}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(createdUser.tempPassword)
+                              toast.success('Copied!')
+                            }}
+                            className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-800 hover:bg-amber-200 font-semibold flex-shrink-0"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Will be invalidated after their first login.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
