@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Calendar, MapPin, CheckCircle2, Circle, Info, List, LogOut, ChevronRight, ExternalLink, X, Users, ShoppingBag, Palette } from 'lucide-react'
+import { Heart, Calendar, MapPin, CheckCircle2, Circle, Info, List, LogOut, ChevronRight, ExternalLink, X, Users, ShoppingBag, Palette, Package } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 import { useAuthStore } from '../stores/appStore'
 import { weddingsAPI, tasksAPI, vendorsAPI, logChangeAndNotify } from '../services/unifiedAPI'
@@ -37,6 +37,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview } = {}) {
   const [refreshing, setRefreshing] = useState(false)
   const [wedding, setWedding] = useState(null)
   const [tasks, setTasks] = useState([])
+  const [myReservations, setMyReservations] = useState([])
 
   // Vendor suggestion state
   const [suggestingSlot, setSuggestingSlot] = useState(null)
@@ -69,8 +70,17 @@ export default function CoupleDashboard({ previewWeddingId, isPreview } = {}) {
       // In preview mode this runs in a new tab (isolated context), so setWeddingTheme
       // is safe. In normal mode it's also fine — just skip if no theme data.
       if (weddingData.theme) setWeddingTheme(weddingData.theme)
-      const tasksData = await tasksAPI.getByWedding(weddingData.id)
+      const [tasksData, { data: resData }] = await Promise.all([
+        tasksAPI.getByWedding(weddingData.id),
+        supabase
+          .from('inventory_reservations')
+          .select('*, inventory_items(*)')
+          .eq('wedding_id', weddingData.id)
+          .not('status', 'in', '("declined","returned")')
+          .order('created_at', { ascending: false }),
+      ])
       setTasks(tasksData)
+      setMyReservations(resData || [])
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -450,6 +460,112 @@ export default function CoupleDashboard({ previewWeddingId, isPreview } = {}) {
             </motion.div>
           )
         })()}
+
+        {/* ── Your Rentals ──────────────────────────────────── */}
+        {myReservations.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-white rounded-2xl shadow-sm overflow-hidden"
+          >
+            <div className="px-5 pt-4 pb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4" style={{ color: accent }} />
+                <div>
+                  <p className="text-xs uppercase tracking-widest font-semibold text-cowc-gray">Your Rentals</p>
+                  <p className="text-sm font-semibold text-cowc-dark leading-tight">
+                    {myReservations.length} item{myReservations.length !== 1 ? 's' : ''} reserved
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => safeNavigate('/catalogue')}
+                className="text-xs font-semibold flex items-center gap-0.5"
+                style={{ color: accent }}
+              >
+                Browse all <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Horizontal scroll strip */}
+            <div className="flex gap-3 overflow-x-auto px-5 pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              {myReservations.map(res => {
+                const item = res.inventory_items
+                if (!item) return null
+                const statusColor = {
+                  confirmed: { dot: 'bg-emerald-400', label: 'text-emerald-600', text: 'Confirmed' },
+                  requested: { dot: 'bg-amber-400',   label: 'text-amber-600',   text: 'Pending' },
+                }[res.status] || { dot: 'bg-gray-300', label: 'text-gray-500', text: res.status }
+
+                return (
+                  <div
+                    key={res.id}
+                    className="flex-shrink-0 w-28 rounded-xl overflow-hidden border border-gray-100"
+                  >
+                    {/* Photo */}
+                    <div className="w-full h-24 overflow-hidden bg-cowc-cream">
+                      {item.photo_url
+                        ? <img src={item.photo_url} alt={item.name} className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center">
+                            <Package className="w-6 h-6 text-cowc-light-gray" />
+                          </div>
+                      }
+                    </div>
+                    {/* Info */}
+                    <div className="p-2">
+                      <p className="text-[11px] font-semibold text-cowc-dark truncate leading-tight">{item.name}</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusColor.dot}`} />
+                        <span className={`text-[10px] font-semibold ${statusColor.label}`}>{statusColor.text}</span>
+                      </div>
+                      {res.quantity > 1 && (
+                        <p className="text-[10px] text-cowc-gray mt-0.5">Qty: {res.quantity}</p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+
+              {/* Browse more CTA chip */}
+              <button
+                onClick={() => safeNavigate('/catalogue')}
+                className="flex-shrink-0 w-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 h-[116px]"
+                style={{ borderColor: primaryAlpha(theme.primary, 0.3) }}
+              >
+                <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{ background: softRing }}>
+                  <ShoppingBag className="w-4 h-4" style={{ color: accent }} />
+                </div>
+                <span className="text-[10px] font-semibold text-center leading-tight px-1"
+                  style={{ color: accent }}>
+                  Browse more
+                </span>
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── No rentals yet — browse prompt ─────────────────── */}
+        {myReservations.length === 0 && (
+          <motion.button
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            onClick={() => safeNavigate('/catalogue')}
+            className="w-full bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 text-left hover:shadow-md transition-all active:scale-[0.98]"
+          >
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: softRing }}>
+              <ShoppingBag className="w-6 h-6" style={{ color: accent }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-cowc-dark">Browse the Catalogue</p>
+              <p className="text-xs text-cowc-gray mt-0.5">Reserve décor, linens, lighting &amp; more for your day</p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-cowc-light-gray flex-shrink-0" />
+          </motion.button>
+        )}
 
         {/* Overdue alert */}
         {overdueTasks.length > 0 && (
