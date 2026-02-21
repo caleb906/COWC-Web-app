@@ -1,369 +1,415 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  ArrowLeft, ShoppingBag, Search, ChevronDown, ChevronUp,
-  Plus, X, Save, ExternalLink, Phone, Mail, DollarSign, Users,
-  Pencil, Trash2, AlertTriangle,
+  ArrowLeft, Search, Plus, X, Save, ExternalLink,
+  Phone, Mail, Globe, Building2, User, Users,
+  ChevronDown, ChevronUp, Pencil, Trash2, AlertTriangle, UserPlus,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { vendorsAPI, weddingsAPI } from '../services/unifiedAPI'
-import { formatDate } from '../utils/dates'
+import { vendorsAPI } from '../services/unifiedAPI'
 import { useToast } from './Toast'
 
+// ─── Category config ─────────────────────────────────────────────────────────
 const CATEGORIES = [
-  { value: 'photo_video',    label: '📷🎥 Photo & Video (combined)' },
-  { value: 'photographer',   label: '📷 Photographer' },
-  { value: 'videographer',   label: '🎥 Videographer' },
-  { value: 'florist',        label: '💐 Florist' },
-  { value: 'dj',             label: '🎧 DJ' },
-  { value: 'band',           label: '🎶 Band' },
-  { value: 'caterer',        label: '🍽️ Catering' },
-  { value: 'baker',          label: '🎂 Wedding Cake' },
-  { value: 'hair_makeup',    label: '💄 Hair & Makeup' },
-  { value: 'officiant',      label: '💍 Officiant' },
-  { value: 'venue',          label: '🏛️ Venue' },
-  { value: 'transportation', label: '🚗 Transportation' },
-  { value: 'planner',        label: '📋 Planner' },
-  { value: 'rentals',        label: '🪑 Rentals' },
-  { value: 'stationery',     label: '✉️ Stationery' },
-  { value: 'bar',            label: '🍾 Bar / Beverages' },
-  { value: 'other',          label: '⭐ Other' },
+  { value: 'photographer',   label: 'Photographer',    emoji: '📷' },
+  { value: 'videographer',   label: 'Videographer',    emoji: '🎥' },
+  { value: 'photo_video',    label: 'Photo & Video',   emoji: '📷' },
+  { value: 'florist',        label: 'Florist',         emoji: '💐' },
+  { value: 'dj',             label: 'DJ',              emoji: '🎧' },
+  { value: 'band',           label: 'Band',            emoji: '🎶' },
+  { value: 'caterer',        label: 'Catering',        emoji: '🍽️' },
+  { value: 'baker',          label: 'Wedding Cake',    emoji: '🎂' },
+  { value: 'hair_makeup',    label: 'Hair & Makeup',   emoji: '💄' },
+  { value: 'officiant',      label: 'Officiant',       emoji: '💍' },
+  { value: 'venue',          label: 'Venue',           emoji: '🏛️' },
+  { value: 'transportation', label: 'Transportation',  emoji: '🚗' },
+  { value: 'planner',        label: 'Planner',         emoji: '📋' },
+  { value: 'rentals',        label: 'Rentals',         emoji: '🪑' },
+  { value: 'stationery',     label: 'Stationery',      emoji: '✉️' },
+  { value: 'bar',            label: 'Bar / Beverages', emoji: '🍾' },
+  { value: 'other',          label: 'Other',           emoji: '⭐' },
 ]
 
-const getCategoryLabel = (val) => {
-  const c = CATEGORIES.find(c => c.value === val)
-  return c ? c.label.replace(/^\S+\s/, '') : (val || '').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+const getCat = (val) =>
+  CATEGORIES.find((c) => c.value === val) || { label: val || 'Other', emoji: '⭐' }
+
+const BLANK_FORM = {
+  name: '', category: '', contact_email: '', phone: '', website: '', notes: '',
 }
 
-const STATUS_STYLES = {
-  confirmed: 'bg-green-100 text-green-700',
-  pending:   'bg-yellow-100 text-yellow-700',
-  cancelled: 'bg-red-100 text-red-700',
-  booked:    'bg-blue-100 text-blue-700',
+// ─── Individual member row inside a company card ─────────────────────────────
+function MemberRow({ member, onEditMember, onDeleteMember }) {
+  return (
+    <div className="flex items-center gap-3 py-2.5 px-4 border-b last:border-b-0 border-cowc-sand/40">
+      <div className="w-7 h-7 rounded-full bg-cowc-cream flex items-center justify-center flex-shrink-0">
+        <User className="w-3.5 h-3.5 text-cowc-gray" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-cowc-dark truncate">{member.name}</p>
+        {member.notes && (
+          <p className="text-xs text-cowc-gray italic truncate">{member.notes}</p>
+        )}
+        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+          {member.contact_email && (
+            <a href={`mailto:${member.contact_email}`}
+              className="text-xs text-cowc-gold hover:underline flex items-center gap-1">
+              <Mail className="w-3 h-3" />{member.contact_email}
+            </a>
+          )}
+          {member.phone && (
+            <a href={`tel:${member.phone}`}
+              className="text-xs text-cowc-gray hover:text-cowc-dark flex items-center gap-1">
+              <Phone className="w-3 h-3" />{member.phone}
+            </a>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <button onClick={() => onEditMember(member)}
+          className="p-1.5 hover:bg-blue-50 rounded-lg text-cowc-gray hover:text-blue-600 transition-colors"
+          title="Edit">
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
+        <button onClick={() => onDeleteMember(member)}
+          className="p-1.5 hover:bg-red-50 rounded-lg text-cowc-gray hover:text-red-500 transition-colors"
+          title="Remove">
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  )
 }
 
-function VendorRow({ vendor, index, navigate, isMember = false, onEdit, onDelete }) {
-  const [expanded, setExpanded] = useState(true)
-  const hasMembers = !isMember && vendor.members?.length > 0
+// ─── Vendor card ──────────────────────────────────────────────────────────────
+function VendorCard({ vendor, index, onEdit, onDelete, onEditMember, onDeleteMember, onAddMember }) {
+  const [expanded, setExpanded] = useState(false)
+  const cat = getCat(vendor.category)
+  const hasMembers = vendor.members?.length > 0
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.02 }}
+      transition={{ delay: index * 0.03 }}
+      className="card-premium overflow-hidden"
     >
-      <div className={`card-premium hover:shadow-xl transition-all ${isMember ? 'ml-8 border-l-4 border-cowc-gold/30 rounded-l-none' : ''}`}>
-        <div className="p-5">
-          <div className="flex items-start gap-4">
-            {/* Icon */}
-            {!isMember && (
-              <div className="w-10 h-10 bg-cowc-cream rounded-xl flex items-center justify-center flex-shrink-0">
-                <ShoppingBag className="w-5 h-5 text-cowc-gold" />
-              </div>
-            )}
-            {isMember && (
-              <div className="w-8 h-8 bg-cowc-cream rounded-lg flex items-center justify-center flex-shrink-0">
-                <Users className="w-4 h-4 text-cowc-gray" />
-              </div>
-            )}
+      {/* Card body */}
+      <div className="p-5">
+        <div className="flex items-start gap-3">
+          {/* Category emoji */}
+          <div className="w-11 h-11 rounded-xl bg-cowc-cream flex items-center justify-center text-xl flex-shrink-0">
+            {cat.emoji}
+          </div>
 
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-4 mb-1">
-                <div className="flex-1 min-w-0">
-                  <h3 className={`font-semibold text-cowc-dark truncate ${isMember ? 'text-base' : 'text-lg'}`}>
-                    {vendor.name}
-                    {hasMembers && (
-                      <span className="ml-2 text-xs font-normal text-cowc-gray bg-cowc-cream px-2 py-0.5 rounded-full">
-                        {vendor.members.length} member{vendor.members.length !== 1 ? 's' : ''}
-                      </span>
-                    )}
-                  </h3>
-                  {!isMember && (
-                    <div className="flex items-center gap-2 flex-wrap mt-1">
-                      <span className="text-xs px-2 py-0.5 rounded bg-cowc-cream text-cowc-gray font-medium">
-                        {getCategoryLabel(vendor.category)}
-                      </span>
-                      <span className={`text-xs px-2 py-0.5 rounded font-semibold ${STATUS_STYLES[vendor.status] || 'bg-gray-100 text-gray-600'}`}>
-                        {vendor.status}
-                      </span>
-                      {vendor.submitted_by_couple && (
-                        <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">
-                          💡 Couple suggestion
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  {isMember && vendor.notes && (
-                    <p className="text-xs text-cowc-gray mt-0.5 italic">{vendor.notes}</p>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {!isMember && vendor.cost != null && (
-                    <div className="flex items-center gap-1 text-cowc-dark font-semibold mr-1">
-                      <DollarSign className="w-4 h-4 text-cowc-gold" />
-                      {Number(vendor.cost).toLocaleString()}
-                    </div>
-                  )}
-                  {hasMembers && (
-                    <button onClick={() => setExpanded(e => !e)}
-                      className="p-1.5 hover:bg-cowc-cream rounded-lg text-cowc-gray transition-colors">
-                      {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </button>
-                  )}
-                  {onEdit && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onEdit(vendor) }}
-                      className="p-1.5 hover:bg-blue-50 rounded-lg text-cowc-gray hover:text-blue-600 transition-colors"
-                      title="Edit vendor"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                  )}
-                  {onDelete && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onDelete(vendor) }}
-                      className="p-1.5 hover:bg-red-50 rounded-lg text-cowc-gray hover:text-red-500 transition-colors"
-                      title="Delete vendor"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="font-semibold text-cowc-dark text-base leading-snug truncate">
+                  {vendor.name}
+                </h3>
+                <p className="text-xs text-cowc-gray mt-0.5 font-medium">{cat.label}</p>
               </div>
-
-              <div className="flex items-center gap-4 flex-wrap text-sm text-cowc-gray mt-1.5">
-                {!isMember && vendor.wedding && (
-                  <button onClick={() => navigate(`/wedding/${vendor.wedding_id}`)}
-                    className="flex items-center gap-1.5 text-cowc-gold hover:underline font-medium">
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    {vendor.wedding.couple_name}
-                    {vendor.wedding.wedding_date && (
-                      <span className="text-xs text-cowc-gray font-normal">
-                        — {formatDate(vendor.wedding.wedding_date, 'MMM d, yyyy')}
-                      </span>
-                    )}
-                  </button>
-                )}
-                {vendor.contact_email && (
-                  <a href={`mailto:${vendor.contact_email}`} className="flex items-center gap-1.5 hover:text-cowc-dark transition-colors">
-                    <Mail className="w-3.5 h-3.5" />{vendor.contact_email}
-                  </a>
-                )}
-                {vendor.phone && (
-                  <a href={`tel:${vendor.phone}`} className="flex items-center gap-1.5 hover:text-cowc-dark transition-colors">
-                    <Phone className="w-3.5 h-3.5" />{vendor.phone}
-                  </a>
-                )}
-                {!isMember && vendor.website && (
-                  <a href={vendor.website} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 hover:text-cowc-dark transition-colors">
-                    <ExternalLink className="w-3.5 h-3.5" />Website
-                  </a>
-                )}
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button onClick={() => onEdit(vendor)}
+                  className="p-1.5 hover:bg-blue-50 rounded-lg text-cowc-gray hover:text-blue-600 transition-colors"
+                  title="Edit vendor">
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button onClick={() => onDelete(vendor)}
+                  className="p-1.5 hover:bg-red-50 rounded-lg text-cowc-gray hover:text-red-500 transition-colors"
+                  title="Delete vendor">
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
+            </div>
 
-              {!isMember && vendor.notes && (
-                <p className="mt-1.5 text-sm text-cowc-gray line-clamp-2">{vendor.notes}</p>
+            {/* Contact links */}
+            <div className="mt-2.5 space-y-1.5">
+              {vendor.contact_email && (
+                <a href={`mailto:${vendor.contact_email}`}
+                  className="flex items-center gap-2 text-xs text-cowc-gray hover:text-cowc-gold transition-colors">
+                  <Mail className="w-3.5 h-3.5 flex-shrink-0 text-cowc-gold/70" />
+                  <span className="truncate">{vendor.contact_email}</span>
+                </a>
+              )}
+              {vendor.phone && (
+                <a href={`tel:${vendor.phone}`}
+                  className="flex items-center gap-2 text-xs text-cowc-gray hover:text-cowc-dark transition-colors">
+                  <Phone className="w-3.5 h-3.5 flex-shrink-0 text-cowc-gold/70" />
+                  <span>{vendor.phone}</span>
+                </a>
+              )}
+              {vendor.website && (
+                <a href={vendor.website} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-xs text-cowc-gray hover:text-cowc-dark transition-colors">
+                  <Globe className="w-3.5 h-3.5 flex-shrink-0 text-cowc-gold/70" />
+                  <span className="truncate">{vendor.website.replace(/^https?:\/\//, '')}</span>
+                </a>
               )}
             </div>
+
+            {vendor.notes && (
+              <p className="mt-2.5 text-xs text-cowc-gray italic line-clamp-2 leading-relaxed">
+                {vendor.notes}
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Team members */}
-        {hasMembers && expanded && (
-          <div className="border-t border-cowc-sand/50 divide-y divide-cowc-sand/30">
-            {vendor.members.map((member, mi) => (
-              <VendorRow key={member.id} vendor={member} index={mi} navigate={navigate} isMember />
-            ))}
-          </div>
-        )}
+        {/* Footer: add person + expand members */}
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-cowc-sand/50">
+          <button
+            onClick={() => onAddMember(vendor)}
+            className="flex items-center gap-1.5 text-xs text-cowc-gray hover:text-cowc-gold transition-colors font-medium"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            Add person
+          </button>
+
+          {hasMembers && (
+            <button
+              onClick={() => setExpanded((e) => !e)}
+              className="flex items-center gap-1.5 text-xs text-cowc-gray hover:text-cowc-dark transition-colors font-medium"
+            >
+              <Users className="w-3.5 h-3.5" />
+              {vendor.members.length} {vendor.members.length === 1 ? 'person' : 'people'}
+              {expanded
+                ? <ChevronUp className="w-3.5 h-3.5" />
+                : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Expandable members */}
+      <AnimatePresence>
+        {hasMembers && expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="border-t border-cowc-sand/50 overflow-hidden"
+          >
+            {vendor.members.map((m) => (
+              <MemberRow
+                key={m.id}
+                member={m}
+                onEditMember={onEditMember}
+                onDeleteMember={onDeleteMember}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
 
+// ─── Main screen ─────────────────────────────────────────────────────────────
 export default function VendorListScreen() {
   const navigate = useNavigate()
-  const toast = useToast()
-  const modalRef = useRef(null)
+  const toast    = useToast()
 
-  const [vendors, setVendors] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [vendors, setVendors]         = useState([])
+  const [loading, setLoading]         = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterCategory, setFilterCategory] = useState('all')
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [sortBy, setSortBy] = useState('name')
+  const [catFilter, setCatFilter]     = useState('all')
 
-  // Add vendor modal
-  const [showAddVendor, setShowAddVendor] = useState(false)
-  const [weddings, setWeddings] = useState([])
-  const [addForm, setAddForm] = useState({
-    wedding_id: '', name: '', category: '', contact_email: '',
-    phone: '', website: '', notes: '', cost: '', status: 'pending',
-  })
-  const [saving, setSaving] = useState(false)
+  // Add / edit vendor modal
+  const [showModal, setShowModal]   = useState(false)
+  const [editTarget, setEditTarget] = useState(null)
+  const [form, setForm]             = useState(BLANK_FORM)
+  const [saving, setSaving]         = useState(false)
 
-  // Edit vendor modal
-  const [showEditVendor, setShowEditVendor] = useState(false)
-  const [editingVendor, setEditingVendor] = useState(null)
-  const [editForm, setEditForm] = useState({
-    wedding_id: '', name: '', category: '', contact_email: '',
-    phone: '', website: '', notes: '', cost: '', status: 'pending',
-  })
-
-  // Delete confirm
+  // Delete vendor
   const [deleteTarget, setDeleteTarget] = useState(null)
 
-  useEffect(() => {
-    loadVendors()
-    weddingsAPI.getAll().then(setWeddings).catch(() => {})
-  }, [])
+  // Add / edit member modal
+  const [addMemberFor, setAddMemberFor]           = useState(null)
+  const [editMemberTarget, setEditMemberTarget]   = useState(null)
+  const [memberForm, setMemberForm]               = useState({ name: '', contact_email: '', phone: '', notes: '' })
+  const [savingMember, setSavingMember]           = useState(false)
+  const [deleteMemberTarget, setDeleteMemberTarget] = useState(null)
 
-  const loadVendors = async () => {
+  useEffect(() => { load() }, [])
+
+  const load = async () => {
     try {
       setLoading(true)
-      const data = await vendorsAPI.getAll()
-      setVendors(data)
-    } catch (error) {
-      console.error('Error loading vendors:', error)
-      toast.error('Failed to load vendors')
+      setVendors(await vendorsAPI.getAll())
+    } catch {
+      toast.error('Failed to load vendor directory')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleAddVendor = async (e) => {
-    e.preventDefault()
-    if (!addForm.wedding_id) { toast.error('Please select a wedding'); return }
-    if (!addForm.name.trim()) { toast.error('Please enter a vendor name'); return }
-    if (!addForm.category) { toast.error('Please select a category'); return }
-    setSaving(true)
-    try {
-      await vendorsAPI.create({
-        wedding_id: addForm.wedding_id,
-        name: addForm.name,
-        category: addForm.category,
-        contact_email: addForm.contact_email || '',
-        phone: addForm.phone || '',
-        website: addForm.website || '',
-        notes: addForm.notes || '',
-        cost: addForm.cost ? parseFloat(addForm.cost) : null,
-        status: addForm.status,
-      })
-      toast.success('Vendor added!')
-      setShowAddVendor(false)
-      setAddForm({ wedding_id: '', name: '', category: '', contact_email: '', phone: '', website: '', notes: '', cost: '', status: 'pending' })
-      await loadVendors()
-    } catch (err) {
-      console.error('Error adding vendor:', err)
-      toast.error('Failed to add vendor')
-    } finally {
-      setSaving(false)
-    }
+  // ── Filtering ─────────────────────────────────────────────────────────────
+  const filtered = vendors
+    .filter((v) => catFilter === 'all' || v.category === catFilter)
+    .filter((v) => {
+      if (!searchQuery) return true
+      const q = searchQuery.toLowerCase()
+      return (
+        v.name?.toLowerCase().includes(q) ||
+        v.contact_email?.toLowerCase().includes(q) ||
+        v.phone?.includes(q) ||
+        v.notes?.toLowerCase().includes(q) ||
+        v.members?.some((m) => m.name?.toLowerCase().includes(q))
+      )
+    })
+
+  const usedCats = [...new Set(vendors.map((v) => v.category).filter(Boolean))]
+
+  // ── Vendor add / edit ──────────────────────────────────────────────────────
+  const openAdd = () => {
+    setForm(BLANK_FORM)
+    setEditTarget(null)
+    setShowModal(true)
   }
 
   const openEdit = (vendor) => {
-    setEditingVendor(vendor)
-    setEditForm({
-      wedding_id: vendor.wedding_id || '',
-      name: vendor.name || '',
-      category: vendor.category || '',
+    setForm({
+      name:          vendor.name || '',
+      category:      vendor.category || '',
       contact_email: vendor.contact_email || '',
-      phone: vendor.phone || '',
-      website: vendor.website || '',
-      notes: vendor.notes || '',
-      cost: vendor.cost != null ? String(vendor.cost) : '',
-      status: vendor.status || 'pending',
+      phone:         vendor.phone || '',
+      website:       vendor.website || '',
+      notes:         vendor.notes || '',
     })
-    setShowEditVendor(true)
+    setEditTarget(vendor)
+    setShowModal(true)
   }
 
-  const handleEditVendor = async (e) => {
+  const handleSaveVendor = async (e) => {
     e.preventDefault()
-    if (!editingVendor) return
+    if (!form.name.trim()) { toast.error('Name is required'); return }
     setSaving(true)
     try {
-      await vendorsAPI.update(editingVendor.id, {
-        name: editForm.name,
-        category: editForm.category,
-        contact_email: editForm.contact_email || '',
-        phone: editForm.phone || '',
-        website: editForm.website || '',
-        notes: editForm.notes || '',
-        cost: editForm.cost ? parseFloat(editForm.cost) : null,
-        status: editForm.status,
-      })
-      toast.success('Vendor updated!')
-      setShowEditVendor(false)
-      setEditingVendor(null)
-      await loadVendors()
+      if (editTarget) {
+        await vendorsAPI.update(editTarget.id, {
+          name:          form.name.trim(),
+          category:      form.category || 'other',
+          contact_email: form.contact_email.trim(),
+          phone:         form.phone.trim(),
+          website:       form.website.trim(),
+          notes:         form.notes.trim(),
+        })
+        toast.success('Vendor updated')
+      } else {
+        await vendorsAPI.create({
+          name:          form.name.trim(),
+          category:      form.category || 'other',
+          contact_email: form.contact_email.trim(),
+          phone:         form.phone.trim(),
+          website:       form.website.trim(),
+          notes:         form.notes.trim(),
+          status:        'confirmed',
+          vendor_role:   'company',
+        })
+        toast.success(`${form.name.trim()} added to directory`)
+      }
+      setShowModal(false)
+      await load()
     } catch (err) {
-      console.error('Error updating vendor:', err)
-      toast.error('Failed to update vendor')
+      console.error(err)
+      toast.error(editTarget ? 'Failed to update' : 'Failed to add vendor')
     } finally {
       setSaving(false)
     }
   }
 
+  // ── Delete vendor ──────────────────────────────────────────────────────────
   const handleDeleteVendor = async () => {
     if (!deleteTarget) return
     try {
       await vendorsAPI.delete(deleteTarget.id)
-      toast.success(`${deleteTarget.name} removed`)
+      toast.success(`${deleteTarget.name} removed from directory`)
       setDeleteTarget(null)
-      await loadVendors()
-    } catch (err) {
-      console.error('Error deleting vendor:', err)
-      toast.error('Failed to delete vendor')
+      await load()
+    } catch {
+      toast.error('Failed to delete')
     }
   }
 
-  const getFiltered = () => {
-    let list = [...vendors]
+  // ── Member add / edit ──────────────────────────────────────────────────────
+  const openAddMember = (parentVendor) => {
+    setAddMemberFor(parentVendor)
+    setEditMemberTarget(null)
+    setMemberForm({ name: '', contact_email: '', phone: '', notes: '' })
+  }
 
-    if (filterCategory !== 'all') list = list.filter(v => v.category === filterCategory)
-    if (filterStatus !== 'all') list = list.filter(v => v.status === filterStatus)
-
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase()
-      list = list.filter(v =>
-        v.name?.toLowerCase().includes(q) ||
-        v.wedding?.couple_name?.toLowerCase().includes(q) ||
-        v.contact_email?.toLowerCase().includes(q)
-      )
-    }
-
-    list.sort((a, b) => {
-      switch (sortBy) {
-        case 'wedding': return (a.wedding?.couple_name || '').localeCompare(b.wedding?.couple_name || '')
-        case 'category': return (a.category || '').localeCompare(b.category || '')
-        case 'status': return (a.status || '').localeCompare(b.status || '')
-        default: return (a.name || '').localeCompare(b.name || '')
-      }
+  const openEditMember = (member) => {
+    setEditMemberTarget(member)
+    setAddMemberFor(null)
+    setMemberForm({
+      name:          member.name || '',
+      contact_email: member.contact_email || '',
+      phone:         member.phone || '',
+      notes:         member.notes || '',
     })
-
-    return list
   }
 
-  const filtered = getFiltered()
-
-  // Count includes top-level companies; members shown separately
-  const allMembers = vendors.flatMap(v => v.members || [])
-  const stats = {
-    total: vendors.length,
-    totalPeople: vendors.length + allMembers.length,
-    confirmed: vendors.filter(v => v.status === 'confirmed').length,
-    pending: vendors.filter(v => v.status === 'pending').length,
-    categories: new Set(vendors.map(v => v.category)).size,
+  const handleSaveMember = async (e) => {
+    e.preventDefault()
+    if (!memberForm.name.trim()) { toast.error('Name is required'); return }
+    setSavingMember(true)
+    try {
+      if (editMemberTarget) {
+        await vendorsAPI.update(editMemberTarget.id, {
+          name:          memberForm.name.trim(),
+          contact_email: memberForm.contact_email.trim(),
+          phone:         memberForm.phone.trim(),
+          notes:         memberForm.notes.trim(),
+        })
+        toast.success('Updated')
+      } else {
+        await vendorsAPI.addMember(addMemberFor.id, {
+          wedding_id:    addMemberFor.wedding_id || null,
+          name:          memberForm.name.trim(),
+          contact_email: memberForm.contact_email.trim(),
+          phone:         memberForm.phone.trim(),
+          notes:         memberForm.notes.trim(),
+          status:        'confirmed',
+        })
+        toast.success(`${memberForm.name.trim()} added to ${addMemberFor.name}`)
+      }
+      setAddMemberFor(null)
+      setEditMemberTarget(null)
+      await load()
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to save')
+    } finally {
+      setSavingMember(false)
+    }
   }
 
+  // ── Delete member ──────────────────────────────────────────────────────────
+  const handleDeleteMember = async () => {
+    if (!deleteMemberTarget) return
+    try {
+      await vendorsAPI.delete(deleteMemberTarget.id)
+      toast.success(`${deleteMemberTarget.name} removed`)
+      setDeleteMemberTarget(null)
+      await load()
+    } catch {
+      toast.error('Failed to remove')
+    }
+  }
+
+  // ── Stats ──────────────────────────────────────────────────────────────────
+  const totalPeople = vendors.reduce((n, v) => n + 1 + (v.members?.length || 0), 0)
+  const totalCats   = new Set(vendors.map((v) => v.category).filter(Boolean)).size
+
+  // ─────────────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen bg-cowc-cream flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-cowc-gold border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-cowc-gray font-serif text-xl">Loading vendors…</p>
+          <p className="text-cowc-gray font-serif text-xl">Loading directory…</p>
         </div>
       </div>
     )
@@ -371,216 +417,218 @@ export default function VendorListScreen() {
 
   return (
     <div className="min-h-screen bg-cowc-cream pb-24">
-      {/* Header */}
+
+      {/* ── Header ──────────────────────────────────────────────── */}
       <div className="bg-gradient-to-br from-cowc-dark via-cowc-dark to-gray-800 text-white pt-12 pb-16 px-6">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           <button
             onClick={() => navigate('/admin')}
-            className="flex items-center gap-2 text-white/70 hover:text-white transition-colors mb-8"
+            className="flex items-center gap-2 text-white/60 hover:text-white transition-colors mb-8"
           >
             <ArrowLeft className="w-5 h-5" />
             Back to Dashboard
           </button>
 
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-cowc-gold rounded-full flex items-center justify-center">
-                <ShoppingBag className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-5xl font-serif font-light">All Vendors</h1>
-                <p className="text-white/70 mt-2">Manage vendors across all weddings</p>
-              </div>
+          <div className="flex items-end justify-between gap-4 mb-8">
+            <div>
+              <h1 className="text-4xl sm:text-5xl font-serif font-light">Vendor Directory</h1>
+              <p className="text-white/60 mt-1.5 text-sm">
+                Master contact database — companies &amp; individuals
+              </p>
             </div>
             <button
-              onClick={() => setShowAddVendor(true)}
-              className="flex items-center gap-2 px-5 py-3 bg-cowc-gold hover:bg-cowc-gold/90 text-white font-semibold rounded-xl transition-all shadow-lg"
+              onClick={openAdd}
+              className="flex items-center gap-2 px-5 py-3 bg-cowc-gold hover:bg-cowc-gold/90 text-white font-semibold rounded-xl transition-all shadow-lg flex-shrink-0"
             >
               <Plus className="w-5 h-5" />
-              Add Vendor
+              <span className="hidden sm:inline">Add Vendor</span>
+              <span className="sm:hidden">Add</span>
             </button>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Total Vendors', value: stats.total },
-              { label: 'Confirmed',     value: stats.confirmed, color: 'text-green-400' },
-              { label: 'Pending',       value: stats.pending,   color: 'text-yellow-400' },
-              { label: 'Categories',    value: stats.categories },
-            ].map(({ label, value, color = '' }) => (
-              <div key={label} className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-                <div className={`text-3xl font-serif font-light mb-1 ${color}`}>{value}</div>
-                <div className="text-sm text-white/70">{label}</div>
+              { label: 'Companies',    value: vendors.length },
+              { label: 'Total People', value: totalPeople },
+              { label: 'Categories',   value: totalCats },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center">
+                <div className="text-3xl font-serif font-light">{value}</div>
+                <div className="text-xs text-white/60 mt-1">{label}</div>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 -mt-8 relative z-20">
-        {/* Filters */}
-        <div className="card-premium p-6 mb-8">
-          <div className="flex flex-col md:flex-row gap-4 flex-wrap">
-            {/* Search */}
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cowc-gray" />
-              <input
-                type="text"
-                placeholder="Search vendors or weddings…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-2 rounded-lg bg-cowc-cream border-2 border-transparent focus:border-cowc-gold focus:outline-none"
-              />
-            </div>
+      <div className="max-w-5xl mx-auto px-6 -mt-8 relative z-20">
 
-            {/* Category filter */}
-            <div className="relative">
-              <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}
-                className="appearance-none px-4 py-2 pr-10 rounded-lg bg-cowc-cream border-2 border-transparent focus:border-cowc-gold focus:outline-none font-semibold text-cowc-dark cursor-pointer">
-                <option value="all">All Categories</option>
-                {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-cowc-gray pointer-events-none" />
-            </div>
+        {/* ── Search + Category pills ───────────────────────────── */}
+        <div className="card-premium p-5 mb-8">
+          <div className="relative mb-4">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-cowc-gray" />
+            <input
+              type="text"
+              placeholder="Search by name, email, phone, notes…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-11 pr-4 py-2.5 rounded-lg bg-cowc-cream border-2 border-transparent focus:border-cowc-gold focus:outline-none text-sm"
+            />
+          </div>
 
-            {/* Status filter */}
-            <div className="relative">
-              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
-                className="appearance-none px-4 py-2 pr-10 rounded-lg bg-cowc-cream border-2 border-transparent focus:border-cowc-gold focus:outline-none font-semibold text-cowc-dark cursor-pointer">
-                <option value="all">All Statuses</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="pending">Pending</option>
-                <option value="booked">Booked</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-cowc-gray pointer-events-none" />
-            </div>
-
-            {/* Sort */}
-            <div className="relative">
-              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-                className="appearance-none px-4 py-2 pr-10 rounded-lg bg-cowc-cream border-2 border-transparent focus:border-cowc-gold focus:outline-none font-semibold text-cowc-dark cursor-pointer">
-                <option value="name">Sort by Name</option>
-                <option value="wedding">Sort by Wedding</option>
-                <option value="category">Sort by Category</option>
-                <option value="status">Sort by Status</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-cowc-gray pointer-events-none" />
-            </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setCatFilter('all')}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                catFilter === 'all'
+                  ? 'bg-cowc-dark text-white'
+                  : 'bg-cowc-cream text-cowc-gray hover:bg-cowc-sand'
+              }`}
+            >
+              All
+            </button>
+            {usedCats.map((val) => {
+              const c = getCat(val)
+              return (
+                <button
+                  key={val}
+                  onClick={() => setCatFilter(catFilter === val ? 'all' : val)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    catFilter === val
+                      ? 'bg-cowc-gold text-white'
+                      : 'bg-cowc-cream text-cowc-gray hover:bg-cowc-sand'
+                  }`}
+                >
+                  <span>{c.emoji}</span>
+                  {c.label}
+                </button>
+              )
+            })}
           </div>
         </div>
 
-        {/* Vendor List */}
-        <div className="space-y-3">
-          {filtered.map((vendor, index) => (
-            <VendorRow
-              key={vendor.id}
-              vendor={vendor}
-              index={index}
-              navigate={navigate}
-              onEdit={openEdit}
-              onDelete={setDeleteTarget}
-            />
-          ))}
-
-          {filtered.length === 0 && (
-            <div className="card-premium p-12 text-center">
-              <ShoppingBag className="w-16 h-16 text-cowc-light-gray mx-auto mb-4" />
-              <p className="text-xl text-cowc-gray">No vendors found</p>
-            </div>
-          )}
-        </div>
+        {/* ── Card grid ─────────────────────────────────────────── */}
+        {filtered.length === 0 ? (
+          <div className="card-premium p-12 text-center">
+            <Building2 className="w-16 h-16 text-cowc-light-gray mx-auto mb-4" />
+            <p className="text-xl text-cowc-gray font-serif mb-2">
+              {vendors.length === 0 ? 'No vendors yet' : 'No results'}
+            </p>
+            {vendors.length === 0 && (
+              <>
+                <p className="text-sm text-cowc-gray mb-6">
+                  Start building your vendor database — add companies and individuals you work with.
+                </p>
+                <button onClick={openAdd}
+                  className="px-6 py-3 bg-cowc-gold text-white font-semibold rounded-xl hover:bg-cowc-gold/90 transition-all">
+                  Add your first vendor
+                </button>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map((vendor, i) => (
+              <VendorCard
+                key={vendor.id}
+                vendor={vendor}
+                index={i}
+                onEdit={openEdit}
+                onDelete={setDeleteTarget}
+                onEditMember={openEditMember}
+                onDeleteMember={setDeleteMemberTarget}
+                onAddMember={openAddMember}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Edit Vendor Modal */}
+      {/* ── Add / Edit Vendor Modal ──────────────────────────────── */}
       <AnimatePresence>
-        {showEditVendor && editingVendor && (
+        {showModal && (
           <div
             className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowEditVendor(false)}
+            onClick={(e) => e.target === e.currentTarget && setShowModal(false)}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8 max-h-[90vh] overflow-y-auto"
+              className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 max-h-[90vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-3xl font-serif text-cowc-dark">Edit Vendor</h2>
-                <button onClick={() => setShowEditVendor(false)} className="p-2 hover:bg-cowc-cream rounded-lg transition-colors">
-                  <X className="w-6 h-6" />
+                <h2 className="text-3xl font-serif text-cowc-dark">
+                  {editTarget ? 'Edit Vendor' : 'Add Vendor'}
+                </h2>
+                <button onClick={() => setShowModal(false)}
+                  className="p-2 hover:bg-cowc-cream rounded-lg transition-colors">
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleEditVendor} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-cowc-dark mb-2">Vendor Name *</label>
-                    <input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                      className="input-premium" placeholder="e.g., John's Photography" required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-cowc-dark mb-2">Category *</label>
-                    <select value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                      className="input-premium" required>
-                      <option value="">Select…</option>
-                      {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                    </select>
-                  </div>
+              <form onSubmit={handleSaveVendor} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-cowc-dark mb-1.5">
+                    Name <span className="text-red-400">*</span>
+                  </label>
+                  <input type="text" value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    className="input-premium" placeholder="Company or person name" required />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-cowc-dark mb-1.5">Category</label>
+                  <select value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                    className="input-premium">
+                    <option value="">Select a category…</option>
+                    {CATEGORIES.map((c) => (
+                      <option key={c.value} value={c.value}>{c.emoji} {c.label}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-cowc-dark mb-2">Email</label>
-                    <input type="email" value={editForm.contact_email} onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })}
-                      className="input-premium" placeholder="vendor@email.com" />
+                    <label className="block text-sm font-semibold text-cowc-dark mb-1.5">Email</label>
+                    <input type="email" value={form.contact_email}
+                      onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
+                      className="input-premium" placeholder="contact@example.com" />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-cowc-dark mb-2">Phone</label>
-                    <input type="tel" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    <label className="block text-sm font-semibold text-cowc-dark mb-1.5">Phone</label>
+                    <input type="tel" value={form.phone}
+                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
                       className="input-premium" placeholder="(555) 000-0000" />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-cowc-dark mb-2">Website</label>
-                    <input type="url" value={editForm.website} onChange={(e) => setEditForm({ ...editForm, website: e.target.value })}
-                      className="input-premium" placeholder="https://…" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-cowc-dark mb-2">Cost ($)</label>
-                    <input type="number" value={editForm.cost} onChange={(e) => setEditForm({ ...editForm, cost: e.target.value })}
-                      className="input-premium" placeholder="0.00" min="0" step="0.01" />
-                  </div>
+                <div>
+                  <label className="block text-sm font-semibold text-cowc-dark mb-1.5">Website</label>
+                  <input type="url" value={form.website}
+                    onChange={(e) => setForm({ ...form, website: e.target.value })}
+                    className="input-premium" placeholder="https://…" />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-cowc-dark mb-2">Status</label>
-                  <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })} className="input-premium">
-                    <option value="pending">Pending</option>
-                    <option value="booked">Booked</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
+                  <label className="block text-sm font-semibold text-cowc-dark mb-1.5">Notes</label>
+                  <textarea value={form.notes}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    className="input-premium min-h-[80px] resize-none"
+                    placeholder="Pricing range, style notes, anything useful…" rows={3} />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-cowc-dark mb-2">Notes</label>
-                  <textarea value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                    className="input-premium min-h-[80px]" placeholder="Additional details…" rows={3} />
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button type="button" onClick={() => setShowEditVendor(false)}
-                    className="flex-1 py-3 px-6 rounded-xl font-semibold text-cowc-gray hover:bg-cowc-cream transition-all">
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setShowModal(false)}
+                    className="flex-1 py-3 px-5 rounded-xl font-semibold text-cowc-gray hover:bg-cowc-cream transition-all">
                     Cancel
                   </button>
                   <button type="submit" disabled={saving}
-                    className="flex-1 py-3 px-6 rounded-xl font-semibold bg-cowc-gold text-white hover:bg-opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                    <Save className="w-5 h-5" />
-                    {saving ? 'Saving…' : 'Save Changes'}
+                    className="flex-1 py-3 px-5 rounded-xl font-semibold bg-cowc-gold text-white hover:bg-opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                    <Save className="w-4 h-4" />
+                    {saving ? 'Saving…' : editTarget ? 'Save Changes' : 'Add to Directory'}
                   </button>
                 </div>
               </form>
@@ -589,7 +637,92 @@ export default function VendorListScreen() {
         )}
       </AnimatePresence>
 
-      {/* Delete Confirm Dialog */}
+      {/* ── Add / Edit Member Modal ──────────────────────────────── */}
+      <AnimatePresence>
+        {(addMemberFor || editMemberTarget) && (
+          <div
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setAddMemberFor(null)
+                setEditMemberTarget(null)
+              }
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-serif text-cowc-dark">
+                    {editMemberTarget ? 'Edit Person' : 'Add Person'}
+                  </h2>
+                  {addMemberFor && (
+                    <p className="text-sm text-cowc-gray mt-0.5">
+                      Adding to <span className="font-semibold text-cowc-dark">{addMemberFor.name}</span>
+                    </p>
+                  )}
+                </div>
+                <button onClick={() => { setAddMemberFor(null); setEditMemberTarget(null) }}
+                  className="p-2 hover:bg-cowc-cream rounded-lg transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveMember} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-cowc-dark mb-1.5">
+                    Name <span className="text-red-400">*</span>
+                  </label>
+                  <input type="text" value={memberForm.name}
+                    onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })}
+                    className="input-premium" placeholder="Full name" required />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-cowc-dark mb-1.5">Email</label>
+                    <input type="email" value={memberForm.contact_email}
+                      onChange={(e) => setMemberForm({ ...memberForm, contact_email: e.target.value })}
+                      className="input-premium" placeholder="email@…" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-cowc-dark mb-1.5">Phone</label>
+                    <input type="tel" value={memberForm.phone}
+                      onChange={(e) => setMemberForm({ ...memberForm, phone: e.target.value })}
+                      className="input-premium" placeholder="(555) 000-0000" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-cowc-dark mb-1.5">Role / Notes</label>
+                  <input type="text" value={memberForm.notes}
+                    onChange={(e) => setMemberForm({ ...memberForm, notes: e.target.value })}
+                    className="input-premium" placeholder="e.g. Lead photographer, Second shooter…" />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button type="button"
+                    onClick={() => { setAddMemberFor(null); setEditMemberTarget(null) }}
+                    className="flex-1 py-3 px-5 rounded-xl font-semibold text-cowc-gray hover:bg-cowc-cream transition-all">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={savingMember}
+                    className="flex-1 py-3 px-5 rounded-xl font-semibold bg-cowc-gold text-white hover:bg-opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                    <Save className="w-4 h-4" />
+                    {savingMember ? 'Saving…' : editMemberTarget ? 'Save' : 'Add Person'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Delete Vendor Confirm ────────────────────────────────── */}
       <AnimatePresence>
         {deleteTarget && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -604,20 +737,22 @@ export default function VendorListScreen() {
                   <AlertTriangle className="w-6 h-6 text-red-500" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-serif text-cowc-dark mb-1">Delete Vendor?</h2>
-                  <p className="text-cowc-gray">
-                    <span className="font-semibold text-cowc-dark">{deleteTarget.name}</span> will be permanently removed.
-                    This cannot be undone.
+                  <h2 className="text-2xl font-serif text-cowc-dark mb-1">Remove from Directory?</h2>
+                  <p className="text-cowc-gray text-sm">
+                    <span className="font-semibold text-cowc-dark">{deleteTarget.name}</span>
+                    {deleteTarget.members?.length > 0 && (
+                      <> and their {deleteTarget.members.length} team member{deleteTarget.members.length !== 1 ? 's' : ''}</>
+                    )} will be permanently deleted. This cannot be undone.
                   </p>
                 </div>
               </div>
               <div className="flex gap-3">
                 <button onClick={() => setDeleteTarget(null)}
-                  className="flex-1 py-3 px-6 rounded-xl font-semibold text-cowc-gray hover:bg-cowc-cream transition-all">
+                  className="flex-1 py-3 rounded-xl font-semibold text-cowc-gray hover:bg-cowc-cream transition-all">
                   Cancel
                 </button>
                 <button onClick={handleDeleteVendor}
-                  className="flex-1 py-3 px-6 rounded-xl font-semibold bg-red-500 text-white hover:bg-red-600 transition-all flex items-center justify-center gap-2">
+                  className="flex-1 py-3 rounded-xl font-semibold bg-red-500 text-white hover:bg-red-600 transition-all flex items-center justify-center gap-2">
                   <Trash2 className="w-4 h-4" />
                   Delete
                 </button>
@@ -627,115 +762,42 @@ export default function VendorListScreen() {
         )}
       </AnimatePresence>
 
-      {/* Add Vendor Modal */}
+      {/* ── Delete Member Confirm ────────────────────────────────── */}
       <AnimatePresence>
-        {showAddVendor && (
-          <div
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-            onClick={(e) => e.target === e.currentTarget && setShowAddVendor(false)}
-          >
+        {deleteMemberTarget && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <motion.div
-              ref={modalRef}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8 max-h-[90vh] overflow-y-auto"
+              className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-7"
             >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-3xl font-serif text-cowc-dark">Add Vendor</h2>
-                <button onClick={() => setShowAddVendor(false)} className="p-2 hover:bg-cowc-cream rounded-lg transition-colors">
-                  <X className="w-6 h-6" />
+              <div className="flex items-start gap-3 mb-5">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-serif text-cowc-dark mb-1">Remove person?</h3>
+                  <p className="text-sm text-cowc-gray">
+                    <span className="font-semibold text-cowc-dark">{deleteMemberTarget.name}</span> will be removed.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setDeleteMemberTarget(null)}
+                  className="flex-1 py-2.5 rounded-xl font-semibold text-cowc-gray hover:bg-cowc-cream transition-all text-sm">
+                  Cancel
+                </button>
+                <button onClick={handleDeleteMember}
+                  className="flex-1 py-2.5 rounded-xl font-semibold bg-red-500 text-white hover:bg-red-600 transition-all text-sm">
+                  Remove
                 </button>
               </div>
-
-              <form onSubmit={handleAddVendor} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-cowc-dark mb-2">Wedding *</label>
-                  <select value={addForm.wedding_id} onChange={(e) => setAddForm({ ...addForm, wedding_id: e.target.value })}
-                    className="input-premium" required>
-                    <option value="">Select a wedding…</option>
-                    {weddings.map(w => (
-                      <option key={w.id} value={w.id}>{w.couple_name} — {formatDate(w.wedding_date, 'MMM d, yyyy')}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-cowc-dark mb-2">Vendor Name *</label>
-                    <input type="text" value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
-                      className="input-premium" placeholder="e.g., John's Photography" required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-cowc-dark mb-2">Category *</label>
-                    <select value={addForm.category} onChange={(e) => setAddForm({ ...addForm, category: e.target.value })}
-                      className="input-premium" required>
-                      <option value="">Select…</option>
-                      {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-cowc-dark mb-2">Email</label>
-                    <input type="email" value={addForm.contact_email} onChange={(e) => setAddForm({ ...addForm, contact_email: e.target.value })}
-                      className="input-premium" placeholder="vendor@email.com" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-cowc-dark mb-2">Phone</label>
-                    <input type="tel" value={addForm.phone} onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })}
-                      className="input-premium" placeholder="(555) 000-0000" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-cowc-dark mb-2">Website</label>
-                    <input type="url" value={addForm.website} onChange={(e) => setAddForm({ ...addForm, website: e.target.value })}
-                      className="input-premium" placeholder="https://…" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-cowc-dark mb-2">Cost ($)</label>
-                    <input type="number" value={addForm.cost} onChange={(e) => setAddForm({ ...addForm, cost: e.target.value })}
-                      className="input-premium" placeholder="0.00" min="0" step="0.01" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-cowc-dark mb-2">Status</label>
-                    <select value={addForm.status} onChange={(e) => setAddForm({ ...addForm, status: e.target.value })} className="input-premium">
-                      <option value="pending">Pending</option>
-                      <option value="booked">Booked</option>
-                      <option value="confirmed">Confirmed</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-cowc-dark mb-2">Notes</label>
-                  <textarea value={addForm.notes} onChange={(e) => setAddForm({ ...addForm, notes: e.target.value })}
-                    className="input-premium min-h-[80px]" placeholder="Additional details…" rows={3} />
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button type="button" onClick={() => setShowAddVendor(false)}
-                    className="flex-1 py-3 px-6 rounded-xl font-semibold text-cowc-gray hover:bg-cowc-cream transition-all">
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={saving}
-                    className="flex-1 py-3 px-6 rounded-xl font-semibold bg-cowc-gold text-white hover:bg-opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                    <Save className="w-5 h-5" />
-                    {saving ? 'Adding…' : 'Add Vendor'}
-                  </button>
-                </div>
-              </form>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
     </div>
   )
 }
