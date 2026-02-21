@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Calendar, MapPin, CheckCircle2, Circle, Info, List, LogOut, ChevronRight, ExternalLink, X, Users, ShoppingBag } from 'lucide-react'
+import { Heart, Calendar, MapPin, CheckCircle2, Circle, Info, List, LogOut, ChevronRight, ExternalLink, X, Users, ShoppingBag, Palette } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 import { useAuthStore } from '../stores/appStore'
 import { weddingsAPI, tasksAPI, vendorsAPI, logChangeAndNotify } from '../services/unifiedAPI'
@@ -231,9 +231,10 @@ export default function CoupleDashboard({ previewWeddingId, isPreview } = {}) {
   const incompleteTasks = tasks.filter((t) => !t.completed)
   const overdueTasks = incompleteTasks.filter((t) => isPastDue(t.due_date))
 
+  const gradientBase = theme.gradientBase || theme.primary
   const accent      = primaryAccent(theme.primary)
   const pageBg      = primaryPageBg(theme.primary)
-  const heroBg      = primaryGradient(theme.primary)
+  const heroBg      = primaryGradient(gradientBase)
   const softRing    = primaryAlpha(theme.primary, 0.15)
   const softRingMed = primaryAlpha(theme.primary, 0.30)
 
@@ -398,6 +399,53 @@ export default function CoupleDashboard({ previewWeddingId, isPreview } = {}) {
                   style={{ background: softRing, color: accent }}>
                   Lead
                 </div>
+              </div>
+            </motion.div>
+          )
+        })()}
+
+        {/* Your Color Palette */}
+        {(() => {
+          const t = wedding?.theme
+          if (!t) return null
+          const allColors = [
+            t.primary, t.secondary, t.accent, t.color4, t.color5,
+            ...(t.extraColors || []),
+          ].filter(Boolean)
+          if (allColors.length === 0) return null
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.27 }}
+              className="bg-white rounded-2xl shadow-sm overflow-hidden"
+            >
+              <div className="px-5 pt-4 pb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Palette className="w-4 h-4" style={{ color: accent }} />
+                  <div>
+                    <p className="text-xs uppercase tracking-widest font-semibold text-cowc-gray">Your Palette</p>
+                    {t.vibe && <p className="text-sm font-semibold text-cowc-dark leading-tight">{t.vibe}</p>}
+                  </div>
+                </div>
+                <button
+                  onClick={() => safeNavigate(`/wedding/${wedding.id}?tab=style`)}
+                  className="text-xs font-semibold flex items-center gap-0.5"
+                  style={{ color: accent }}
+                >
+                  View <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              {/* Full-width colour strip */}
+              <div className="flex h-12">
+                {allColors.map((hex, i) => (
+                  <div
+                    key={i}
+                    className="flex-1"
+                    style={{ background: hex }}
+                    title={hex}
+                  />
+                ))}
               </div>
             </motion.div>
           )

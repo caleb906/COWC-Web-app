@@ -217,8 +217,9 @@ export const weddingsAPI = {
       if (updates.theme.color4    !== undefined) updateData.theme_color_4         = updates.theme.color4
       if (updates.theme.color5    !== undefined) updateData.theme_color_5         = updates.theme.color5
       if (updates.theme.vibe      !== undefined) updateData.theme_vibe            = updates.theme.vibe
-      if (updates.theme.extraColors        !== undefined) updateData.theme_extra_colors   = updates.theme.extraColors
-      if (updates.theme.inspiration_photos !== undefined) updateData.inspiration_photos = updates.theme.inspiration_photos
+      if (updates.theme.extraColors         !== undefined) updateData.theme_extra_colors         = updates.theme.extraColors
+      if (updates.theme.gradientColorIndex  !== undefined) updateData.theme_gradient_color_index = updates.theme.gradientColorIndex
+      if (updates.theme.inspiration_photos  !== undefined) updateData.inspiration_photos         = updates.theme.inspiration_photos
       if (updates.theme.pinterest_boards   !== undefined) updateData.pinterest_boards   = updates.theme.pinterest_boards
     }
 
@@ -765,17 +766,27 @@ function transformWedding(data) {
     status: data.status,
     archived: data.archived || false,
     notes: data.notes,
-    theme: {
-      primary:   data.theme_primary_color   || '#d4a574',
-      secondary: data.theme_secondary_color || '#2d3748',
-      accent:    data.theme_accent_color    || '#faf9f7',
-      color4:    data.theme_color_4         || '#f0e6d3',
-      color5:    data.theme_color_5         || '#ffffff',
-      vibe: data.theme_vibe || 'Classic Elegant',
-      extraColors: data.theme_extra_colors || [],
-      inspiration_photos: data.inspiration_photos || [],
-      pinterest_boards: data.pinterest_boards || [],
-    },
+    theme: (() => {
+      const primary   = data.theme_primary_color   || '#d4a574'
+      const secondary = data.theme_secondary_color || '#2d3748'
+      const accent    = data.theme_accent_color    || '#faf9f7'
+      const color4    = data.theme_color_4         || '#f0e6d3'
+      const color5    = data.theme_color_5         || '#ffffff'
+      const extraColors = data.theme_extra_colors  || []
+      // Compute which color drives the gradient
+      const gradientColorIndex = data.theme_gradient_color_index ?? 0
+      const allColors = [primary, secondary, accent, color4, color5, ...extraColors]
+      const gradientBase = allColors[gradientColorIndex] || primary
+      return {
+        primary, secondary, accent, color4, color5,
+        vibe: data.theme_vibe || 'Classic Elegant',
+        extraColors,
+        gradientColorIndex,
+        gradientBase,
+        inspiration_photos: data.inspiration_photos || [],
+        pinterest_boards: data.pinterest_boards || [],
+      }
+    })(),
     tasks: data.tasks?.map(transformTask) || [],
     vendors: nestVendors(data.vendors?.map(transformVendor) || []),
     timeline_items: data.timeline_items?.map(transformTimelineItem) || [],

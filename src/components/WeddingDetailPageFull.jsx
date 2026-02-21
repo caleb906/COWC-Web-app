@@ -8,7 +8,7 @@ import {
   Palette, ExternalLink, Link, Sparkles, Loader2, RefreshCw,
   Eye, ClipboardList, ShoppingBag, ListMusic, UserPlus, ChevronDown, ChevronUp, GripVertical
 } from 'lucide-react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../stores/appStore'
 import { useWeddingTheme } from '../contexts/WeddingThemeContext'
 import { weddingsAPI, tasksAPI, vendorsAPI, timelineAPI } from '../services/unifiedAPI'
@@ -37,9 +37,14 @@ export default function WeddingDetailPageFull() {
   const { theme, setWeddingTheme, resetTheme } = useWeddingTheme()
   const toast = useToast()
   
+  const [searchParams] = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [wedding, setWedding] = useState(null)
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = searchParams.get('tab')
+    const valid = ['overview', 'tasks', 'vendors', 'timeline', 'style']
+    return valid.includes(tabParam) ? tabParam : 'overview'
+  })
   const [editing, setEditing] = useState(false)
   const [editedWedding, setEditedWedding] = useState(null)
   
@@ -355,7 +360,7 @@ export default function WeddingDetailPageFull() {
         animate={{ opacity: 1, y: 0 }}
         className="text-white pt-12 pb-16 px-6 relative overflow-hidden"
         style={{
-          background: primaryGradient(theme.primary)
+          background: primaryGradient(theme.gradientBase || theme.primary)
         }}
       >
         <div className="max-w-6xl mx-auto relative z-10">
@@ -1453,13 +1458,19 @@ function VendorCard({
 const BASE_COLOR_LABELS = ['Primary', 'Secondary', 'Accent', 'Highlight', 'Background']
 
 // Map a colorList array → named theme keys for saving
-function colorListToTheme(list) {
+// gradientColorId (optional) sets which color drives the gradient
+function colorListToTheme(list, gradientColorId = null) {
   const keys = ['primary', 'secondary', 'accent', 'color4', 'color5']
   const theme = {}
   keys.forEach((key, i) => {
     theme[key] = list[i]?.hex || '#ffffff'
   })
   theme.extraColors = list.slice(5).map(c => c.hex)
+  if (gradientColorId !== null) {
+    const idx = list.findIndex(c => c.id === gradientColorId)
+    theme.gradientColorIndex = Math.max(0, idx)
+    theme.gradientBase = list[Math.max(0, idx)]?.hex || list[0]?.hex || '#d4a574'
+  }
   return theme
 }
 
@@ -1492,6 +1503,12 @@ function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
 
   // colorList: ordered array of { id, hex, label }
   const [colorList, setColorList] = useState(() => buildColorList(wedding.theme))
+  // Which color drives the gradient (track by id so drag-reorder keeps it correct)
+  const [gradientColorId, setGradientColorId] = useState(() => {
+    const idx = wedding.theme?.gradientColorIndex ?? 0
+    const list = buildColorList(wedding.theme)
+    return list[idx]?.id || list[0]?.id || 'primary'
+  })
   const [vibe, setVibe] = useState(wedding.theme?.vibe || 'Classic Elegant')
   const [boards, setBoards] = useState(wedding.theme?.pinterest_boards || [])
   const [newBoardName, setNewBoardName] = useState('')
@@ -1503,9 +1520,13 @@ function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
   useEffect(() => { colorListRef.current = colorList }, [colorList])
   useEffect(() => { vibeRef.current = vibe }, [vibe])
 
-  // Gradient preview driven by primary (index 0) color
+  // Gradient preview — uses whichever color is selected as the gradient source
+  const gradientHex = (() => {
+    const idx = colorList.findIndex(c => c.id === gradientColorId)
+    return colorList[Math.max(0, idx)]?.hex || colorList[0]?.hex || '#d4a574'
+  })()
   const gradientStyle = {
-    background: primaryGradient(colorList[0]?.hex || '#d4a574', '135deg'),
+    background: primaryGradient(gradientHex, '135deg'),
   }
 
   // ── Color list handlers ──────────────────────────────────────────────────────
@@ -1597,7 +1618,7 @@ function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
   const handleSave = async () => {
     setSaving(true)
     try {
-      const themeData = colorListToTheme(colorList)
+      const themeData = colorListToTheme(colorList, gradientColorId)
       await weddingsAPI.update(wedding.id, {
         theme: { ...themeData, vibe, pinterest_boards: boards },
       })
@@ -1623,12 +1644,13 @@ function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
     ]
     const newVibe = palette.vibe || vibe
     setColorList(newList)
+    setGradientColorId('primary') // AI palette always starts with primary as gradient source
     if (palette.vibe) setVibe(newVibe)
 
     // Auto-save immediately
     setSaving(true)
     try {
-      const themeData = colorListToTheme(newList)
+      const themeData = colorListToTheme(newList, 'primary')
       await weddingsAPI.update(wedding.id, {
         theme: { ...themeData, vibe: newVibe, pinterest_boards: boards },
       })
@@ -1673,9 +1695,13 @@ function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
             <Palette className="w-5 h-5 text-cowc-gold" />
             Wedding Color Palette
           </h3>
-          {canEdit && (
-            <span className="text-xs text-cowc-gray">
-              Drag to reorder · click to pick · {colorList.length} colors
+          {canEdit ? (
+            <span className="text-xs text-cowc-gray flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-yellow-400" /> = gradient · drag to reorder · {colorList.length} colors
+            </span>
+          ) : (
+            <span className="text-xs text-cowc-gray flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-yellow-400" /> gradient source
             </span>
           )}
         </div>
@@ -1708,6 +1734,21 @@ function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
                           ...drag.draggableProps.style,
                         }}
                       >
+                        {/* Gradient source picker — top left */}
+                        <div
+                          onClick={(e) => { e.stopPropagation(); if (canEdit) setGradientColorId(color.id) }}
+                          className={`absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center transition-all z-10 ${
+                            gradientColorId === color.id
+                              ? 'opacity-100 bg-white/30'
+                              : canEdit
+                                ? 'opacity-0 group-hover:opacity-100 cursor-pointer bg-black/20 hover:bg-black/50'
+                                : 'hidden'
+                          }`}
+                          title={gradientColorId === color.id ? 'Gradient source' : 'Use as gradient base'}
+                        >
+                          <Sparkles className={`w-3.5 h-3.5 ${gradientColorId === color.id ? 'text-yellow-300' : 'text-white/70'}`} />
+                        </div>
+
                         {/* Drag handle — top centre, visible on hover */}
                         {canEdit && (
                           <div
