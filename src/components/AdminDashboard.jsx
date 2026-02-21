@@ -232,43 +232,44 @@ export default function AdminDashboard() {
         <div className="absolute top-0 right-0 w-96 h-96 bg-cowc-gold opacity-10 rounded-full blur-3xl" />
 
         <div className="max-w-7xl mx-auto relative z-10">
-          <div className="flex items-start justify-between mb-12">
-            <div className="flex items-center gap-4">
-              <img src="/logo.png" alt="COWC" className="h-12 w-12 object-contain" />
+          {/* Mobile: stacked. Desktop: side-by-side */}
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-10">
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="COWC" className="h-10 w-10 sm:h-12 sm:w-12 object-contain flex-shrink-0" />
               <div>
-                <h1 className="text-5xl font-serif font-light">
+                <h1 className="text-3xl sm:text-5xl font-serif font-light leading-tight">
                   Welcome, {user?.full_name?.split(' ')[0] || 'Admin'}
                 </h1>
-                <p className="text-white/70 text-sm uppercase tracking-widest mt-1">Admin Dashboard</p>
+                <p className="text-white/70 text-xs sm:text-sm uppercase tracking-widest mt-0.5">Admin Dashboard</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 sm:flex-shrink-0">
               <button
                 onClick={() => navigate('/admin/users')}
-                className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+                className="p-2.5 sm:p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
                 title="Users"
               >
-                <Users className="w-5 h-5" />
+                <Users className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               <NotificationBell iconColor="white" />
               <button
                 onClick={() => setShowSettings(true)}
-                className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+                className="p-2.5 sm:p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
               >
-                <Settings className="w-5 h-5" />
+                <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               <button
                 onClick={handleSignOut}
-                className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+                className="p-2.5 sm:p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
               >
-                <LogOut className="w-5 h-5" />
+                <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
             {[
               { icon: Heart,       label: 'Active Weddings', value: stats.totalWeddings,  fill: true },
               { icon: Calendar,    label: 'Next 30 Days',    value: stats.next30Days      },

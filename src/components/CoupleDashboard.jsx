@@ -252,15 +252,12 @@ export default function CoupleDashboard({ previewWeddingId, isPreview } = {}) {
         <div className="absolute -bottom-16 -left-16 w-72 h-72 rounded-full blur-3xl opacity-10 pointer-events-none"
           style={{ background: 'white' }} />
 
-        <div className="relative z-10 max-w-lg mx-auto px-6 pt-14 pb-10">
-          {/* Top bar */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <p className="text-white/50 text-xs uppercase tracking-widest font-semibold mb-1">Welcome back</p>
-              <h1 className="text-4xl font-serif font-light tracking-wide">
-                {user?.full_name?.split(' ')[0]}
-              </h1>
-            </div>
+        <div className="relative z-10 max-w-lg mx-auto px-6 pt-10 pb-10">
+          {/* Minimal top nav */}
+          <div className="flex items-center justify-between mb-10">
+            <p className="text-white/45 text-xs uppercase tracking-[0.18em] font-medium">
+              Welcome back, {user?.full_name?.split(' ')[0]}
+            </p>
             <div className="flex items-center gap-2">
               {!isPreview && <NotificationBell iconColor="white" />}
               {isPreview ? (
@@ -269,41 +266,53 @@ export default function CoupleDashboard({ previewWeddingId, isPreview } = {}) {
                 </div>
               ) : (
                 <button onClick={handleSignOut}
-                  className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
                   aria-label="Sign out">
-                  <LogOut className="w-5 h-5" />
+                  <LogOut className="w-4 h-4" />
                 </button>
               )}
             </div>
           </div>
 
-          <p className="text-white/70 font-serif text-xl mb-8">{wedding.couple_name}</p>
+          {/* Hero: Couple name as centrepiece */}
+          <div className="text-center mb-10">
+            <p className="text-white/40 text-[10px] uppercase tracking-[0.25em] mb-5">Your Wedding</p>
+            <h1 className="text-4xl sm:text-5xl font-serif font-light tracking-wide leading-tight">
+              {wedding.couple_name}
+            </h1>
+            {/* Ornamental divider */}
+            <div className="flex items-center justify-center gap-3 mt-6">
+              <div className="h-px w-10 bg-white/25" />
+              <Heart className="w-2.5 h-2.5 text-white/40 fill-current" />
+              <div className="h-px w-10 bg-white/25" />
+            </div>
+          </div>
 
-          {/* Countdown pill */}
-          <div className="rounded-2xl p-6 mb-5 border border-white/20" style={{ background: 'rgba(255,255,255,0.08)' }}>
-            <div className="flex items-end justify-between">
-              <div>
-                <div className="text-8xl font-serif font-light leading-none tracking-tight">
-                  {days < 0 ? '🎉' : days === 0 ? '🎊' : days}
-                </div>
-                <div className="text-white/75 text-lg mt-3 font-light">
-                  {days < 0 ? 'Congratulations!'
-                    : days === 0 ? "It's your wedding day!"
-                    : `day${days !== 1 ? 's' : ''} until your wedding`}
-                </div>
+          {/* Countdown — open editorial typography, no box */}
+          <div className="text-center mb-8">
+            <div className="text-[6rem] leading-none font-serif font-extralight tracking-tight">
+              {days < 0 ? '🎉' : days === 0 ? '🎊' : days}
+            </div>
+            <div className="text-white/65 text-base font-light mt-3 tracking-wide">
+              {days < 0 ? 'Congratulations!'
+                : days === 0 ? "It's your wedding day!"
+                : `day${days !== 1 ? 's' : ''} until your wedding`}
+            </div>
+            {/* Elegant date & venue metadata */}
+            <div className="flex items-center justify-center flex-wrap gap-x-3 gap-y-1 mt-5 text-white/45 text-[11px] uppercase tracking-[0.15em]">
+              <div className="flex items-center gap-1.5">
+                <Calendar className="w-3 h-3" />
+                <span>{formatDate(wedding.wedding_date, 'MMM d, yyyy')}</span>
               </div>
-              <div className="text-right text-sm text-white/60 space-y-2 pb-1">
-                <div className="flex items-center justify-end gap-2">
-                  <Calendar className="w-4 h-4" />
-                  <span>{formatDate(wedding.wedding_date, 'MMM d, yyyy')}</span>
-                </div>
-                {wedding.venue_name && (
-                  <div className="flex items-center justify-end gap-2">
-                    <MapPin className="w-4 h-4" />
-                    <span className="truncate max-w-[140px]">{wedding.venue_name}</span>
+              {wedding.venue_name && (
+                <>
+                  <span className="text-white/25">·</span>
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-3 h-3" />
+                    <span>{wedding.venue_name}</span>
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
           </div>
 
