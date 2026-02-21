@@ -208,6 +208,7 @@ export const weddingsAPI = {
     if (updates.status !== undefined) updateData.status = updates.status
     if (updates.archived !== undefined) updateData.archived = updates.archived
     if (updates.notes !== undefined) updateData.notes = updates.notes
+    if (updates.package_type !== undefined) updateData.package_type = updates.package_type
 
     // Theme updates
     if (updates.theme) {
@@ -764,6 +765,7 @@ function transformWedding(data) {
     guest_count: data.guest_count,
     budget: data.budget,
     status: data.status,
+    package_type: data.package_type || null,
     archived: data.archived || false,
     notes: data.notes,
     theme: (() => {

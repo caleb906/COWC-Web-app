@@ -183,6 +183,7 @@ export default function WeddingDetailPageFull() {
         budget: editedWedding.budget,
         notes: editedWedding.notes,
         status: editedWedding.status,
+        package_type: editedWedding.package_type ?? null,
       })
 
       setWedding(editedWedding)
@@ -613,21 +614,60 @@ export default function WeddingDetailPageFull() {
                       onChange={(e) => setEditedWedding({ ...editedWedding, status: e.target.value })}
                       className="input-premium"
                     >
+                      <option value="Inquiry">Inquiry</option>
+                      <option value="In Talks">In Talks</option>
+                      <option value="Signed">Signed</option>
                       <option value="Planning">Planning</option>
-                      <option value="Active">Active</option>
                       <option value="Completed">Completed</option>
                       <option value="Cancelled">Cancelled</option>
                     </select>
                   ) : (
-                    <span className={`px-4 py-2 rounded-lg font-semibold ${
-                      wedding.status?.toLowerCase() === 'planning' ? 'bg-blue-100 text-blue-700' :
-                      wedding.status?.toLowerCase() === 'active' ? 'bg-green-100 text-green-700' :
-                      wedding.status?.toLowerCase() === 'completed' ? 'bg-purple-100 text-purple-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
+                    <span className="px-4 py-2 rounded-lg font-semibold bg-amber-100 text-amber-700">
                       {wedding.status || 'Planning'}
                     </span>
                   )}
+                </div>
+              )}
+
+              {canEdit && (
+                <div className="card-premium p-6 md:p-8">
+                  <h3 className="text-xl md:text-2xl font-serif text-cowc-dark mb-4">
+                    Service Package
+                  </h3>
+                  <div className="flex flex-wrap gap-3">
+                    {[
+                      { value: 'Full Coordination',   label: 'Full Coordination',   color: 'bg-amber-100 text-amber-800 border-amber-300' },
+                      { value: 'Partial Planning',    label: 'Partial Planning',    color: 'bg-purple-100 text-purple-800 border-purple-300' },
+                      { value: 'Day of Coordination', label: 'Day of Coordination', color: 'bg-sky-100 text-sky-800 border-sky-300' },
+                    ].map(pkg => {
+                      const current = editing ? editedWedding.package_type : wedding.package_type
+                      const isActive = current === pkg.value
+                      const handleClick = () => {
+                        if (!editing) return
+                        const next = isActive ? null : pkg.value
+                        setEditedWedding({ ...editedWedding, package_type: next })
+                      }
+                      return (
+                        <button
+                          key={pkg.value}
+                          onClick={handleClick}
+                          disabled={!editing}
+                          className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all ${
+                            isActive
+                              ? `${pkg.color} border-current shadow-sm scale-105`
+                              : editing
+                                ? 'border-cowc-sand text-cowc-gray hover:border-gray-300'
+                                : 'border-cowc-sand text-cowc-gray opacity-60 cursor-default'
+                          }`}
+                        >
+                          {pkg.label}
+                        </button>
+                      )
+                    })}
+                    {!editing && !wedding.package_type && (
+                      <span className="text-sm text-cowc-light-gray italic">Not set — click Edit to assign a package</span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

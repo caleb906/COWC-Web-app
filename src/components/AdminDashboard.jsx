@@ -17,16 +17,37 @@ import { useToast } from './Toast'
 // ─── Pipeline config ───────────────────────────────────────────────────────
 const PIPELINE_STAGES = [
   { value: 'all',       label: 'All',        color: 'bg-gray-100 text-gray-600',      dot: 'bg-gray-400' },
-  { value: 'Inquiry',   label: 'Inquiry',    color: 'bg-slate-100 text-slate-600',    dot: 'bg-slate-400' },
-  { value: 'In Talks',  label: 'In Talks',   color: 'bg-violet-100 text-violet-700',  dot: 'bg-violet-500' },
-  { value: 'Signed',    label: 'Signed',     color: 'bg-emerald-100 text-emerald-700',dot: 'bg-emerald-500' },
   { value: 'Planning',  label: 'Planning',   color: 'bg-amber-100 text-amber-700',    dot: 'bg-amber-500' },
+  { value: 'Signed',    label: 'Signed',     color: 'bg-emerald-100 text-emerald-700',dot: 'bg-emerald-500' },
+  { value: 'In Talks',  label: 'In Talks',   color: 'bg-violet-100 text-violet-700',  dot: 'bg-violet-500' },
+  { value: 'Inquiry',   label: 'Inquiry',    color: 'bg-slate-100 text-slate-600',    dot: 'bg-slate-400' },
   { value: 'Completed', label: 'Completed',  color: 'bg-green-100 text-green-700',    dot: 'bg-green-600' },
   { value: 'Cancelled', label: 'Cancelled',  color: 'bg-red-100 text-red-600',        dot: 'bg-red-500' },
 ]
 
+// Display order index for sorting (lower = shown first)
+const STAGE_ORDER = { Planning: 0, Signed: 1, 'In Talks': 2, Inquiry: 3, Completed: 4, Cancelled: 5 }
+
 const stageFor = (status) =>
   PIPELINE_STAGES.find((s) => s.value === status) || PIPELINE_STAGES[0]
+
+// ─── Package type config ────────────────────────────────────────────────────
+const PACKAGES = [
+  { value: 'Full Coordination',  short: 'Full',    color: 'bg-amber-100 text-amber-800',   border: 'border-amber-300' },
+  { value: 'Partial Planning',   short: 'Partial', color: 'bg-purple-100 text-purple-800', border: 'border-purple-300' },
+  { value: 'Day of Coordination',short: 'Day-Of',  color: 'bg-sky-100 text-sky-800',       border: 'border-sky-300' },
+]
+
+function PackageBadge({ packageType }) {
+  if (!packageType) return null
+  const pkg = PACKAGES.find(p => p.value === packageType)
+  if (!pkg) return null
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${pkg.color} ${pkg.border}`}>
+      {pkg.short}
+    </span>
+  )
+}
 
 // ─── Status pill with inline dropdown ──────────────────────────────────────
 function StatusPill({ wedding, onStatusChange }) {
@@ -82,6 +103,100 @@ function StatusPill({ wedding, onStatusChange }) {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  )
+}
+
+// ─── Shared card sub-components ─────────────────────────────────────────────
+function WeddingGridCard({ wedding, i, navigate, handleStatusChange }) {
+  const days = daysUntil(wedding.wedding_date)
+  const progress = wedding.totalTasks > 0
+    ? (wedding.tasksCompleted / wedding.totalTasks) * 100 : 0
+
+  return (
+    <motion.div
+      key={wedding.id}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: i * 0.05 }}
+      onClick={() => navigate(`/wedding/${wedding.id}`)}
+      className="card-premium p-6 cursor-pointer group relative overflow-hidden"
+    >
+      <div className="absolute top-0 left-0 right-0 h-1"
+        style={{ backgroundColor: wedding.theme.primary }} />
+
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex-1 min-w-0 pr-3">
+          <h3 className="text-xl font-serif text-cowc-dark group-hover:text-cowc-gold transition-colors truncate">
+            {wedding.couple_name}
+          </h3>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <p className="text-xs text-cowc-light-gray">{wedding.theme.vibe}</p>
+            <PackageBadge packageType={wedding.package_type} />
+          </div>
+        </div>
+        <StatusPill wedding={wedding} onStatusChange={handleStatusChange} />
+      </div>
+
+      <div className="space-y-2 mb-4 text-sm text-cowc-gray">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-cowc-gold flex-shrink-0" />
+          {formatDate(wedding.wedding_date, 'MMM d, yyyy')}
+        </div>
+        <div className="flex items-center gap-2">
+          <Users className="w-4 h-4 text-cowc-gold flex-shrink-0" />
+          <span className="truncate">
+            {wedding.coordinatorNames?.length > 0 ? wedding.coordinatorNames[0] : 'No coordinator'}
+          </span>
+        </div>
+      </div>
+
+      <div className="mb-2">
+        <div className="flex justify-between text-xs text-cowc-gray mb-1">
+          <span>Tasks</span>
+          <span>{wedding.tasksCompleted}/{wedding.totalTasks}</span>
+        </div>
+        <div className="h-1.5 bg-cowc-sand rounded-full overflow-hidden">
+          <div className="h-full transition-all duration-500"
+            style={{ width: `${progress}%`, backgroundColor: wedding.theme.primary }} />
+        </div>
+      </div>
+
+      <div className={`text-xs font-semibold mt-2 ${
+        days < 0 ? 'text-cowc-light-gray' :
+        days <= 30 ? 'text-red-500' : 'text-cowc-gold'
+      }`}>
+        {days < 0 ? `${Math.abs(days)} days ago` : days === 0 ? 'Today!' : `${days} days away`}
+      </div>
+    </motion.div>
+  )
+}
+
+function WeddingListRow({ wedding, navigate, handleStatusChange }) {
+  return (
+    <div
+      onClick={() => navigate(`/wedding/${wedding.id}`)}
+      className="p-5 hover:bg-cowc-cream transition-colors cursor-pointer flex items-center justify-between gap-4"
+    >
+      <div className="flex items-center gap-4 flex-1 min-w-0">
+        <div className="w-1 h-12 rounded-full flex-shrink-0"
+          style={{ backgroundColor: wedding.theme.primary }} />
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-lg font-serif text-cowc-dark truncate">{wedding.couple_name}</h3>
+            <PackageBadge packageType={wedding.package_type} />
+          </div>
+          <p className="text-sm text-cowc-gray">
+            {formatDate(wedding.wedding_date)} · {wedding.venue_name}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-4 flex-shrink-0">
+        <p className="text-sm text-cowc-gray hidden md:block">
+          {wedding.tasksCompleted}/{wedding.totalTasks} tasks
+        </p>
+        <StatusPill wedding={wedding} onStatusChange={handleStatusChange} />
+      </div>
     </div>
   )
 }
@@ -192,7 +307,7 @@ export default function AdminDashboard() {
 
   const handleSignOut = async () => { await supabase.auth.signOut() }
 
-  // Active (non-archived) weddings → filtered by pipeline stage + search
+  // Active (non-archived) weddings → filtered by pipeline stage + search + sorted
   const activeWeddings = weddings
     .filter((w) => !w.archived)
     .filter((w) => statusFilter === 'all' || w.status === statusFilter)
@@ -200,6 +315,16 @@ export default function AdminDashboard() {
       w.couple_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       w.venue_name?.toLowerCase().includes(searchQuery.toLowerCase())
     )
+    .sort((a, b) => (STAGE_ORDER[a.status] ?? 99) - (STAGE_ORDER[b.status] ?? 99))
+
+  // When viewing All, group weddings by status for section headers
+  const groupedWeddings = statusFilter === 'all'
+    ? PIPELINE_STAGES.filter(s => s.value !== 'all').reduce((acc, stage) => {
+        const group = activeWeddings.filter(w => w.status === stage.value)
+        if (group.length > 0) acc.push({ stage, weddings: group })
+        return acc
+      }, [])
+    : null // null = not grouped (single-status filter uses flat list)
 
   const archivedWeddings = weddings.filter((w) => w.archived)
 
@@ -384,97 +509,43 @@ export default function AdminDashboard() {
               <Heart className="w-16 h-16 text-cowc-light-gray mx-auto mb-4" />
               <p className="text-xl text-cowc-gray">No weddings in this stage</p>
             </div>
+          ) : groupedWeddings ? (
+            /* ── Grouped by status (All view) ── */
+            <div className="space-y-10">
+              {groupedWeddings.map(({ stage, weddings: group }) => (
+                <div key={stage.value}>
+                  {/* Section header */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${stage.dot}`} />
+                    <h2 className="text-base font-semibold text-cowc-dark">{stage.label}</h2>
+                    <span className="text-xs text-cowc-light-gray font-medium">({group.length})</span>
+                    <div className="flex-1 h-px bg-cowc-sand" />
+                  </div>
+
+                  {view === 'grid' ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {group.map((wedding, i) => <WeddingGridCard key={wedding.id} wedding={wedding} i={i} navigate={navigate} handleStatusChange={handleStatusChange} />)}
+                    </div>
+                  ) : (
+                    <div className="card-premium divide-y divide-cowc-sand">
+                      {group.map(wedding => <WeddingListRow key={wedding.id} wedding={wedding} navigate={navigate} handleStatusChange={handleStatusChange} />)}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           ) : view === 'grid' ? (
+            /* ── Flat grid (single-status filter) ── */
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {activeWeddings.map((wedding, i) => {
-                const days = daysUntil(wedding.wedding_date)
-                const progress = wedding.totalTasks > 0
-                  ? (wedding.tasksCompleted / wedding.totalTasks) * 100 : 0
-
-                return (
-                  <motion.div
-                    key={wedding.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: i * 0.05 }}
-                    onClick={() => navigate(`/wedding/${wedding.id}`)}
-                    className="card-premium p-6 cursor-pointer group relative overflow-hidden"
-                  >
-                    <div className="absolute top-0 left-0 right-0 h-1"
-                      style={{ backgroundColor: wedding.theme.primary }} />
-
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1 min-w-0 pr-3">
-                        <h3 className="text-xl font-serif text-cowc-dark group-hover:text-cowc-gold transition-colors truncate">
-                          {wedding.couple_name}
-                        </h3>
-                        <p className="text-xs text-cowc-light-gray mt-0.5">{wedding.theme.vibe}</p>
-                      </div>
-                      {/* Clickable status pill */}
-                      <StatusPill wedding={wedding} onStatusChange={handleStatusChange} />
-                    </div>
-
-                    <div className="space-y-2 mb-4 text-sm text-cowc-gray">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-cowc-gold flex-shrink-0" />
-                        {formatDate(wedding.wedding_date, 'MMM d, yyyy')}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-cowc-gold flex-shrink-0" />
-                        <span className="truncate">
-                          {wedding.coordinatorNames.length > 0
-                            ? wedding.coordinatorNames[0]
-                            : 'No coordinator'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mb-2">
-                      <div className="flex justify-between text-xs text-cowc-gray mb-1">
-                        <span>Tasks</span>
-                        <span>{wedding.tasksCompleted}/{wedding.totalTasks}</span>
-                      </div>
-                      <div className="h-1.5 bg-cowc-sand rounded-full overflow-hidden">
-                        <div className="h-full transition-all duration-500"
-                          style={{ width: `${progress}%`, backgroundColor: wedding.theme.primary }} />
-                      </div>
-                    </div>
-
-                    <div className={`text-xs font-semibold mt-2 ${
-                      days < 0 ? 'text-cowc-light-gray' :
-                      days <= 30 ? 'text-red-500' : 'text-cowc-gold'
-                    }`}>
-                      {days < 0 ? `${Math.abs(days)} days ago` :
-                       days === 0 ? 'Today!' : `${days} days away`}
-                    </div>
-                  </motion.div>
-                )
-              })}
+              {activeWeddings.map((wedding, i) => (
+                <WeddingGridCard key={wedding.id} wedding={wedding} i={i} navigate={navigate} handleStatusChange={handleStatusChange} />
+              ))}
             </div>
           ) : (
+            /* ── Flat list (single-status filter) ── */
             <div className="card-premium divide-y divide-cowc-sand">
-              {activeWeddings.map((wedding) => (
-                <div key={wedding.id}
-                  onClick={() => navigate(`/wedding/${wedding.id}`)}
-                  className="p-5 hover:bg-cowc-cream transition-colors cursor-pointer flex items-center justify-between gap-4"
-                >
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className="w-1 h-12 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: wedding.theme.primary }} />
-                    <div className="min-w-0">
-                      <h3 className="text-lg font-serif text-cowc-dark truncate">{wedding.couple_name}</h3>
-                      <p className="text-sm text-cowc-gray">
-                        {formatDate(wedding.wedding_date)} · {wedding.venue_name}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 flex-shrink-0">
-                    <p className="text-sm text-cowc-gray hidden md:block">
-                      {wedding.tasksCompleted}/{wedding.totalTasks} tasks
-                    </p>
-                    <StatusPill wedding={wedding} onStatusChange={handleStatusChange} />
-                  </div>
-                </div>
+              {activeWeddings.map(wedding => (
+                <WeddingListRow key={wedding.id} wedding={wedding} navigate={navigate} handleStatusChange={handleStatusChange} />
               ))}
             </div>
           )}
