@@ -6,7 +6,8 @@ import {
   Edit, Save, X, Plus, Trash2, Clock, Heart,
   CheckCircle2, Circle, AlertCircle, DollarSign, Edit2,
   Palette, ExternalLink, Link, Sparkles, Loader2, RefreshCw,
-  Eye, ClipboardList, ShoppingBag, ListMusic, UserPlus, ChevronDown, ChevronUp, GripVertical
+  Eye, ClipboardList, ShoppingBag, ListMusic, UserPlus, ChevronDown, ChevronUp, GripVertical,
+  Send, Package, Tag, Check
 } from 'lucide-react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../stores/appStore'
@@ -42,9 +43,25 @@ export default function WeddingDetailPageFull() {
   const [wedding, setWedding] = useState(null)
   const [activeTab, setActiveTab] = useState(() => {
     const tabParam = searchParams.get('tab')
-    const valid = ['overview', 'tasks', 'vendors', 'timeline', 'style']
+    const valid = ['overview', 'tasks', 'vendors', 'timeline', 'style', 'rentals']
     return valid.includes(tabParam) ? tabParam : 'overview'
   })
+
+  // Invite couple state
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteSending, setInviteSending] = useState(false)
+
+  // Rentals state (admin view)
+  const [rentals, setRentals] = useState([])
+  const [rentalsLoading, setRentalsLoading] = useState(false)
+  const [inventoryItems, setInventoryItems] = useState([])
+  const [showAddRental, setShowAddRental] = useState(false)
+  const [addRentalItem, setAddRentalItem] = useState(null)
+  const [addRentalQty, setAddRentalQty] = useState(1)
+  const [addRentalNotes, setAddRentalNotes] = useState('')
+  const [addRentalSaving, setAddRentalSaving] = useState(false)
+  const [inventorySearch, setInventorySearch] = useState('')
   const [editing, setEditing] = useState(false)
   const [editedWedding, setEditedWedding] = useState(null)
   
@@ -92,6 +109,10 @@ export default function WeddingDetailPageFull() {
     loadWedding()
     return () => resetTheme()
   }, [id])
+
+  useEffect(() => {
+    if (activeTab === 'rentals') loadRentals()
+  }, [activeTab, id])
 
   const loadWedding = async () => {
     try {
@@ -149,26 +170,21 @@ export default function WeddingDetailPageFull() {
   const isCouple = user.role === 'couple'
 
   const handleDelete = async () => {
-    const confirmation = window.confirm(
-      `Are you sure you want to delete ${wedding.couple_name}'s wedding?\n\nThis will permanently delete:\n- The wedding\n- All tasks\n- All vendors\n- All timeline items\n- All coordinator assignments\n\nThis CANNOT be undone!`
+    const doubleCheck = window.prompt(
+      `This will permanently delete ${wedding.couple_name}'s wedding, including all tasks, vendors, timeline items, and coordinator assignments.\n\nType DELETE to confirm:`
     )
-    
-    if (!confirmation) return
-    
-    const doubleCheck = window.prompt(`Type "${wedding.couple_name}" to confirm deletion:`)
-    
-    if (doubleCheck !== wedding.couple_name) {
-      console.log
+
+    if (doubleCheck !== 'DELETE') {
+      if (doubleCheck !== null) toast.error('Deletion cancelled — you must type DELETE to confirm.')
       return
     }
-    
+
     try {
       await weddingsAPI.delete(id)
-      console.log
       navigate('/admin')
     } catch (error) {
       console.error('Error deleting wedding:', error)
-      console.log
+      toast.error('Failed to delete wedding')
     }
   }
 
@@ -193,6 +209,115 @@ export default function WeddingDetailPageFull() {
     } catch (error) {
       console.error('Error saving wedding:', error)
       toast.error('Failed to save changes: ' + (error.message || 'Unknown error'))
+    }
+  }
+
+  // ── Invite couple ──────────────────────────────────────────────────────────
+  const handleInviteCouple = async () => {
+    if (!inviteEmail.trim()) { toast.error('Please enter an email address'); return }
+    setInviteSending(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-couple-invite`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            weddingId: id,
+            email: inviteEmail.trim(),
+            coupleName: wedding.couple_name,
+          }),
+        }
+      )
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to send invite')
+      toast.success(`Invite sent to ${inviteEmail}!`)
+      setShowInviteModal(false)
+      setInviteEmail('')
+      await loadWedding()
+    } catch (err) {
+      toast.error('Failed to send invite: ' + err.message)
+    } finally {
+      setInviteSending(false)
+    }
+  }
+
+  // ── Rentals (admin assigns inventory to wedding) ────────────────────────────
+  const loadRentals = async () => {
+    if (!id) return
+    setRentalsLoading(true)
+    try {
+      const [{ data: res }, { data: inv }] = await Promise.all([
+        supabase
+          .from('inventory_reservations')
+          .select('*, inventory_items(*)')
+          .eq('wedding_id', id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('inventory_items')
+          .select('*')
+          .eq('active', true)
+          .order('sort_order')
+          .order('created_at'),
+      ])
+      setRentals(res || [])
+      setInventoryItems(inv || [])
+    } finally {
+      setRentalsLoading(false)
+    }
+  }
+
+  const handleAddRentalItem = async () => {
+    if (!addRentalItem) return
+    setAddRentalSaving(true)
+    try {
+      const { error } = await supabase.from('inventory_reservations').insert({
+        item_id: addRentalItem.id,
+        wedding_id: id,
+        quantity: addRentalQty,
+        notes: addRentalNotes,
+        status: 'confirmed', // admin-assigned items are auto-confirmed
+      })
+      if (error) throw error
+      toast.success(`${addRentalItem.name} added!`)
+      setShowAddRental(false)
+      setAddRentalItem(null)
+      setAddRentalQty(1)
+      setAddRentalNotes('')
+      await loadRentals()
+    } catch (err) {
+      toast.error('Failed to add item: ' + err.message)
+    } finally {
+      setAddRentalSaving(false)
+    }
+  }
+
+  const handleRentalStatusChange = async (rentalId, newStatus) => {
+    try {
+      const { error } = await supabase
+        .from('inventory_reservations')
+        .update({ status: newStatus })
+        .eq('id', rentalId)
+      if (error) throw error
+      setRentals(rentals.map(r => r.id === rentalId ? { ...r, status: newStatus } : r))
+    } catch (err) {
+      toast.error('Failed to update status')
+    }
+  }
+
+  const handleRemoveRental = async (rentalId) => {
+    if (!window.confirm('Remove this item from the wedding?')) return
+    try {
+      const { error } = await supabase.from('inventory_reservations').delete().eq('id', rentalId)
+      if (error) throw error
+      toast.success('Item removed')
+      setRentals(rentals.filter(r => r.id !== rentalId))
+    } catch (err) {
+      toast.error('Failed to remove item')
     }
   }
 
@@ -423,6 +548,31 @@ export default function WeddingDetailPageFull() {
                       <Edit className="w-5 h-5" />
                       Edit
                     </button>
+                    {/* Invite Couple button — visible to all editors when couple hasn't signed up yet */}
+                    {!wedding.couple_user_id && (
+                      <button
+                        onClick={() => {
+                          setInviteEmail(wedding.couple_email || '')
+                          setShowInviteModal(true)
+                        }}
+                        className={`px-4 md:px-6 py-3 rounded-xl transition-all flex items-center gap-2 font-semibold text-sm md:text-base ${
+                          wedding.couple_invite_sent_at
+                            ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 hover:text-emerald-100'
+                            : 'bg-cowc-gold hover:bg-cowc-gold/80 text-white'
+                        }`}
+                        title={wedding.couple_invite_sent_at ? `Invite sent — resend?` : 'Send portal invite to couple'}
+                      >
+                        <Send className="w-4 h-4" />
+                        <span className="hidden sm:inline">
+                          {wedding.couple_invite_sent_at ? 'Resend Invite' : 'Invite Couple'}
+                        </span>
+                      </button>
+                    )}
+                    {wedding.couple_user_id && (
+                      <span className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 text-sm font-semibold">
+                        <Check className="w-4 h-4" /> Portal Active
+                      </span>
+                    )}
                     {user.role === 'admin' && (
                       <>
                         <button
@@ -525,6 +675,7 @@ export default function WeddingDetailPageFull() {
             { id: 'vendors',   label: `Vendors (${wedding.vendors?.length || 0})` },
             { id: 'timeline',  label: `Timeline (${wedding.timeline_items?.length || 0})` },
             { id: 'style',     label: 'Style' },
+            ...(canEdit ? [{ id: 'rentals', label: `Rentals${rentals.length > 0 ? ` (${rentals.length})` : ''}` }] : []),
           ].map((tab) => (
             <button
               key={tab.id}
@@ -681,6 +832,80 @@ export default function WeddingDetailPageFull() {
               onSaved={loadWedding}
               setWeddingTheme={setWeddingTheme}
             />
+          )}
+
+          {/* Rentals Tab — admin assigns inventory items to this wedding */}
+          {activeTab === 'rentals' && canEdit && (
+            <div className="space-y-6">
+              {/* Add item button */}
+              <button
+                onClick={() => { setShowAddRental(true); setInventorySearch('') }}
+                className="w-full py-4 rounded-xl border-2 border-dashed border-cowc-gold text-cowc-gold hover:bg-cowc-gold/5 transition-all flex items-center justify-center gap-2 font-semibold"
+              >
+                <Plus className="w-5 h-5" />
+                Assign Inventory Item
+              </button>
+
+              {rentalsLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="w-8 h-8 text-cowc-gold animate-spin" />
+                </div>
+              ) : rentals.length === 0 ? (
+                <div className="text-center py-16 card-premium">
+                  <Package className="w-12 h-12 text-cowc-light-gray mx-auto mb-3" />
+                  <p className="text-cowc-gray font-serif text-lg">No items assigned yet</p>
+                  <p className="text-sm text-cowc-light-gray mt-1">Assign inventory items to this wedding above</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {rentals.map(rental => {
+                    const item = rental.inventory_items
+                    const STATUS_COLORS = {
+                      requested:  'bg-amber-100 text-amber-700',
+                      confirmed:  'bg-emerald-100 text-emerald-700',
+                      declined:   'bg-red-100 text-red-600',
+                      returned:   'bg-gray-100 text-gray-600',
+                    }
+                    return (
+                      <div key={rental.id} className="card-premium p-4 flex items-center gap-4">
+                        {/* Thumbnail */}
+                        <div className="w-14 h-14 rounded-xl overflow-hidden bg-cowc-cream flex-shrink-0">
+                          {item?.photo_url
+                            ? <img src={item.photo_url} alt={item?.name} className="w-full h-full object-cover" />
+                            : <div className="w-full h-full flex items-center justify-center"><Package className="w-6 h-6 text-cowc-light-gray" /></div>
+                          }
+                        </div>
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-cowc-dark truncate">{item?.name || 'Unknown item'}</p>
+                          <p className="text-xs text-cowc-gray capitalize">{item?.category} · qty {rental.quantity}</p>
+                          {rental.notes && <p className="text-xs text-cowc-gray italic mt-0.5">"{rental.notes}"</p>}
+                        </div>
+                        {/* Status selector */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <select
+                            value={rental.status}
+                            onChange={e => handleRentalStatusChange(rental.id, e.target.value)}
+                            className={`text-xs font-semibold px-2 py-1 rounded-full border-0 cursor-pointer ${STATUS_COLORS[rental.status]}`}
+                          >
+                            <option value="requested">Requested</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="declined">Declined</option>
+                            <option value="returned">Returned</option>
+                          </select>
+                          <button
+                            onClick={() => handleRemoveRental(rental.id)}
+                            className="p-1.5 rounded-full text-cowc-light-gray hover:text-red-400 hover:bg-red-50 transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           )}
 
           {/* Tasks Tab with Inline Edit */}
@@ -989,9 +1214,219 @@ export default function WeddingDetailPageFull() {
         </motion.div>
       </div>
 
+      {/* ── Invite Couple Modal ─────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showInviteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            onClick={e => { if (e.target === e.currentTarget) setShowInviteModal(false) }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-md"
+            >
+              <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-cowc-gold/10 flex items-center justify-center">
+                    <Send className="w-5 h-5 text-cowc-gold" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-serif text-cowc-dark">Invite Couple to Portal</h2>
+                    <p className="text-xs text-cowc-gray">{wedding.couple_name}</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowInviteModal(false)} className="p-2 hover:bg-cowc-cream rounded-full">
+                  <X className="w-5 h-5 text-cowc-gray" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                {wedding.couple_invite_sent_at && (
+                  <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    Invite previously sent on {formatDate(wedding.couple_invite_sent_at, 'MMM d, yyyy')}. Sending again will generate a new link.
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-semibold text-cowc-dark mb-2">
+                    Couple's Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={e => setInviteEmail(e.target.value)}
+                    placeholder="jessica@example.com"
+                    className="input-premium"
+                    autoFocus
+                  />
+                  <p className="text-xs text-cowc-gray mt-2">
+                    They'll receive an email with a link to create their account and access their wedding portal.
+                  </p>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setShowInviteModal(false)}
+                    className="flex-1 py-3 rounded-xl border-2 border-cowc-sand text-cowc-gray font-semibold hover:bg-cowc-cream transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleInviteCouple}
+                    disabled={inviteSending || !inviteEmail.trim()}
+                    className="flex-1 py-3 rounded-xl bg-cowc-gold text-white font-semibold hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {inviteSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    Send Invite
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Add Rental Item Modal ─────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showAddRental && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            onClick={e => { if (e.target === e.currentTarget) { setShowAddRental(false); setAddRentalItem(null) } }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between p-6 border-b border-gray-100 flex-shrink-0">
+                <h2 className="text-lg font-serif text-cowc-dark">
+                  {addRentalItem ? `Add: ${addRentalItem.name}` : 'Browse Inventory'}
+                </h2>
+                <button onClick={() => { setShowAddRental(false); setAddRentalItem(null) }} className="p-2 hover:bg-cowc-cream rounded-full">
+                  <X className="w-5 h-5 text-cowc-gray" />
+                </button>
+              </div>
+
+              {!addRentalItem ? (
+                /* Browse inventory */
+                <div className="flex flex-col flex-1 min-h-0 p-6">
+                  <div className="relative mb-4">
+                    <input
+                      type="text"
+                      placeholder="Search items..."
+                      value={inventorySearch}
+                      onChange={e => setInventorySearch(e.target.value)}
+                      className="input-premium pl-10"
+                      autoFocus
+                    />
+                    <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cowc-gray" />
+                  </div>
+                  <div className="overflow-y-auto space-y-2 flex-1">
+                    {inventoryItems
+                      .filter(item => item.name.toLowerCase().includes(inventorySearch.toLowerCase()))
+                      .map(item => {
+                        const alreadyAdded = rentals.some(r => r.item_id === item.id && r.status !== 'declined' && r.status !== 'returned')
+                        return (
+                          <button
+                            key={item.id}
+                            disabled={alreadyAdded}
+                            onClick={() => { setAddRentalItem(item); setAddRentalQty(1); setAddRentalNotes('') }}
+                            className={`w-full text-left flex items-center gap-3 p-3 rounded-xl transition-all ${
+                              alreadyAdded
+                                ? 'opacity-50 cursor-not-allowed bg-gray-50'
+                                : 'hover:bg-cowc-cream active:scale-99'
+                            }`}
+                          >
+                            <div className="w-12 h-12 rounded-xl overflow-hidden bg-cowc-cream flex-shrink-0">
+                              {item.photo_url
+                                ? <img src={item.photo_url} alt={item.name} className="w-full h-full object-cover" />
+                                : <div className="w-full h-full flex items-center justify-center"><Package className="w-5 h-5 text-cowc-light-gray" /></div>
+                              }
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-cowc-dark text-sm truncate">{item.name}</p>
+                              <p className="text-xs text-cowc-gray capitalize">{item.category} · {item.quantity_total} total</p>
+                            </div>
+                            {alreadyAdded && (
+                              <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1 flex-shrink-0">
+                                <Check className="w-3.5 h-3.5" /> Added
+                              </span>
+                            )}
+                          </button>
+                        )
+                      })
+                    }
+                    {inventoryItems.filter(item => item.name.toLowerCase().includes(inventorySearch.toLowerCase())).length === 0 && (
+                      <p className="text-center text-cowc-gray py-8">No items found</p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* Quantity & notes for selected item */
+                <div className="p-6 space-y-4">
+                  <div className="flex gap-3 p-3 bg-cowc-cream rounded-xl items-center">
+                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-white flex-shrink-0">
+                      {addRentalItem.photo_url
+                        ? <img src={addRentalItem.photo_url} alt={addRentalItem.name} className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center"><Package className="w-5 h-5 text-cowc-light-gray" /></div>
+                      }
+                    </div>
+                    <div>
+                      <p className="font-semibold text-cowc-dark">{addRentalItem.name}</p>
+                      <p className="text-xs text-cowc-gray capitalize">{addRentalItem.category}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-cowc-dark mb-2">Quantity</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={addRentalItem.quantity_total}
+                      value={addRentalQty}
+                      onChange={e => setAddRentalQty(Number(e.target.value))}
+                      className="input-premium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-cowc-dark mb-2">Notes (optional)</label>
+                    <textarea
+                      value={addRentalNotes}
+                      onChange={e => setAddRentalNotes(e.target.value)}
+                      className="input-premium resize-none"
+                      rows={2}
+                      placeholder="Any details..."
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => setAddRentalItem(null)} className="flex-1 py-3 rounded-xl border-2 border-cowc-sand text-cowc-gray font-semibold hover:bg-cowc-cream">
+                      Back
+                    </button>
+                    <button
+                      onClick={handleAddRentalItem}
+                      disabled={addRentalSaving}
+                      className="flex-1 py-3 rounded-xl bg-cowc-gold text-white font-semibold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {addRentalSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                      Add to Wedding
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Add Modals */}
-      <AddTaskModal 
-        isOpen={showAddTask} 
+      <AddTaskModal
+        isOpen={showAddTask}
         onClose={() => setShowAddTask(false)}
         weddingId={id}
         onTaskAdded={loadWedding}

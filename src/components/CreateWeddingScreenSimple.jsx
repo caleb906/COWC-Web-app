@@ -12,6 +12,7 @@ export default function CreateWeddingScreenSimple() {
   
   const [formData, setFormData] = useState({
     coupleName: '',
+    coupleEmail: '',
     weddingDate: '',
     venueName: '',
     venueAddress: '',
@@ -71,6 +72,7 @@ export default function CreateWeddingScreenSimple() {
       const newWedding = {
         couple_name: formData.coupleName,
         couple_user_id: null,
+        couple_email: formData.coupleEmail || null,
         wedding_date: formData.weddingDate,
         venue_name: formData.venueName,
         venue_address: formData.venueAddress,
@@ -140,6 +142,20 @@ export default function CreateWeddingScreenSimple() {
                   onChange={(e) => setFormData({ ...formData, coupleName: e.target.value })}
                   className="input-premium"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-cowc-dark mb-2">
+                  Couple's Email
+                  <span className="ml-2 text-xs font-normal text-cowc-gray">(for portal invite)</span>
+                </label>
+                <input
+                  type="email"
+                  placeholder="jessica@example.com"
+                  value={formData.coupleEmail}
+                  onChange={(e) => setFormData({ ...formData, coupleEmail: e.target.value })}
+                  className="input-premium"
                 />
               </div>
 
