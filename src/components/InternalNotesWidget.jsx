@@ -133,8 +133,11 @@ function NewNoteForm({ weddings, onSave, onCancel, defaultWeddingId, userId }) {
     if (!form.content.trim() && !form.title.trim()) return
     setSaving(true)
     try {
+      const autoTitle = form.title.trim() ||
+        form.content.trim().split(/\s+/).slice(0, 6).join(' ') ||
+        'Untitled'
       await onSave({
-        title: form.title.trim() || null,
+        title: autoTitle,
         content: form.content.trim(),
         tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
         wedding_id: form.wedding_id || null,

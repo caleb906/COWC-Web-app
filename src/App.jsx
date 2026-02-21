@@ -19,6 +19,7 @@ import UsersManagementScreen from './components/UsersManagementScreenNew'
 import TasksListScreen from './components/TasksListScreen'
 import VendorListScreen from './components/VendorListScreen'
 import CatalogueManagementScreen from './components/CatalogueManagementScreen'
+import AdminNotesScreen from './components/AdminNotesScreen'
 import CatalogueScreen from './components/CatalogueScreen'
 import DevPreview from './components/DevPreview'
 import DevSwitcher from './components/DevSwitcher'
@@ -175,6 +176,7 @@ function App() {
                 <Route path="/admin/invite-users" element={<InviteUsersScreen />} />
                 <Route path="/admin/assign-coordinators" element={<AssignCoordinatorsScreen />} />
                 <Route path="/admin/catalogue" element={<CatalogueManagementScreen />} />
+                <Route path="/admin/notes" element={<AdminNotesScreen />} />
                 <Route path="/admin/preview/couple/:id" element={<DevPreview />} />
                 <Route path="/wedding/:id" element={<WeddingDetailPage />} />
                 <Route path="*" element={<Navigate to="/admin" replace />} />

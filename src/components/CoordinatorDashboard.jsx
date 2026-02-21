@@ -27,7 +27,11 @@ export default function CoordinatorDashboard() {
 
     try {
       const weddingsData = await weddingsAPI.getForCoordinator(user.id)
-      setWeddings(weddingsData)
+      // Hide completed/cancelled from default view
+      const activeWeddingsData = weddingsData.filter(
+        (w) => !['Completed', 'Cancelled'].includes(w.status)
+      )
+      setWeddings(activeWeddingsData)
 
       // Count upcoming weddings (next 6 months)
       const sixMonthsFromNow = new Date()

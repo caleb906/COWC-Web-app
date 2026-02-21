@@ -4,7 +4,7 @@ import {
   Calendar, Users, Heart, Plus, TrendingUp,
   LogOut, Settings, Grid, List, Search, X,
   UserPlus, ClipboardList, ChevronDown, Archive,
-  RotateCcw, CheckCircle, ShoppingBag, Package,
+  RotateCcw, CheckCircle, ShoppingBag, Package, StickyNote,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/appStore'
 import { weddingsAPI, vendorsAPI } from '../services/unifiedAPI'
@@ -308,9 +308,13 @@ export default function AdminDashboard() {
   const handleSignOut = async () => { await supabase.auth.signOut() }
 
   // Active (non-archived) weddings → filtered by pipeline stage + search + sorted
+  // In 'all' view, Completed and Cancelled are hidden by default (use status tabs to view them)
+  const HIDDEN_IN_ALL = ['Completed', 'Cancelled']
   const activeWeddings = weddings
     .filter((w) => !w.archived)
-    .filter((w) => statusFilter === 'all' || w.status === statusFilter)
+    .filter((w) => statusFilter === 'all'
+      ? !HIDDEN_IN_ALL.includes(w.status)
+      : w.status === statusFilter)
     .filter((w) =>
       w.couple_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       w.venue_name?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -627,6 +631,7 @@ export default function AdminDashboard() {
                 { icon: ClipboardList,label: 'All Tasks',         action: () => navigate('/admin/tasks') },
                 { icon: ShoppingBag,  label: 'All Vendors',       action: () => navigate('/admin/vendors') },
                 { icon: Package,      label: 'Catalogue',         action: () => navigate('/admin/catalogue') },
+                { icon: StickyNote,   label: 'Notes',             action: () => navigate('/admin/notes') },
               ].map(({ icon: Icon, label, action }) => (
                 <button key={label}
                   onClick={() => { action(); setShowFABTray(false) }}
