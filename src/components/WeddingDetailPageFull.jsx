@@ -6,7 +6,7 @@ import {
   Edit, Save, X, Plus, Trash2, Clock, Heart,
   CheckCircle2, Circle, AlertCircle, DollarSign, Edit2,
   Palette, ExternalLink, Link, Sparkles, Loader2, RefreshCw,
-  Eye, ClipboardList, ShoppingBag, ListMusic, UserPlus, ChevronDown, ChevronUp
+  Eye, ClipboardList, ShoppingBag, ListMusic, UserPlus, ChevronDown, ChevronUp, GripVertical
 } from 'lucide-react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/appStore'
@@ -1449,8 +1449,36 @@ function VendorCard({
 
 // Style Tab — 5-color palette + Pinterest boards
 // ─────────────────────────────────────────────
-const COLOR_LABELS = ['Primary', 'Secondary', 'Accent', 'Highlight', 'Background']
-const COLOR_KEYS   = ['primary', 'secondary', 'accent', 'color4', 'color5']
+// Base label names for the first 5 palette slots
+const BASE_COLOR_LABELS = ['Primary', 'Secondary', 'Accent', 'Highlight', 'Background']
+
+// Map a colorList array → named theme keys for saving
+function colorListToTheme(list) {
+  const keys = ['primary', 'secondary', 'accent', 'color4', 'color5']
+  const theme = {}
+  keys.forEach((key, i) => {
+    theme[key] = list[i]?.hex || '#ffffff'
+  })
+  theme.extraColors = list.slice(5).map(c => c.hex)
+  return theme
+}
+
+// Build an initial colorList from wedding.theme
+function buildColorList(theme) {
+  const base = [
+    { id: 'primary',   hex: theme?.primary   || '#d4a574', label: 'Primary' },
+    { id: 'secondary', hex: theme?.secondary || '#2d3748', label: 'Secondary' },
+    { id: 'accent',    hex: theme?.accent    || '#faf9f7', label: 'Accent' },
+    { id: 'color4',    hex: theme?.color4    || '#f0e6d3', label: 'Highlight' },
+    { id: 'color5',    hex: theme?.color5    || '#ffffff', label: 'Background' },
+  ]
+  const extra = (theme?.extraColors || []).map((hex, i) => ({
+    id: `extra_${i}_${Date.now() + i}`,
+    hex,
+    label: `Color ${6 + i}`,
+  }))
+  return [...base, ...extra]
+}
 
 const VIBE_OPTIONS = [
   'Romantic Garden', 'Modern Bohemian', 'Classic Elegant', 'Rustic Charm',
@@ -1462,32 +1490,63 @@ function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
   const toast = useToast()
   const [saving, setSaving] = useState(false)
 
-  // Local copies for editing
-  const [colors, setColors] = useState({
-    primary:   wedding.theme?.primary   || '#d4a574',
-    secondary: wedding.theme?.secondary || '#2d3748',
-    accent:    wedding.theme?.accent    || '#faf9f7',
-    color4:    wedding.theme?.color4    || '#f0e6d3',
-    color5:    wedding.theme?.color5    || '#ffffff',
-  })
+  // colorList: ordered array of { id, hex, label }
+  const [colorList, setColorList] = useState(() => buildColorList(wedding.theme))
   const [vibe, setVibe] = useState(wedding.theme?.vibe || 'Classic Elegant')
   const [boards, setBoards] = useState(wedding.theme?.pinterest_boards || [])
   const [newBoardName, setNewBoardName] = useState('')
   const [newBoardUrl,  setNewBoardUrl]  = useState('')
 
-  // Refs so async callbacks always see the latest colors/vibe when auto-saving
-  const colorsRef = useRef(colors)
-  const vibeRef   = useRef(vibe)
-  useEffect(() => { colorsRef.current = colors }, [colors])
-  useEffect(() => { vibeRef.current   = vibe   }, [vibe])
+  // Refs so async callbacks always see latest values when auto-saving
+  const colorListRef = useRef(colorList)
+  const vibeRef      = useRef(vibe)
+  useEffect(() => { colorListRef.current = colorList }, [colorList])
+  useEffect(() => { vibeRef.current = vibe }, [vibe])
 
-  // Preview shows the primary-driven gradient — same as what will appear on headers
+  // Gradient preview driven by primary (index 0) color
   const gradientStyle = {
-    background: primaryGradient(colors.primary, '135deg'),
+    background: primaryGradient(colorList[0]?.hex || '#d4a574', '135deg'),
   }
 
-  const handleColorChange = (key, val) => {
-    setColors(prev => ({ ...prev, [key]: val }))
+  // ── Color list handlers ──────────────────────────────────────────────────────
+  const handleColorChange = (id, val) => {
+    setColorList(prev => prev.map(c => c.id === id ? { ...c, hex: val } : c))
+  }
+
+  const handleColorDragEnd = (result) => {
+    if (!result.destination) return
+    const newList = Array.from(colorList)
+    const [moved] = newList.splice(result.source.index, 1)
+    newList.splice(result.destination.index, 0, moved)
+    // Relabel the first 5 slots to their canonical names
+    const relabeled = newList.map((c, i) => ({
+      ...c,
+      label: i < BASE_COLOR_LABELS.length ? BASE_COLOR_LABELS[i] : `Color ${i + 1}`,
+    }))
+    setColorList(relabeled)
+  }
+
+  const handleAddColor = () => {
+    const idx = colorList.length
+    setColorList(prev => [
+      ...prev,
+      {
+        id: `color_${Date.now()}`,
+        hex: '#e8d5c4',
+        label: idx < BASE_COLOR_LABELS.length ? BASE_COLOR_LABELS[idx] : `Color ${idx + 1}`,
+      },
+    ])
+  }
+
+  const handleRemoveColor = (id) => {
+    if (colorList.length <= 2) return // keep at least 2
+    setColorList(prev => {
+      const next = prev.filter(c => c.id !== id)
+      return next.map((c, i) => ({
+        ...c,
+        label: i < BASE_COLOR_LABELS.length ? BASE_COLOR_LABELS[i] : `Color ${i + 1}`,
+      }))
+    })
   }
 
   const fetchBoardCover = async (boardId, url) => {
@@ -1503,7 +1562,7 @@ function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
         )
         // Auto-save to DB so the couple dashboard shows the cover without a manual save
         weddingsAPI.update(wedding.id, {
-          theme: { ...colorsRef.current, vibe: vibeRef.current, pinterest_boards: updated },
+          theme: { ...colorListToTheme(colorListRef.current), vibe: vibeRef.current, pinterest_boards: updated },
         }).catch(err => console.error('Board cover auto-save failed:', err))
         return updated
       })
@@ -1538,10 +1597,11 @@ function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
   const handleSave = async () => {
     setSaving(true)
     try {
+      const themeData = colorListToTheme(colorList)
       await weddingsAPI.update(wedding.id, {
-        theme: { ...colors, vibe, pinterest_boards: boards },
+        theme: { ...themeData, vibe, pinterest_boards: boards },
       })
-      setWeddingTheme({ ...colors, vibe, pinterest_boards: boards })
+      setWeddingTheme({ ...themeData, vibe, pinterest_boards: boards })
       toast.success('Style saved!')
       await onSaved()
     } catch (err) {
@@ -1553,24 +1613,26 @@ function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
   }
 
   const handleAIApply = async (palette) => {
-    const newColors = {
-      primary:   palette.primary,
-      secondary: palette.secondary,
-      accent:    palette.accent,
-      color4:    palette.color4,
-      color5:    palette.color5,
-    }
+    // Build a new colorList from the AI palette (always 5 base colors)
+    const newList = [
+      { id: 'primary',   hex: palette.primary,   label: 'Primary' },
+      { id: 'secondary', hex: palette.secondary,  label: 'Secondary' },
+      { id: 'accent',    hex: palette.accent,     label: 'Accent' },
+      { id: 'color4',    hex: palette.color4,     label: 'Highlight' },
+      { id: 'color5',    hex: palette.color5,     label: 'Background' },
+    ]
     const newVibe = palette.vibe || vibe
-    setColors(newColors)
+    setColorList(newList)
     if (palette.vibe) setVibe(newVibe)
 
-    // Auto-save immediately so "Apply Palette" persists without a separate save step
+    // Auto-save immediately
     setSaving(true)
     try {
+      const themeData = colorListToTheme(newList)
       await weddingsAPI.update(wedding.id, {
-        theme: { ...newColors, vibe: newVibe, pinterest_boards: boards },
+        theme: { ...themeData, vibe: newVibe, pinterest_boards: boards },
       })
-      setWeddingTheme({ ...newColors, vibe: newVibe, pinterest_boards: boards })
+      setWeddingTheme({ ...themeData, vibe: newVibe, pinterest_boards: boards })
       toast.success('Palette applied & saved!')
       await onSaved()
     } catch (err) {
@@ -1587,62 +1649,138 @@ function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
       {/* AI Palette Generator — only shown to editors */}
       {canEdit && <AIPaletteWidget onApply={handleAIApply} />}
 
-      {/* Gradient Preview */}
+      {/* Gradient Preview strip */}
       <div className="card-premium overflow-hidden">
-        <div className="h-20 w-full transition-all duration-500" style={gradientStyle} />
+        <div className="h-16 w-full transition-all duration-500" style={gradientStyle} />
         <div className="p-4 flex items-center gap-3 flex-wrap">
-          {COLOR_KEYS.map((key, i) => (
-            <div key={key} className="flex items-center gap-2">
+          {colorList.map((c) => (
+            <div key={c.id} className="flex items-center gap-2">
               <div
-                className="w-8 h-8 rounded-full border-2 border-white shadow-md cursor-pointer"
-                style={{ background: colors[key] }}
-                title={COLOR_LABELS[i]}
+                className="w-6 h-6 rounded-full border-2 border-white shadow-md flex-shrink-0"
+                style={{ background: c.hex }}
+                title={c.label}
               />
-              <span className="text-xs text-cowc-gray font-medium">{COLOR_LABELS[i]}</span>
+              <span className="text-xs text-cowc-gray font-medium hidden sm:inline">{c.label}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Color Pickers */}
-      <div className="card-premium p-6 md:p-8">
-        <h3 className="text-xl md:text-2xl font-serif text-cowc-dark mb-6 flex items-center gap-3">
-          <Palette className="w-5 md:w-6 h-5 md:h-6 text-cowc-gold" />
-          Wedding Color Palette
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
-          {COLOR_KEYS.map((key, i) => (
-            <div key={key} className="text-center">
-              <label className="block text-sm font-semibold text-cowc-dark mb-3">
-                {COLOR_LABELS[i]}
-              </label>
-              <div className="relative mx-auto w-20 h-20 rounded-2xl border-4 border-white shadow-lg overflow-hidden"
-                style={{ background: colors[key] }}>
+      {/* Color Palette — coolors.co style */}
+      <div className="card-premium overflow-hidden">
+        <div className="p-5 pb-3 flex items-center justify-between">
+          <h3 className="text-xl font-serif text-cowc-dark flex items-center gap-3">
+            <Palette className="w-5 h-5 text-cowc-gold" />
+            Wedding Color Palette
+          </h3>
+          {canEdit && (
+            <span className="text-xs text-cowc-gray">
+              Drag to reorder · click to pick · {colorList.length} colors
+            </span>
+          )}
+        </div>
+
+        {/* Swatch strip */}
+        <DragDropContext onDragEnd={handleColorDragEnd}>
+          <Droppable droppableId="color-palette" direction="horizontal">
+            {(provided) => (
+              <div
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+                className="flex"
+                style={{ height: 200 }}
+              >
+                {colorList.map((color, index) => (
+                  <Draggable
+                    key={color.id}
+                    draggableId={color.id}
+                    index={index}
+                    isDragDisabled={!canEdit}
+                  >
+                    {(drag, snapshot) => (
+                      <div
+                        ref={drag.innerRef}
+                        {...drag.draggableProps}
+                        className="relative flex-1 group select-none"
+                        style={{
+                          background: color.hex,
+                          minWidth: 60,
+                          ...drag.draggableProps.style,
+                        }}
+                      >
+                        {/* Drag handle — top centre, visible on hover */}
+                        {canEdit && (
+                          <div
+                            {...drag.dragHandleProps}
+                            className="absolute top-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity z-10 p-1"
+                          >
+                            <GripVertical className="w-4 h-4 drop-shadow" style={{ color: 'rgba(255,255,255,0.85)' }} />
+                          </div>
+                        )}
+
+                        {/* Delete button — top right, visible on hover (only if >2 colors) */}
+                        {canEdit && colorList.length > 2 && (
+                          <button
+                            onClick={() => handleRemoveColor(color.id)}
+                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 w-6 h-6 rounded-full bg-black/30 flex items-center justify-center hover:bg-black/60 transition-all z-10"
+                          >
+                            <X className="w-3 h-3 text-white" />
+                          </button>
+                        )}
+
+                        {/* Hidden color input overlaid on entire swatch */}
+                        {canEdit && (
+                          <input
+                            type="color"
+                            value={color.hex}
+                            onChange={(e) => handleColorChange(color.id, e.target.value)}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-0"
+                            title={`Pick ${color.label} color`}
+                          />
+                        )}
+
+                        {/* Bottom label + hex — always visible */}
+                        <div className="absolute bottom-0 left-0 right-0 px-2 py-3 bg-gradient-to-t from-black/40 to-transparent flex flex-col items-center gap-1">
+                          <p className="text-white text-xs font-semibold drop-shadow truncate w-full text-center">
+                            {color.label}
+                          </p>
+                          {canEdit ? (
+                            <input
+                              type="text"
+                              value={color.hex.toUpperCase()}
+                              onChange={(e) => {
+                                const v = e.target.value
+                                if (/^#[0-9a-fA-F]{0,6}$/.test(v)) handleColorChange(color.id, v)
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-full text-center text-xs font-mono bg-white/20 backdrop-blur-sm border border-white/30 rounded px-1 py-0.5 text-white placeholder-white/60 focus:outline-none focus:bg-white/30 focus:border-white/60"
+                              maxLength={7}
+                            />
+                          ) : (
+                            <p className="text-white/80 text-xs font-mono drop-shadow">{color.hex.toUpperCase()}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+
+                {/* Add color button */}
                 {canEdit && (
-                  <input
-                    type="color"
-                    value={colors[key]}
-                    onChange={(e) => handleColorChange(key, e.target.value)}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    title={`Pick ${COLOR_LABELS[i]} color`}
-                  />
+                  <button
+                    onClick={handleAddColor}
+                    className="w-14 flex-shrink-0 flex flex-col items-center justify-center gap-1 bg-cowc-cream hover:bg-cowc-sand transition-colors border-l border-gray-100"
+                    title="Add color"
+                  >
+                    <Plus className="w-5 h-5 text-cowc-gray" />
+                    <span className="text-xs text-cowc-light-gray font-medium">Add</span>
+                  </button>
                 )}
               </div>
-              <p className="text-xs text-cowc-gray mt-2 font-mono">{colors[key]}</p>
-              {canEdit && (
-                <input
-                  type="text"
-                  value={colors[key]}
-                  onChange={(e) => {
-                    if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) handleColorChange(key, e.target.value)
-                  }}
-                  className="mt-1 w-full text-center text-xs border border-cowc-sand rounded-lg px-2 py-1 font-mono focus:outline-none focus:ring-1 focus:ring-cowc-gold"
-                  maxLength={7}
-                />
-              )}
-            </div>
-          ))}
-        </div>
+            )}
+          </Droppable>
+        </DragDropContext>
       </div>
 
       {/* Vibe / Style */}

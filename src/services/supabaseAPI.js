@@ -217,6 +217,7 @@ export const weddingsAPI = {
       if (updates.theme.color4    !== undefined) updateData.theme_color_4         = updates.theme.color4
       if (updates.theme.color5    !== undefined) updateData.theme_color_5         = updates.theme.color5
       if (updates.theme.vibe      !== undefined) updateData.theme_vibe            = updates.theme.vibe
+      if (updates.theme.extraColors        !== undefined) updateData.theme_extra_colors   = updates.theme.extraColors
       if (updates.theme.inspiration_photos !== undefined) updateData.inspiration_photos = updates.theme.inspiration_photos
       if (updates.theme.pinterest_boards   !== undefined) updateData.pinterest_boards   = updates.theme.pinterest_boards
     }
@@ -771,6 +772,7 @@ function transformWedding(data) {
       color4:    data.theme_color_4         || '#f0e6d3',
       color5:    data.theme_color_5         || '#ffffff',
       vibe: data.theme_vibe || 'Classic Elegant',
+      extraColors: data.theme_extra_colors || [],
       inspiration_photos: data.inspiration_photos || [],
       pinterest_boards: data.pinterest_boards || [],
     },
