@@ -541,7 +541,19 @@ export function AddVendorModal({ isOpen, onClose, weddingId, onVendorAdded }) {
   )
 }
 
-export function AddTimelineModal({ isOpen, onClose, weddingId, onTimelineAdded }) {
+// Convert "4:30 PM" → "16:30" for <input type="time">
+function to24Hr(timeStr) {
+  if (!timeStr) return ''
+  const match = timeStr.match(/^(\d+):(\d+)\s*(AM|PM)$/i)
+  if (!match) return timeStr // already 24h or unknown format
+  let [, h, m, meridiem] = match
+  h = parseInt(h, 10)
+  if (meridiem.toUpperCase() === 'PM' && h !== 12) h += 12
+  if (meridiem.toUpperCase() === 'AM' && h === 12) h = 0
+  return `${String(h).padStart(2, '0')}:${m}`
+}
+
+export function AddTimelineModal({ isOpen, onClose, weddingId, onTimelineAdded, defaultTime = null }) {
   const toast = useToast()
   const modalRef = useRef(null)
   const [mode, setMode] = useState('preset') // 'preset' | 'single'
@@ -554,6 +566,14 @@ export function AddTimelineModal({ isOpen, onClose, weddingId, onTimelineAdded }
     order: 0,
   })
   const [saving, setSaving] = useState(false)
+
+  // When opened with a defaultTime (from calendar click), jump straight to single mode
+  useEffect(() => {
+    if (isOpen && defaultTime) {
+      setMode('single')
+      setFormData(f => ({ ...f, time: to24Hr(defaultTime) }))
+    }
+  }, [isOpen, defaultTime])
 
   const presetColors = {
     'Getting Ready': 'from-pink-50 to-pink-100 border-pink-200 hover:border-pink-400',
@@ -580,10 +600,10 @@ export function AddTimelineModal({ isOpen, onClose, weddingId, onTimelineAdded }
   }, [isOpen])
 
   const handleClose = () => {
-    setMode('preset')
+    setMode(defaultTime ? 'single' : 'preset')
     setSelectedPreset(null)
     setSelectedItems([])
-    setFormData({ title: '', time: '', description: '', order: 0 })
+    setFormData({ title: '', time: defaultTime ? to24Hr(defaultTime) : '', description: '', order: 0 })
     onClose()
   }
 

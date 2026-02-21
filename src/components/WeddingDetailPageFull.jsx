@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
+import TimelineCalendar from './TimelineCalendar'
 import {
   ArrowLeft, Calendar, MapPin, Users, Phone, Mail,
   Edit, Save, X, Plus, Trash2, Clock, Heart,
@@ -72,6 +73,7 @@ export default function WeddingDetailPageFull() {
   const [showAddTask, setShowAddTask] = useState(false)
   const [showAddVendor, setShowAddVendor] = useState(false)
   const [showAddTimeline, setShowAddTimeline] = useState(false)
+  const [addTimelineTime, setAddTimelineTime] = useState(null)
   const [showFABTray, setShowFABTray] = useState(false)
 
   // Edit states for items
@@ -1156,141 +1158,39 @@ export default function WeddingDetailPageFull() {
             </div>
           )}
 
-          {/* Timeline Tab with Inline Edit + Drag-to-reorder */}
+          {/* Timeline Tab — Day Calendar */}
           {activeTab === 'timeline' && (
             <div className="space-y-4">
               {canEdit && (
                 <button
-                  onClick={() => setShowAddTimeline(true)}
+                  onClick={() => { setAddTimelineTime(null); setShowAddTimeline(true) }}
                   className="w-full py-4 rounded-xl border-2 border-dashed border-cowc-gold text-cowc-gold hover:bg-cowc-gold/5 transition-all flex items-center justify-center gap-2 font-semibold"
                 >
                   <Plus className="w-5 h-5" />
                   Add Timeline Item
                 </button>
               )}
-
-              {localTimeline.length > 0 ? (
-                <DragDropContext onDragEnd={handleTimelineDragEnd}>
-                  <Droppable droppableId="timeline">
-                    {(provided) => (
-                      <div
-                        {...provided.droppableProps}
-                        ref={provided.innerRef}
-                        className="space-y-4"
-                      >
-                        {localTimeline.map((item, index) => (
-                          <Draggable
-                            key={item.id}
-                            draggableId={String(item.id)}
-                            index={index}
-                            isDragDisabled={!canEdit || editingTimelineId === item.id}
-                          >
-                            {(drag, snapshot) => (
-                              <div
-                                ref={drag.innerRef}
-                                {...drag.draggableProps}
-                                className={`card-premium p-6 transition-shadow ${snapshot.isDragging ? 'shadow-2xl ring-2 ring-cowc-gold/30' : ''}`}
-                              >
-                                {editingTimelineId === item.id ? (
-                                  <div className="space-y-4">
-                                    <input
-                                      type="text"
-                                      defaultValue={item.title}
-                                      onChange={(e) => setEditForms({...editForms, [`timeline-${item.id}-title`]: e.target.value})}
-                                      className="input-premium"
-                                      placeholder="Event title"
-                                    />
-                                    <input
-                                      type="text"
-                                      defaultValue={item.time}
-                                      onChange={(e) => setEditForms({...editForms, [`timeline-${item.id}-time`]: e.target.value})}
-                                      className="input-premium"
-                                      placeholder="Time (e.g., 4:00 PM)"
-                                    />
-                                    <textarea
-                                      defaultValue={item.description}
-                                      onChange={(e) => setEditForms({...editForms, [`timeline-${item.id}-description`]: e.target.value})}
-                                      className="input-premium min-h-[80px]"
-                                      placeholder="Description"
-                                    />
-                                    <div className="flex gap-3">
-                                      <button
-                                        onClick={() => handleUpdateTimeline(item.id, {
-                                          title: editForms[`timeline-${item.id}-title`] || item.title,
-                                          time: editForms[`timeline-${item.id}-time`] || item.time,
-                                          description: editForms[`timeline-${item.id}-description`] || item.description,
-                                        })}
-                                        className="px-4 py-2 rounded-xl bg-green-500 text-white hover:bg-green-600"
-                                      >
-                                        Save
-                                      </button>
-                                      <button
-                                        onClick={() => setEditingTimelineId(null)}
-                                        className="px-4 py-2 rounded-xl bg-gray-500 text-white hover:bg-gray-600"
-                                      >
-                                        Cancel
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-start gap-4">
-                                    {canEdit && (
-                                      <div
-                                        {...drag.dragHandleProps}
-                                        className="flex-shrink-0 mt-1 cursor-grab active:cursor-grabbing touch-none"
-                                      >
-                                        <GripVertical className="w-5 h-5 text-cowc-light-gray hover:text-cowc-gold transition-colors" />
-                                      </div>
-                                    )}
-                                    <div className="flex-shrink-0">
-                                      <div className="w-12 md:w-16 h-12 md:h-16 bg-cowc-gold/10 rounded-full flex items-center justify-center">
-                                        <Clock className="w-6 md:w-8 h-6 md:h-8 text-cowc-gold" />
-                                      </div>
-                                    </div>
-                                    <div className="flex-1">
-                                      <div className="flex items-start justify-between mb-2">
-                                        <h4 className="text-lg font-semibold text-cowc-dark">{item.title}</h4>
-                                        <span className="text-cowc-gold font-semibold text-sm md:text-base">{item.time}</span>
-                                      </div>
-                                      {item.description && (
-                                        <p className="text-cowc-gray text-sm md:text-base">{item.description}</p>
-                                      )}
-                                    </div>
-                                    {canEdit && (
-                                      <div className="flex gap-2">
-                                        <button
-                                          onClick={() => setEditingTimelineId(item.id)}
-                                          className="p-2 hover:bg-cowc-cream rounded-lg"
-                                        >
-                                          <Edit2 className="w-4 h-4 text-cowc-dark" />
-                                        </button>
-                                        <button
-                                          onClick={() => handleDeleteTimeline(item.id)}
-                                          className="p-2 hover:bg-red-50 rounded-lg"
-                                        >
-                                          <Trash2 className="w-4 h-4 text-red-500" />
-                                        </button>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </Droppable>
-                </DragDropContext>
-              ) : (
-                !canEdit && (
-                  <div className="card-premium p-12 text-center">
-                    <Clock className="w-16 h-16 text-cowc-light-gray mx-auto mb-4" />
-                    <p className="text-xl text-cowc-gray mb-2">No timeline items yet</p>
-                  </div>
-                )
-              )}
+              <TimelineCalendar
+                items={localTimeline}
+                canEdit={canEdit}
+                onUpdate={async (itemId, updates) => {
+                  try {
+                    await timelineAPI.update(itemId, {
+                      title: updates.title,
+                      time: updates.time || '',
+                      description: updates.description ?? '',
+                    })
+                    await loadWedding()
+                  } catch {
+                    toast.error('Failed to update timeline item')
+                  }
+                }}
+                onDelete={handleDeleteTimeline}
+                onAddAt={(time) => {
+                  setAddTimelineTime(time)
+                  setShowAddTimeline(true)
+                }}
+              />
             </div>
           )}
 
@@ -1531,9 +1431,10 @@ export default function WeddingDetailPageFull() {
       />
       <AddTimelineModal
         isOpen={showAddTimeline}
-        onClose={() => setShowAddTimeline(false)}
+        onClose={() => { setShowAddTimeline(false); setAddTimelineTime(null) }}
         weddingId={id}
         onTimelineAdded={loadWedding}
+        defaultTime={addTimelineTime}
       />
 
       {/* ── FAB (admin/coordinator only) ───────────────────── */}
