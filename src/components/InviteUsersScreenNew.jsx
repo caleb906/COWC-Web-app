@@ -27,7 +27,15 @@ export default function InviteUsersScreenNew() {
 
     setSending(true)
     try {
+      // Refresh session to ensure token is fresh before calling Edge Function
+      await supabase.auth.refreshSession()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Not authenticated — please log in again')
+
       const response = await supabase.functions.invoke('create-user', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: {
           fullName: formData.fullName,
           email: formData.email,

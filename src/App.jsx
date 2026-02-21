@@ -65,8 +65,27 @@ function App() {
         .eq('id', userId)
         .single()
 
-      if (error) throw error
-      setUser(data)
+      if (error && error.code === 'PGRST116') {
+        // Profile doesn't exist yet — create one (e.g. first-time Google sign-in)
+        const { data: { user: authUser } } = await supabase.auth.getUser()
+        const { data: newProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            email: authUser?.email || '',
+            full_name: authUser?.user_metadata?.full_name || authUser?.email?.split('@')[0] || '',
+            role: 'couple',
+          })
+          .select()
+          .single()
+
+        if (createError) throw createError
+        setUser(newProfile)
+      } else if (error) {
+        throw error
+      } else {
+        setUser(data)
+      }
     } catch (error) {
       console.error('Error fetching user profile:', error)
       setUser(null)
