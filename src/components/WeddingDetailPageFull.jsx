@@ -65,7 +65,8 @@ export default function WeddingDetailPageFull() {
   const [inventorySearch, setInventorySearch] = useState('')
   const [editing, setEditing] = useState(false)
   const [editedWedding, setEditedWedding] = useState(null)
-  
+  const [lookingUpAddress, setLookingUpAddress] = useState(false)
+
   // Modal states
   const [showAddTask, setShowAddTask] = useState(false)
   const [showAddVendor, setShowAddVendor] = useState(false)
@@ -210,6 +211,28 @@ export default function WeddingDetailPageFull() {
     } catch (error) {
       console.error('Error saving wedding:', error)
       toast.error('Failed to save changes: ' + (error.message || 'Unknown error'))
+    }
+  }
+
+  // ── AI venue address lookup ────────────────────────────────────────────────
+  const lookupVenueAddress = async () => {
+    const venueName = editedWedding?.venue_name?.trim()
+    if (!venueName) { toast.error('Enter a venue name first'); return }
+    setLookingUpAddress(true)
+    try {
+      const res = await supabase.functions.invoke('lookup-venue-address', {
+        body: { venueName },
+      })
+      if (res.data?.address) {
+        setEditedWedding(w => ({ ...w, venue_address: res.data.address }))
+        toast.success(`Address found: ${res.data.address}`)
+      } else {
+        toast.error('No address found for this venue')
+      }
+    } catch {
+      toast.error('Address lookup failed')
+    } finally {
+      setLookingUpAddress(false)
     }
   }
 
@@ -720,11 +743,26 @@ export default function WeddingDetailPageFull() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-cowc-dark mb-2">Venue Address</label>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-semibold text-cowc-dark">Venue Address</label>
+                        <button
+                          type="button"
+                          onClick={lookupVenueAddress}
+                          disabled={lookingUpAddress || !editedWedding?.venue_name?.trim()}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-cowc-gold hover:text-cowc-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {lookingUpAddress
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <Sparkles className="w-3.5 h-3.5" />
+                          }
+                          {lookingUpAddress ? 'Looking up…' : 'AI Lookup'}
+                        </button>
+                      </div>
                       <textarea
-                        value={editedWedding.venue_address}
+                        value={editedWedding.venue_address || ''}
                         onChange={(e) => setEditedWedding({ ...editedWedding, venue_address: e.target.value })}
                         className="input-premium min-h-[80px]"
+                        placeholder="Click 'AI Lookup' to auto-fill from venue name"
                         rows={3}
                       />
                     </div>
