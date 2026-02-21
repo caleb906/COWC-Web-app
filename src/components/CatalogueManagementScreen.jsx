@@ -282,6 +282,16 @@ function ItemModal({ item, onSave, onClose }) {
               )}
             </div>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+            {/* URL paste option */}
+            <div className="mt-2 flex gap-2 items-center">
+              <input
+                type="url"
+                placeholder="Or paste an image URL (Canva, etc.)"
+                value={form.photo_url && !form.photo_url.startsWith('http') ? '' : (form.photo_url || '')}
+                onChange={(e) => setForm(f => ({ ...f, photo_url: e.target.value }))}
+                className="input-premium text-xs py-2 flex-1"
+              />
+            </div>
             {form.photo_url && (
               <button
                 type="button"

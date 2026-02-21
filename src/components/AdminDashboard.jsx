@@ -33,9 +33,9 @@ const stageFor = (status) =>
 
 // ─── Package type config ────────────────────────────────────────────────────
 const PACKAGES = [
-  { value: 'Full Coordination',  short: 'Full',    color: 'bg-amber-100 text-amber-800',   border: 'border-amber-300' },
-  { value: 'Partial Planning',   short: 'Partial', color: 'bg-purple-100 text-purple-800', border: 'border-purple-300' },
-  { value: 'Day of Coordination',short: 'Day-Of',  color: 'bg-sky-100 text-sky-800',       border: 'border-sky-300' },
+  { value: 'FP',  short: 'FP',  label: 'Full Planning',        color: 'bg-amber-100 text-amber-800',   border: 'border-amber-300' },
+  { value: 'PP',  short: 'PP',  label: 'Partial Planning',     color: 'bg-purple-100 text-purple-800', border: 'border-purple-300' },
+  { value: 'DOC', short: 'DOC', label: 'Day of Coordination',  color: 'bg-sky-100 text-sky-800',       border: 'border-sky-300' },
 ]
 
 function PackageBadge({ packageType }) {

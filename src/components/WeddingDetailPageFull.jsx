@@ -787,9 +787,9 @@ export default function WeddingDetailPageFull() {
                   </h3>
                   <div className="flex flex-wrap gap-3">
                     {[
-                      { value: 'Full Coordination',   label: 'Full Coordination',   color: 'bg-amber-100 text-amber-800 border-amber-300' },
-                      { value: 'Partial Planning',    label: 'Partial Planning',    color: 'bg-purple-100 text-purple-800 border-purple-300' },
-                      { value: 'Day of Coordination', label: 'Day of Coordination', color: 'bg-sky-100 text-sky-800 border-sky-300' },
+                      { value: 'FP',  label: 'FP — Full Planning',        color: 'bg-amber-100 text-amber-800 border-amber-300' },
+                      { value: 'PP',  label: 'PP — Partial Planning',     color: 'bg-purple-100 text-purple-800 border-purple-300' },
+                      { value: 'DOC', label: 'DOC — Day of Coordination', color: 'bg-sky-100 text-sky-800 border-sky-300' },
                     ].map(pkg => {
                       const current = editing ? editedWedding.package_type : wedding.package_type
                       const isActive = current === pkg.value

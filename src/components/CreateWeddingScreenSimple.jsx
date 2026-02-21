@@ -13,6 +13,7 @@ export default function CreateWeddingScreenSimple() {
   const [formData, setFormData] = useState({
     coupleName: '',
     coupleEmail: '',
+    packageType: '',
     weddingDate: '',
     venueName: '',
     venueAddress: '',
@@ -24,6 +25,13 @@ export default function CreateWeddingScreenSimple() {
     accentColor: '#faf9f7',
     vibe: 'Classic Elegant',
   })
+
+  const packageOptions = [
+    { value: '', label: 'Select package...' },
+    { value: 'DOC', label: 'DOC — Day of Coordination' },
+    { value: 'PP', label: 'PP — Partial Planning' },
+    { value: 'FP', label: 'FP — Full Planning' },
+  ]
 
   const vibeOptions = [
     'Romantic Garden',
@@ -73,6 +81,7 @@ export default function CreateWeddingScreenSimple() {
         couple_name: formData.coupleName,
         couple_user_id: null,
         couple_email: formData.coupleEmail || null,
+        package_type: formData.packageType || null,
         wedding_date: formData.weddingDate,
         venue_name: formData.venueName,
         venue_address: formData.venueAddress,
@@ -157,6 +166,21 @@ export default function CreateWeddingScreenSimple() {
                   onChange={(e) => setFormData({ ...formData, coupleEmail: e.target.value })}
                   className="input-premium"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-cowc-dark mb-2">
+                  Package Type
+                </label>
+                <select
+                  value={formData.packageType}
+                  onChange={(e) => setFormData({ ...formData, packageType: e.target.value })}
+                  className="input-premium"
+                >
+                  {packageOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </div>
 
               <div>
