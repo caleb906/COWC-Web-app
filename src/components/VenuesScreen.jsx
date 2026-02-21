@@ -114,21 +114,43 @@ export default function VenuesScreen() {
   const handleLookupAddress = async (id, name) => {
     setLookingUpId(id)
     try {
-      const res = await supabase.functions.invoke('lookup-venue-address', { body: { venueName: name } })
-      if (res.data?.address) {
-        // Update the edit form if currently editing, otherwise save directly
+      // Pass city/state hints so the lookup stays in the right geography.
+      // If we're editing, use whatever is already in the edit form; otherwise
+      // use the saved venue's city/state (defaulting to Oregon if blank).
+      const currentVenue = venues.find(v => v.id === id)
+      const hintCity  = (editingId === id ? editForm.city  : currentVenue?.city)  || ''
+      const hintState = (editingId === id ? editForm.state : currentVenue?.state) || 'Oregon'
+
+      const res = await supabase.functions.invoke('lookup-venue-address', {
+        body: { venueName: name, city: hintCity, state: hintState },
+      })
+
+      const data = res.data
+      if (data?.address || data?.city) {
         if (editingId === id) {
-          setEditForm(f => ({ ...f, address: res.data.address }))
-          toast.success(`Address found: ${res.data.address}`)
+          // Populate all three fields in the edit form
+          setEditForm(f => ({
+            ...f,
+            ...(data.address && { address: data.address }),
+            ...(data.city    && { city: data.city }),
+            ...(data.state   && { state: data.state }),
+            ...(data.website && !f.website && { website: data.website }),
+          }))
+          toast.success(`Found: ${[data.address, data.city, data.state].filter(Boolean).join(', ')}`)
         } else {
-          const { error } = await supabase.from('venues').update({ address: res.data.address }).eq('id', id)
+          const updates = {
+            ...(data.address && { address: data.address }),
+            ...(data.city    && { city: data.city }),
+            ...(data.state   && { state: data.state }),
+          }
+          const { error } = await supabase.from('venues').update(updates).eq('id', id)
           if (!error) {
-            setVenues(v => v.map(venue => venue.id === id ? { ...venue, address: res.data.address } : venue))
-            toast.success(`Address found & saved: ${res.data.address}`)
+            setVenues(v => v.map(venue => venue.id === id ? { ...venue, ...updates } : venue))
+            toast.success(`Saved: ${[data.address, data.city, data.state].filter(Boolean).join(', ')}`)
           }
         }
       } else {
-        toast.error('No address found for this venue')
+        toast.error('No address found — try editing and adding a city first, then retry')
       }
     } catch {
       toast.error('Address lookup failed')
