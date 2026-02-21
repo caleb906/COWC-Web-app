@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Calendar, MapPin, CheckCircle2, Circle, Info, List, LogOut, ChevronRight, ExternalLink, X, Users, ShoppingBag, Palette, Package } from 'lucide-react'
+import { Heart, Calendar, MapPin, CheckCircle2, Circle, Info, List, LogOut, ChevronRight, ExternalLink, X, Users, ShoppingBag, Palette, Package, Camera, Video, Flower2, Music2, UtensilsCrossed, Cake, Sparkles, BookOpen, Building2, Car } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 import { useAuthStore } from '../stores/appStore'
 import { weddingsAPI, tasksAPI, vendorsAPI, logChangeAndNotify } from '../services/unifiedAPI'
@@ -14,16 +14,16 @@ import { useToast } from './Toast'
 // Standard vendor slots always shown on the couple dashboard
 // `covers` = which category values count as filling this slot
 const VENDOR_SLOTS = [
-  { category: 'photographer',   label: 'Photographer',   emoji: '📷', covers: ['photographer', 'photo_video'] },
-  { category: 'videographer',   label: 'Videographer',   emoji: '🎥', covers: ['videographer', 'photo_video'] },
-  { category: 'florist',        label: 'Florist',        emoji: '💐', covers: ['florist'] },
-  { category: 'dj',             label: 'DJ',             emoji: '🎧', covers: ['dj', 'band'] },
-  { category: 'caterer',        label: 'Catering',       emoji: '🍽️', covers: ['caterer'] },
-  { category: 'baker',          label: 'Wedding Cake',   emoji: '🎂', covers: ['baker'] },
-  { category: 'hair_makeup',    label: 'Hair & Makeup',  emoji: '💄', covers: ['hair_makeup'] },
-  { category: 'officiant',      label: 'Officiant',      emoji: '💍', covers: ['officiant'] },
-  { category: 'venue',          label: 'Venue',          emoji: '🏛️', covers: ['venue'] },
-  { category: 'transportation', label: 'Transportation', emoji: '🚗', covers: ['transportation'] },
+  { category: 'photographer',   label: 'Photographer',   icon: Camera,          covers: ['photographer', 'photo_video'] },
+  { category: 'videographer',   label: 'Videographer',   icon: Video,           covers: ['videographer', 'photo_video'] },
+  { category: 'florist',        label: 'Florist',        icon: Flower2,         covers: ['florist'] },
+  { category: 'dj',             label: 'DJ',             icon: Music2,          covers: ['dj', 'band'] },
+  { category: 'caterer',        label: 'Catering',       icon: UtensilsCrossed, covers: ['caterer'] },
+  { category: 'baker',          label: 'Wedding Cake',   icon: Cake,            covers: ['baker'] },
+  { category: 'hair_makeup',    label: 'Hair & Makeup',  icon: Sparkles,        covers: ['hair_makeup'] },
+  { category: 'officiant',      label: 'Officiant',      icon: BookOpen,        covers: ['officiant'] },
+  { category: 'venue',          label: 'Venue',          icon: Building2,       covers: ['venue'] },
+  { category: 'transportation', label: 'Transportation', icon: Car,             covers: ['transportation'] },
 ]
 // All category values that are accounted for by a slot (won't appear in "Additional Vendors")
 const SLOT_CATEGORIES = new Set(VENDOR_SLOTS.flatMap(s => s.covers))
@@ -671,13 +671,22 @@ export default function CoupleDashboard({ previewWeddingId, isPreview } = {}) {
               return (
                 <div key={slot.category}>
                   <div className="flex items-center gap-3 px-5 py-3.5">
-                    {/* Emoji icon */}
-                    <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0"
-                      style={{ background: vendor && !isSuggested ? softRing : '#f3f4f6' }}
-                    >
-                      <span>{slot.emoji}</span>
-                    </div>
+                    {/* Vendor icon */}
+                    {(() => {
+                      const SlotIcon = slot.icon
+                      const filled = vendor && !isSuggested
+                      return (
+                        <div
+                          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{ background: filled ? softRing : '#f3f4f6' }}
+                        >
+                          <SlotIcon
+                            className="w-4 h-4"
+                            style={{ color: filled ? accent : '#a0aec0' }}
+                          />
+                        </div>
+                      )
+                    })()}
 
                     {/* Label + name */}
                     <div className="flex-1 min-w-0">
@@ -773,9 +782,9 @@ export default function CoupleDashboard({ previewWeddingId, isPreview } = {}) {
                 </div>
                 {extra.map(vendor => (
                   <div key={vendor.id} className="flex items-center gap-3 px-5 py-3.5">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0"
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                       style={{ background: vendor.submitted_by_couple ? '#fef3c7' : softRing }}>
-                      <span>🎊</span>
+                      <Sparkles className="w-4 h-4" style={{ color: vendor.submitted_by_couple ? '#d97706' : accent }} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] uppercase tracking-widest font-semibold text-cowc-gray capitalize">
