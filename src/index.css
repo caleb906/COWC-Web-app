@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .card-premium {
+    @apply bg-white rounded-2xl shadow-lg p-4 sm:p-6 md:p-8;
+  }
+
+  .input-premium {
+    @apply w-full px-4 py-3 rounded-xl border-2 border-cowc-sand bg-white text-cowc-dark placeholder-cowc-light-gray focus:outline-none focus:ring-2 focus:ring-cowc-gold focus:border-cowc-gold transition-all min-h-[44px];
+  }
+
+  .btn-premium {
+    @apply px-4 sm:px-6 py-3 rounded-xl font-semibold transition-all hover:shadow-lg min-h-[44px];
+  }
+
+  .badge-lead {
+    @apply px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700;
+  }
+}
+
+/* Mobile Optimizations */
+@media (max-width: 640px) {
+  h1 {
+    font-size: 1.875rem !important;
+  }
+  
+  .text-5xl {
+    font-size: 1.875rem;
+  }
+  
+  .text-4xl {
+    font-size: 1.5rem;
+  }
+}

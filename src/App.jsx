@@ -1,0 +1,183 @@
+import { useEffect, useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import { supabase } from './lib/supabase'
+import { useAuthStore } from './stores/appStore'
+import { WeddingThemeProvider } from './contexts/WeddingThemeContext'
+import { ToastProvider } from './components/Toast'
+import LoginScreen from './components/LoginScreenNew'
+import ChangePasswordModal from './components/ChangePasswordModal'
+import IssueFlagger from './components/IssueFlagger'
+import CoordinatorDashboard from './components/CoordinatorDashboard'
+import CoupleDashboard from './components/CoupleDashboard'
+import AdminDashboard from './components/AdminDashboard'
+import CreateWeddingScreen from './components/CreateWeddingScreenSimple'
+import WeddingDetailPage from './components/WeddingDetailPageFull'
+import InviteUsersScreen from './components/InviteUsersScreenNew'
+import AssignCoordinatorsScreen from './components/AssignCoordinatorsScreenNew'
+import UsersManagementScreen from './components/UsersManagementScreenNew'
+import TasksListScreen from './components/TasksListScreen'
+import VendorListScreen from './components/VendorListScreen'
+import DevPreview from './components/DevPreview'
+import DevSwitcher from './components/DevSwitcher'
+import ScrollToTop from './components/ScrollToTop'
+
+function App() {
+  const { user, session, loading, setUser, setSession, setLoading } = useAuthStore()
+
+  // Dev account view switching (test@cowc.dev only)
+  const [devViewAs, setDevViewAs] = useState(null)       // null=admin, 'coordinator', 'couple'
+  const [devWeddingId, setDevWeddingId] = useState(null)
+  const isDev = user?.email === 'test@cowc.dev'
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      if (session) {
+        fetchUserProfile(session.user.id)
+      } else {
+        setLoading(false)
+      }
+    })
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+      if (session) {
+        fetchUserProfile(session.user.id)
+      } else {
+        setUser(null)
+        setLoading(false)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const fetchUserProfile = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (error) throw error
+      setUser(data)
+    } catch (error) {
+      console.error('Error fetching user profile:', error)
+      setUser(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-cowc-cream via-white to-cowc-sand flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <img src="/logo.png" alt="COWC" className="w-24 h-24 mx-auto mb-6 opacity-50" />
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+            className="w-16 h-16 border-4 border-cowc-gold border-t-transparent rounded-full mx-auto mb-6"
+          />
+          <h1 className="text-4xl font-serif font-light text-cowc-dark mb-2">
+            COWC
+          </h1>
+          <p className="text-cowc-gray text-sm uppercase tracking-widest">
+            Loading...
+          </p>
+        </motion.div>
+      </div>
+    )
+  }
+
+  const handlePasswordChangeComplete = async () => {
+    // Re-fetch user profile so force_password_change is now false
+    if (user?.id) {
+      await fetchUserProfile(user.id)
+    }
+  }
+
+  return (
+    <ToastProvider>
+      <WeddingThemeProvider>
+        <BrowserRouter>
+          {user && user.force_password_change && (
+            <ChangePasswordModal user={user} onComplete={handlePasswordChangeComplete} />
+          )}
+          {user && <IssueFlagger />}
+          <ScrollToTop />
+
+          {/* Dev account view overlays */}
+          {isDev && devViewAs === 'coordinator' && (
+            <div className="fixed inset-0 z-[9000] overflow-auto bg-cowc-cream">
+              <CoordinatorDashboard />
+            </div>
+          )}
+          {isDev && devViewAs === 'couple' && devWeddingId && (
+            <div className="fixed inset-0 z-[9000] overflow-auto">
+              <CoupleDashboard previewWeddingId={devWeddingId} isPreview />
+            </div>
+          )}
+
+          {/* Dev switcher pill */}
+          {isDev && (
+            <DevSwitcher
+              viewAs={devViewAs}
+              setViewAs={setDevViewAs}
+              devWeddingId={devWeddingId}
+              setDevWeddingId={setDevWeddingId}
+            />
+          )}
+
+          <AnimatePresence mode="wait">
+            <Routes>
+            {!user ? (
+              <Route path="*" element={<LoginScreen />} />
+            ) : user.role === 'admin' ? (
+              <>
+                <Route path="/" element={<AdminDashboard />} />
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/users" element={<UsersManagementScreen />} />
+                <Route path="/admin/tasks" element={<TasksListScreen />} />
+                <Route path="/admin/vendors" element={<VendorListScreen />} />
+                <Route path="/admin/create-wedding" element={<CreateWeddingScreen />} />
+                <Route path="/admin/invite-users" element={<InviteUsersScreen />} />
+                <Route path="/admin/assign-coordinators" element={<AssignCoordinatorsScreen />} />
+                <Route path="/admin/preview/couple/:id" element={<DevPreview />} />
+                <Route path="/wedding/:id" element={<WeddingDetailPage />} />
+                <Route path="*" element={<Navigate to="/admin" replace />} />
+              </>
+            ) : user.role === 'coordinator' ? (
+              <>
+                <Route path="/" element={<CoordinatorDashboard />} />
+                <Route path="/wedding/:id" element={<WeddingDetailPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </>
+            ) : user.role === 'couple' ? (
+              <>
+                <Route path="/" element={<CoupleDashboard />} />
+                <Route path="/wedding/:id" element={<WeddingDetailPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </>
+            ) : (
+              <Route path="*" element={<Navigate to="/" replace />} />
+            )}
+            </Routes>
+          </AnimatePresence>
+        </BrowserRouter>
+      </WeddingThemeProvider>
+    </ToastProvider>
+  )
+}
+
+export default App

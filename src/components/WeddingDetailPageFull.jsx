@@ -1,0 +1,1789 @@
+import { useState, useEffect, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
+import {
+  ArrowLeft, Calendar, MapPin, Users, Phone, Mail,
+  Edit, Save, X, Plus, Trash2, Clock, Heart,
+  CheckCircle2, Circle, AlertCircle, DollarSign, Edit2,
+  Palette, ExternalLink, Link, Sparkles, Loader2, RefreshCw,
+  Eye, ClipboardList, ShoppingBag, ListMusic, UserPlus, ChevronDown, ChevronUp
+} from 'lucide-react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../stores/appStore'
+import { useWeddingTheme } from '../contexts/WeddingThemeContext'
+import { weddingsAPI, tasksAPI, vendorsAPI, timelineAPI } from '../services/unifiedAPI'
+import { supabase } from '../lib/supabase'
+import { useToast } from './Toast'
+import { formatDate, daysUntil, isPastDue } from '../utils/dates'
+import { primaryGradient, primaryAccent, primaryAlpha, primaryPageBg, primaryCardBg } from '../utils/colorUtils'
+import { AddTaskModal, AddVendorModal, AddTimelineModal } from './AddModals'
+
+// Default timeline templates
+const DEFAULT_TIMELINE = [
+  { title: 'Rehearsal Dinner', time: '6:00 PM', description: 'Night before wedding', order: 1 },
+  { title: 'Ceremony Begins', time: '4:00 PM', description: '', order: 2 },
+  { title: 'Cocktail Hour', time: '5:00 PM', description: '', order: 3 },
+  { title: 'Reception Begins', time: '6:00 PM', description: '', order: 4 },
+  { title: 'First Dance', time: '7:00 PM', description: '', order: 5 },
+  { title: 'Dinner Service', time: '7:30 PM', description: '', order: 6 },
+  { title: 'Cake Cutting', time: '8:30 PM', description: '', order: 7 },
+  { title: 'Last Dance', time: '10:00 PM', description: '', order: 8 },
+]
+
+export default function WeddingDetailPageFull() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const { user } = useAuthStore()
+  const { theme, setWeddingTheme, resetTheme } = useWeddingTheme()
+  const toast = useToast()
+  
+  const [loading, setLoading] = useState(true)
+  const [wedding, setWedding] = useState(null)
+  const [activeTab, setActiveTab] = useState('overview')
+  const [editing, setEditing] = useState(false)
+  const [editedWedding, setEditedWedding] = useState(null)
+  
+  // Modal states
+  const [showAddTask, setShowAddTask] = useState(false)
+  const [showAddVendor, setShowAddVendor] = useState(false)
+  const [showAddTimeline, setShowAddTimeline] = useState(false)
+  const [showFABTray, setShowFABTray] = useState(false)
+
+  // Edit states for items
+  const [editingTaskId, setEditingTaskId] = useState(null)
+  const [editingVendorId, setEditingVendorId] = useState(null)
+  const [editingTimelineId, setEditingTimelineId] = useState(null)
+  const [editForms, setEditForms] = useState({})
+
+  // Vendor team member add state
+  const [addMemberForVendorId, setAddMemberForVendorId] = useState(null)
+  const [memberForm, setMemberForm] = useState({ name: '', contact_email: '', phone: '', notes: '' })
+  const [savingMember, setSavingMember] = useState(false)
+
+  const handleAddMember = async (parentVendorId) => {
+    if (!memberForm.name.trim()) return
+    setSavingMember(true)
+    try {
+      await vendorsAPI.addMember(parentVendorId, {
+        wedding_id: wedding.id,
+        name: memberForm.name.trim(),
+        contact_email: memberForm.contact_email,
+        phone: memberForm.phone,
+        notes: memberForm.notes,
+        status: 'confirmed',
+      })
+      setAddMemberForVendorId(null)
+      setMemberForm({ name: '', contact_email: '', phone: '', notes: '' })
+      await loadWedding()
+      toast.success('Team member added!')
+    } catch (e) {
+      toast.error('Failed to add member')
+    } finally {
+      setSavingMember(false)
+    }
+  }
+
+  useEffect(() => {
+    loadWedding()
+    return () => resetTheme()
+  }, [id])
+
+  const loadWedding = async () => {
+    try {
+      setLoading(true)
+      const weddingData = await weddingsAPI.getById(id)
+      
+      if (!weddingData) {
+        navigate('/')
+        return
+      }
+      
+      // Add default timeline if empty and user can edit
+      if ((!weddingData.timeline_items || weddingData.timeline_items.length === 0) && canEdit) {
+        await addDefaultTimeline(id)
+        const refreshed = await weddingsAPI.getById(id)
+        setWedding(refreshed)
+        setEditedWedding(refreshed)
+      } else {
+        setWedding(weddingData)
+        setEditedWedding(weddingData)
+      }
+      
+      // Apply wedding theme for all roles (drives header gradient)
+      const finalData = weddingData
+      if (finalData?.theme) {
+        setWeddingTheme(finalData.theme)
+      }
+    } catch (error) {
+      console.error('Error loading wedding:', error)
+      console.log
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const addDefaultTimeline = async (weddingId) => {
+    try {
+      await Promise.all(
+        DEFAULT_TIMELINE.map(item =>
+          timelineAPI.create({
+            wedding_id: weddingId,
+            title: item.title,
+            time: item.time,
+            description: item.description,
+            sort_order: item.order,
+          })
+        )
+      )
+    } catch (error) {
+      console.error('Error adding default timeline:', error)
+    }
+  }
+
+  const canEdit = user.role === 'admin' || user.role === 'coordinator'
+  const isCouple = user.role === 'couple'
+
+  const handleDelete = async () => {
+    const confirmation = window.confirm(
+      `Are you sure you want to delete ${wedding.couple_name}'s wedding?\n\nThis will permanently delete:\n- The wedding\n- All tasks\n- All vendors\n- All timeline items\n- All coordinator assignments\n\nThis CANNOT be undone!`
+    )
+    
+    if (!confirmation) return
+    
+    const doubleCheck = window.prompt(`Type "${wedding.couple_name}" to confirm deletion:`)
+    
+    if (doubleCheck !== wedding.couple_name) {
+      console.log
+      return
+    }
+    
+    try {
+      await weddingsAPI.delete(id)
+      console.log
+      navigate('/admin')
+    } catch (error) {
+      console.error('Error deleting wedding:', error)
+      console.log
+    }
+  }
+
+  const handleSave = async () => {
+    try {
+      await weddingsAPI.update(id, {
+        couple_name: editedWedding.couple_name,
+        wedding_date: editedWedding.wedding_date,
+        venue_name: editedWedding.venue_name,
+        venue_address: editedWedding.venue_address,
+        guest_count: editedWedding.guest_count,
+        budget: editedWedding.budget,
+        notes: editedWedding.notes,
+        status: editedWedding.status,
+      })
+
+      setWedding(editedWedding)
+      setEditing(false)
+      toast.success('Wedding details saved!')
+      await loadWedding()
+    } catch (error) {
+      console.error('Error saving wedding:', error)
+      toast.error('Failed to save changes: ' + (error.message || 'Unknown error'))
+    }
+  }
+
+  const handleTaskToggle = async (task) => {
+    try {
+      if (task.completed) {
+        await tasksAPI.uncomplete(task.id)
+      } else {
+        await tasksAPI.complete(task.id)
+      }
+      await loadWedding()
+    } catch (error) {
+      console.error('Error toggling task:', error)
+    }
+  }
+
+  const handleDeleteTask = async (taskId) => {
+    if (!window.confirm('Delete this task?')) return
+
+    try {
+      await tasksAPI.delete(taskId)
+      toast.success('Task deleted')
+      await loadWedding()
+    } catch (error) {
+      console.error('Error deleting task:', error)
+      toast.error('Failed to delete task')
+    }
+  }
+
+  const handleUpdateTask = async (taskId, updates) => {
+    try {
+      await tasksAPI.update(taskId, {
+        title: updates.title,
+        description: updates.description || '',
+        due_date: updates.due_date,
+        assigned_to: updates.assigned_to,
+      })
+      setEditingTaskId(null)
+      toast.success('Task updated')
+      await loadWedding()
+    } catch (error) {
+      console.error('Error updating task:', error)
+      toast.error('Failed to update task')
+    }
+  }
+
+  const handleConfirmCoupleVendor = async (vendorId) => {
+    try {
+      await vendorsAPI.update(vendorId, { status: 'confirmed' })
+      toast.success('Vendor confirmed!')
+      await loadWedding()
+    } catch (error) {
+      console.error('Error confirming vendor:', error)
+      toast.error('Failed to confirm vendor')
+    }
+  }
+
+  const handleDeleteVendor = async (vendorId) => {
+    if (!window.confirm('Delete this vendor?')) return
+
+    try {
+      await vendorsAPI.delete(vendorId)
+      toast.success('Vendor deleted')
+      await loadWedding()
+    } catch (error) {
+      console.error('Error deleting vendor:', error)
+      toast.error('Failed to delete vendor')
+    }
+  }
+
+  const handleUpdateVendor = async (vendorId, updates) => {
+    try {
+      await vendorsAPI.update(vendorId, {
+        name: updates.name,
+        category: updates.category,
+        contact_email: updates.contact || updates.contact_email || '',
+        phone: updates.phone || '',
+        website: updates.website || '',
+        notes: updates.notes || '',
+        cost: updates.cost ? parseFloat(updates.cost) : null,
+        status: updates.status || 'pending',
+      })
+      setEditingVendorId(null)
+      toast.success('Vendor updated')
+      await loadWedding()
+    } catch (error) {
+      console.error('Error updating vendor:', error)
+      toast.error('Failed to update vendor')
+    }
+  }
+
+  const handleDeleteTimeline = async (itemId) => {
+    if (!window.confirm('Delete this timeline item?')) return
+
+    try {
+      await timelineAPI.delete(itemId)
+      toast.success('Timeline item deleted')
+      await loadWedding()
+    } catch (error) {
+      console.error('Error deleting timeline item:', error)
+      toast.error('Failed to delete timeline item')
+    }
+  }
+
+  const handleUpdateTimeline = async (itemId, updates) => {
+    try {
+      await timelineAPI.update(itemId, {
+        title: updates.title,
+        time: updates.time || '',
+        description: updates.description || '',
+        sort_order: Number(updates.order) || 0,
+      })
+      setEditingTimelineId(null)
+      toast.success('Timeline item updated')
+      await loadWedding()
+    } catch (error) {
+      console.error('Error updating timeline item:', error)
+      toast.error('Failed to update timeline item')
+    }
+  }
+
+  const handleTimelineReorder = async (reorderedItems) => {
+    try {
+      await timelineAPI.reorder(id, reorderedItems.map(item => item.id))
+      await loadWedding()
+    } catch (error) {
+      console.error('Error reordering timeline:', error)
+      toast.error('Failed to reorder timeline')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-cowc-cream flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-cowc-gold border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-cowc-gray font-serif text-xl">Loading wedding details...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!wedding) {
+    return (
+      <div className="min-h-screen bg-cowc-cream flex items-center justify-center p-6">
+        <div className="text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-serif text-cowc-dark mb-2">Wedding Not Found</h2>
+          <button onClick={() => navigate('/')} className="btn-premium mt-4">
+            Go Back
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const days = daysUntil(wedding.wedding_date)
+  const completedTasks = wedding.tasks?.filter(t => t.completed).length || 0
+  const totalTasks = wedding.tasks?.length || 0
+
+  return (
+    <div className="min-h-screen bg-cowc-cream pb-24">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-white pt-12 pb-16 px-6 relative overflow-hidden"
+        style={{
+          background: primaryGradient(theme.primary)
+        }}
+      >
+        <div className="max-w-6xl mx-auto relative z-10">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-white/70 hover:text-white transition-colors mb-8"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Back
+          </button>
+
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6 mb-8">
+            <div className="flex-1">
+              {editing && canEdit ? (
+                <input
+                  type="text"
+                  value={editedWedding.couple_name}
+                  onChange={(e) => setEditedWedding({ ...editedWedding, couple_name: e.target.value })}
+                  className="text-3xl md:text-5xl font-serif font-light mb-2 bg-white/10 border-2 border-white/30 rounded-lg px-4 py-2 w-full"
+                />
+              ) : (
+                <h1 className="text-3xl md:text-5xl font-serif font-light mb-2">
+                  {wedding.couple_name}
+                </h1>
+              )}
+              <p className="text-white/70 text-lg">
+                {wedding.theme?.vibe || 'Wedding Details'}
+              </p>
+            </div>
+
+            {canEdit && (
+              <div className="flex flex-wrap items-center gap-3">
+                {editing ? (
+                  <>
+                    <button
+                      onClick={handleSave}
+                      className="px-4 md:px-6 py-3 rounded-xl bg-green-500 hover:bg-green-600 transition-all flex items-center gap-2 font-semibold text-sm md:text-base"
+                    >
+                      <Save className="w-5 h-5" />
+                      Save
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditing(false)
+                        setEditedWedding(wedding)
+                      }}
+                      className="px-4 md:px-6 py-3 rounded-xl bg-red-500 hover:bg-red-600 transition-all flex items-center gap-2 font-semibold text-sm md:text-base"
+                    >
+                      <X className="w-5 h-5" />
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setEditing(true)}
+                      className="px-4 md:px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 transition-all flex items-center gap-2 font-semibold text-sm md:text-base"
+                    >
+                      <Edit className="w-5 h-5" />
+                      Edit
+                    </button>
+                    {user.role === 'admin' && (
+                      <>
+                        <button
+                          onClick={() => window.open(`/admin/preview/couple/${id}`, '_blank')}
+                          className="px-4 md:px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 transition-all flex items-center gap-2 font-semibold text-white/80 hover:text-white text-sm md:text-base"
+                          title="Preview what this couple sees (opens new tab)"
+                        >
+                          <Eye className="w-5 h-5" />
+                          <span className="hidden sm:inline">Preview as Couple</span>
+                        </button>
+                        <button
+                          onClick={handleDelete}
+                          className="px-4 md:px-6 py-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 transition-all flex items-center gap-2 font-semibold text-red-300 hover:text-red-100 text-sm md:text-base"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Key Info Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-4 md:p-6">
+              <Calendar className="w-6 md:w-8 h-6 md:h-8 mb-2 md:mb-3" style={{ color: theme.primary || '#d4a574' }} />
+              {editing && canEdit ? (
+                <input
+                  type="date"
+                  value={editedWedding.wedding_date}
+                  onChange={(e) => setEditedWedding({ ...editedWedding, wedding_date: e.target.value })}
+                  className="text-sm md:text-lg font-serif text-cowc-dark border-2 border-cowc-sand rounded px-2 py-1 w-full"
+                />
+              ) : (
+                <>
+                  <div className="text-lg md:text-2xl font-serif font-light mb-1 text-cowc-dark">
+                    {formatDate(wedding.wedding_date, 'MMM d, yyyy')}
+                  </div>
+                  <div className="text-xs md:text-sm text-cowc-gray">
+                    {days < 0 ? `${Math.abs(days)} days ago` : days === 0 ? 'Today!' : `${days} days away`}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-4 md:p-6">
+              <Users className="w-6 md:w-8 h-6 md:h-8 mb-2 md:mb-3" style={{ color: theme.primary || '#d4a574' }} />
+              {editing && canEdit ? (
+                <input
+                  type="number"
+                  value={editedWedding.guest_count}
+                  onChange={(e) => setEditedWedding({ ...editedWedding, guest_count: parseInt(e.target.value) || 0 })}
+                  className="text-lg md:text-2xl font-serif text-cowc-dark border-2 border-cowc-sand rounded px-2 py-1 w-full"
+                />
+              ) : (
+                <div className="text-lg md:text-2xl font-serif font-light mb-1 text-cowc-dark">
+                  {wedding.guest_count || 0}
+                </div>
+              )}
+              <div className="text-xs md:text-sm text-cowc-gray">Guests</div>
+            </div>
+
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-4 md:p-6">
+              <CheckCircle2 className="w-6 md:w-8 h-6 md:h-8 mb-2 md:mb-3" style={{ color: theme.primary || '#d4a574' }} />
+              <div className="text-lg md:text-2xl font-serif font-light mb-1 text-cowc-dark">
+                {completedTasks}/{totalTasks}
+              </div>
+              <div className="text-xs md:text-sm text-cowc-gray">Tasks</div>
+            </div>
+
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-4 md:p-6">
+              <DollarSign className="w-6 md:w-8 h-6 md:h-8 mb-2 md:mb-3" style={{ color: theme.primary || '#d4a574' }} />
+              {editing && canEdit ? (
+                <input
+                  type="number"
+                  value={editedWedding.budget}
+                  onChange={(e) => setEditedWedding({ ...editedWedding, budget: parseInt(e.target.value) || 0 })}
+                  className="text-base md:text-xl font-serif text-cowc-dark border-2 border-cowc-sand rounded px-2 py-1 w-full"
+                />
+              ) : (
+                <div className="text-lg md:text-2xl font-serif font-light mb-1 text-cowc-dark">
+                  ${(wedding.budget || 0).toLocaleString()}
+                </div>
+              )}
+              <div className="text-xs md:text-sm text-cowc-gray">Budget</div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      <div className="max-w-6xl mx-auto px-4 md:px-6 -mt-8 relative z-20">
+        {/* Tabs */}
+        <div className="card-premium p-2 mb-8 flex flex-wrap gap-2">
+          {[
+            { id: 'overview',  label: 'Overview' },
+            { id: 'tasks',     label: `Tasks (${totalTasks})` },
+            { id: 'vendors',   label: `Vendors (${wedding.vendors?.length || 0})` },
+            { id: 'timeline',  label: `Timeline (${wedding.timeline_items?.length || 0})` },
+            { id: 'style',     label: 'Style' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 min-w-[100px] py-2 md:py-3 px-3 md:px-6 rounded-xl font-semibold transition-all text-sm md:text-base ${
+                activeTab === tab.id
+                  ? 'bg-cowc-gold text-white shadow-lg'
+                  : 'text-cowc-gray hover:bg-cowc-cream'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab Content */}
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          {/* Overview Tab */}
+          {activeTab === 'overview' && (
+            <div className="space-y-6">
+              <div className="card-premium p-6 md:p-8">
+                <h3 className="text-xl md:text-2xl font-serif text-cowc-dark mb-6 flex items-center gap-3">
+                  <MapPin className="w-5 md:w-6 h-5 md:h-6 text-cowc-gold" />
+                  Venue Details
+                </h3>
+                {editing && canEdit ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-cowc-dark mb-2">Venue Name</label>
+                      <input
+                        type="text"
+                        value={editedWedding.venue_name}
+                        onChange={(e) => setEditedWedding({ ...editedWedding, venue_name: e.target.value })}
+                        className="input-premium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-cowc-dark mb-2">Venue Address</label>
+                      <textarea
+                        value={editedWedding.venue_address}
+                        onChange={(e) => setEditedWedding({ ...editedWedding, venue_address: e.target.value })}
+                        className="input-premium min-h-[80px]"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <p className="font-semibold text-cowc-dark text-lg">{wedding.venue_name}</p>
+                      <p className="text-cowc-gray">{wedding.venue_address}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {(canEdit || wedding.notes) && (
+                <div className="card-premium p-6 md:p-8">
+                  <h3 className="text-xl md:text-2xl font-serif text-cowc-dark mb-6">Notes</h3>
+                  {editing && canEdit ? (
+                    <textarea
+                      value={editedWedding.notes || ''}
+                      onChange={(e) => setEditedWedding({ ...editedWedding, notes: e.target.value })}
+                      className="input-premium min-h-[150px]"
+                      rows={6}
+                      placeholder="Add notes about the wedding..."
+                    />
+                  ) : (
+                    <p className="text-cowc-gray whitespace-pre-wrap">
+                      {wedding.notes || 'No notes yet'}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {canEdit && (
+                <div className="card-premium p-6 md:p-8">
+                  <h3 className="text-xl md:text-2xl font-serif text-cowc-dark mb-6">Wedding Status</h3>
+                  {editing ? (
+                    <select
+                      value={editedWedding.status}
+                      onChange={(e) => setEditedWedding({ ...editedWedding, status: e.target.value })}
+                      className="input-premium"
+                    >
+                      <option value="Planning">Planning</option>
+                      <option value="Active">Active</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
+                  ) : (
+                    <span className={`px-4 py-2 rounded-lg font-semibold ${
+                      wedding.status?.toLowerCase() === 'planning' ? 'bg-blue-100 text-blue-700' :
+                      wedding.status?.toLowerCase() === 'active' ? 'bg-green-100 text-green-700' :
+                      wedding.status?.toLowerCase() === 'completed' ? 'bg-purple-100 text-purple-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {wedding.status || 'Planning'}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Style Tab */}
+          {activeTab === 'style' && (
+            <StyleTab
+              wedding={wedding}
+              canEdit={canEdit}
+              onSaved={loadWedding}
+              setWeddingTheme={setWeddingTheme}
+            />
+          )}
+
+          {/* Tasks Tab with Inline Edit */}
+          {activeTab === 'tasks' && (
+            <div className="space-y-4">
+              {canEdit && (
+                <button
+                  onClick={() => setShowAddTask(true)}
+                  className="w-full py-4 rounded-xl border-2 border-dashed border-cowc-gold text-cowc-gold hover:bg-cowc-gold/5 transition-all flex items-center justify-center gap-2 font-semibold"
+                >
+                  <Plus className="w-5 h-5" />
+                  Add Task
+                </button>
+              )}
+              
+              {wedding.tasks && wedding.tasks.length > 0 ? (
+                wedding.tasks.map((task) => (
+                  <div key={task.id} className="card-premium p-6">
+                    {editingTaskId === task.id ? (
+                      <div className="space-y-4">
+                        <input
+                          type="text"
+                          defaultValue={task.title}
+                          onChange={(e) => setEditForms({...editForms, [`task-${task.id}-title`]: e.target.value})}
+                          className="input-premium"
+                          placeholder="Task title"
+                        />
+                        <textarea
+                          defaultValue={task.description}
+                          onChange={(e) => setEditForms({...editForms, [`task-${task.id}-description`]: e.target.value})}
+                          className="input-premium min-h-[80px]"
+                          placeholder="Description"
+                        />
+                        <div className="grid grid-cols-2 gap-4">
+                          <input
+                            type="date"
+                            defaultValue={task.due_date}
+                            onChange={(e) => setEditForms({...editForms, [`task-${task.id}-due_date`]: e.target.value})}
+                            className="input-premium"
+                          />
+                          <select
+                            defaultValue={task.assigned_to}
+                            onChange={(e) => setEditForms({...editForms, [`task-${task.id}-assigned_to`]: e.target.value})}
+                            className="input-premium"
+                          >
+                            <option value="couple">Couple</option>
+                            <option value="coordinator">Coordinator</option>
+                          </select>
+                        </div>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => handleUpdateTask(task.id, {
+                              title: editForms[`task-${task.id}-title`] || task.title,
+                              description: editForms[`task-${task.id}-description`] || task.description,
+                              due_date: editForms[`task-${task.id}-due_date`] || task.due_date,
+                              assigned_to: editForms[`task-${task.id}-assigned_to`] || task.assigned_to,
+                            })}
+                            className="px-4 py-2 rounded-xl bg-green-500 text-white hover:bg-green-600"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingTaskId(null)}
+                            className="px-4 py-2 rounded-xl bg-gray-500 text-white hover:bg-gray-600"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-4">
+                        <button
+                          onClick={() => handleTaskToggle(task)}
+                          className="flex-shrink-0 mt-1"
+                        >
+                          {task.completed ? (
+                            <CheckCircle2 className="w-6 h-6 text-green-500 fill-green-500" />
+                          ) : (
+                            <Circle className="w-6 h-6 text-cowc-light-gray hover:text-cowc-gold transition-colors" />
+                          )}
+                        </button>
+                        <div className="flex-1">
+                          <h4 className={`text-lg font-semibold mb-1 ${task.completed ? 'text-cowc-light-gray line-through' : 'text-cowc-dark'}`}>
+                            {task.title}
+                          </h4>
+                          {task.description && (
+                            <p className="text-sm text-cowc-gray mb-2">{task.description}</p>
+                          )}
+                          <div className="flex items-center gap-4 text-sm text-cowc-gray">
+                            {task.due_date && (
+                              <span className={isPastDue(task.due_date) && !task.completed ? 'text-red-500 font-semibold' : ''}>
+                                Due: {formatDate(task.due_date, 'MMM d, yyyy')}
+                              </span>
+                            )}
+                            <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                              task.assigned_to === 'couple' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {task.assigned_to === 'couple' ? 'Couple' : 'Coordinator'}
+                            </span>
+                          </div>
+                        </div>
+                        {canEdit && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setEditingTaskId(task.id)}
+                              className="p-2 hover:bg-cowc-cream rounded-lg"
+                            >
+                              <Edit2 className="w-4 h-4 text-cowc-dark" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTask(task.id)}
+                              className="p-2 hover:bg-red-50 rounded-lg"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                !canEdit && (
+                  <div className="card-premium p-12 text-center">
+                    <CheckCircle2 className="w-16 h-16 text-cowc-light-gray mx-auto mb-4" />
+                    <p className="text-xl text-cowc-gray mb-2">No tasks yet</p>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+
+          {/* Vendors Tab with Inline Edit */}
+          {activeTab === 'vendors' && (
+            <div className="space-y-4">
+              {/* Couple suggestions banner */}
+              {canEdit && wedding.vendors?.some(v => v.submitted_by_couple && v.status === 'pending') && (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center gap-3">
+                  <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-amber-600 text-sm font-bold">
+                      {wedding.vendors.filter(v => v.submitted_by_couple && v.status === 'pending').length}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-amber-800">Couple has suggested vendors</p>
+                    <p className="text-xs text-amber-600">Review below — confirm or edit to add them to the team</p>
+                  </div>
+                </div>
+              )}
+
+              {canEdit && (
+                <button
+                  onClick={() => setShowAddVendor(true)}
+                  className="w-full py-4 rounded-xl border-2 border-dashed border-cowc-gold text-cowc-gold hover:bg-cowc-gold/5 transition-all flex items-center justify-center gap-2 font-semibold"
+                >
+                  <Plus className="w-5 h-5" />
+                  Add Vendor
+                </button>
+              )}
+
+              {wedding.vendors && wedding.vendors.length > 0 ? (
+                wedding.vendors.map((vendor) => (
+                  <VendorCard
+                    key={vendor.id}
+                    vendor={vendor}
+                    canEdit={canEdit}
+                    editingVendorId={editingVendorId}
+                    setEditingVendorId={setEditingVendorId}
+                    editForms={editForms}
+                    setEditForms={setEditForms}
+                    handleUpdateVendor={handleUpdateVendor}
+                    handleDeleteVendor={handleDeleteVendor}
+                    handleConfirmCoupleVendor={handleConfirmCoupleVendor}
+                    addMemberForVendorId={addMemberForVendorId}
+                    setAddMemberForVendorId={setAddMemberForVendorId}
+                    memberForm={memberForm}
+                    setMemberForm={setMemberForm}
+                    savingMember={savingMember}
+                    handleAddMember={handleAddMember}
+                  />
+                ))
+              ) : (
+                !canEdit && (
+                  <div className="card-premium p-12 text-center">
+                    <Users className="w-16 h-16 text-cowc-light-gray mx-auto mb-4" />
+                    <p className="text-xl text-cowc-gray mb-2">No vendors yet</p>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+
+          {/* Timeline Tab with Inline Edit */}
+          {activeTab === 'timeline' && (
+            <div className="space-y-4">
+              {canEdit && (
+                <button
+                  onClick={() => setShowAddTimeline(true)}
+                  className="w-full py-4 rounded-xl border-2 border-dashed border-cowc-gold text-cowc-gold hover:bg-cowc-gold/5 transition-all flex items-center justify-center gap-2 font-semibold"
+                >
+                  <Plus className="w-5 h-5" />
+                  Add Timeline Item
+                </button>
+              )}
+
+              {wedding.timeline_items && wedding.timeline_items.length > 0 ? (
+                wedding.timeline_items.map((item) => (
+                  <div key={item.id} className="card-premium p-6">
+                    {editingTimelineId === item.id ? (
+                      <div className="space-y-4">
+                        <input
+                          type="text"
+                          defaultValue={item.title}
+                          onChange={(e) => setEditForms({...editForms, [`timeline-${item.id}-title`]: e.target.value})}
+                          className="input-premium"
+                          placeholder="Event title"
+                        />
+                        <div className="grid grid-cols-2 gap-4">
+                          <input
+                            type="text"
+                            defaultValue={item.time}
+                            onChange={(e) => setEditForms({...editForms, [`timeline-${item.id}-time`]: e.target.value})}
+                            className="input-premium"
+                            placeholder="Time (e.g., 4:00 PM)"
+                          />
+                          <input
+                            type="number"
+                            defaultValue={item.order}
+                            onChange={(e) => setEditForms({...editForms, [`timeline-${item.id}-order`]: e.target.value})}
+                            className="input-premium"
+                            placeholder="Order"
+                          />
+                        </div>
+                        <textarea
+                          defaultValue={item.description}
+                          onChange={(e) => setEditForms({...editForms, [`timeline-${item.id}-description`]: e.target.value})}
+                          className="input-premium min-h-[80px]"
+                          placeholder="Description"
+                        />
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => handleUpdateTimeline(item.id, {
+                              title: editForms[`timeline-${item.id}-title`] || item.title,
+                              time: editForms[`timeline-${item.id}-time`] || item.time,
+                              description: editForms[`timeline-${item.id}-description`] || item.description,
+                              order: editForms[`timeline-${item.id}-order`] || item.order,
+                            })}
+                            className="px-4 py-2 rounded-xl bg-green-500 text-white hover:bg-green-600"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingTimelineId(null)}
+                            className="px-4 py-2 rounded-xl bg-gray-500 text-white hover:bg-gray-600"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0">
+                          <div className="w-12 md:w-16 h-12 md:h-16 bg-cowc-gold/10 rounded-full flex items-center justify-center">
+                            <Clock className="w-6 md:w-8 h-6 md:h-8 text-cowc-gold" />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between mb-2">
+                            <h4 className="text-lg font-semibold text-cowc-dark">{item.title}</h4>
+                            <span className="text-cowc-gold font-semibold text-sm md:text-base">{item.time}</span>
+                          </div>
+                          {item.description && (
+                            <p className="text-cowc-gray text-sm md:text-base">{item.description}</p>
+                          )}
+                        </div>
+                        {canEdit && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setEditingTimelineId(item.id)}
+                              className="p-2 hover:bg-cowc-cream rounded-lg"
+                            >
+                              <Edit2 className="w-4 h-4 text-cowc-dark" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTimeline(item.id)}
+                              className="p-2 hover:bg-red-50 rounded-lg"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                !canEdit && (
+                  <div className="card-premium p-12 text-center">
+                    <Clock className="w-16 h-16 text-cowc-light-gray mx-auto mb-4" />
+                    <p className="text-xl text-cowc-gray mb-2">No timeline items yet</p>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+        </motion.div>
+      </div>
+
+      {/* Add Modals */}
+      <AddTaskModal 
+        isOpen={showAddTask} 
+        onClose={() => setShowAddTask(false)}
+        weddingId={id}
+        onTaskAdded={loadWedding}
+      />
+      <AddVendorModal 
+        isOpen={showAddVendor} 
+        onClose={() => setShowAddVendor(false)}
+        weddingId={id}
+        onVendorAdded={loadWedding}
+      />
+      <AddTimelineModal
+        isOpen={showAddTimeline}
+        onClose={() => setShowAddTimeline(false)}
+        weddingId={id}
+        onTimelineAdded={loadWedding}
+      />
+
+      {/* ── FAB (admin/coordinator only) ───────────────────── */}
+      {canEdit && (
+        <>
+          <AnimatePresence>
+            {showFABTray && (
+              <motion.div
+                initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 12, scale: 0.95 }}
+                transition={{ duration: 0.18 }}
+                className="fixed bottom-24 right-5 z-50 flex flex-col items-end gap-2"
+              >
+                {[
+                  { icon: ClipboardList, label: 'Add Task',         action: () => { setActiveTab('tasks');    setShowAddTask(true) } },
+                  { icon: ShoppingBag,   label: 'Add Vendor',       action: () => { setActiveTab('vendors');  setShowAddVendor(true) } },
+                  { icon: ListMusic,     label: 'Add Timeline Item', action: () => { setActiveTab('timeline'); setShowAddTimeline(true) } },
+                ].map(({ icon: Icon, label, action }) => (
+                  <button
+                    key={label}
+                    onClick={() => { action(); setShowFABTray(false) }}
+                    className="flex items-center gap-3 bg-white text-cowc-dark rounded-2xl px-4 py-3 shadow-xl text-sm font-semibold hover:shadow-2xl transition-all active:scale-95"
+                  >
+                    <span>{label}</span>
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: primaryAlpha(theme.primary, 0.15) }}>
+                      <Icon className="w-4 h-4" style={{ color: primaryAccent(theme.primary) }} />
+                    </div>
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <motion.button
+            whileTap={{ scale: 0.92 }}
+            onClick={() => setShowFABTray(!showFABTray)}
+            className="fixed bottom-6 right-5 z-50 w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-colors"
+            style={{ background: showFABTray ? '#2d3748' : (theme.primary || '#d4a574') }}
+          >
+            <Plus className={`w-7 h-7 text-white transition-transform duration-200 ${showFABTray ? 'rotate-45' : ''}`} />
+          </motion.button>
+
+          {showFABTray && (
+            <div className="fixed inset-0 z-40" onClick={() => setShowFABTray(false)} />
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// AI Palette Widget — natural language → hex
+// ─────────────────────────────────────────────
+function AIPaletteWidget({ onApply }) {
+  const [prompt, setPrompt] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [suggestion, setSuggestion] = useState(null)
+  const [error, setError] = useState('')
+
+  const generate = async () => {
+    if (!prompt.trim()) return
+    setLoading(true)
+    setError('')
+    setSuggestion(null)
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('generate-palette', {
+        body: { description: prompt },
+      })
+      if (fnErr) throw new Error(fnErr.message || 'Function error')
+      if (data?.error) throw new Error(data.error)
+      setSuggestion(data)
+    } catch (e) {
+      setError(e.message || 'Could not generate palette — try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) generate()
+  }
+
+  return (
+    <div className="card-premium p-6 md:p-8"
+      style={{ border: '2px dashed rgba(212,165,116,0.45)' }}>
+      <div className="flex items-center gap-3 mb-2">
+        <div className="w-9 h-9 rounded-xl bg-cowc-gold/15 flex items-center justify-center flex-shrink-0">
+          <Sparkles className="w-4.5 h-4.5 text-cowc-gold" />
+        </div>
+        <div>
+          <h3 className="text-lg font-serif text-cowc-dark leading-tight">AI Color Assistant</h3>
+          <p className="text-xs text-cowc-gray">Describe the vibe — get a full palette instantly</p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-col sm:flex-row gap-3">
+        <textarea
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder='e.g. "olive green, black and warm brown, rustic outdoor feel"'
+          rows={2}
+          className="flex-1 resize-none text-sm border border-cowc-sand rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cowc-gold/50 text-cowc-dark placeholder-cowc-light-gray font-sans"
+        />
+        <button
+          onClick={generate}
+          disabled={loading || !prompt.trim()}
+          className="sm:w-28 flex items-center justify-center gap-2 bg-cowc-gold hover:bg-cowc-gold/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm rounded-xl px-5 py-3 transition-all active:scale-95 flex-shrink-0"
+        >
+          {loading
+            ? <Loader2 className="w-4 h-4 animate-spin" />
+            : <><Sparkles className="w-4 h-4" /> Generate</>
+          }
+        </button>
+      </div>
+
+      {error && (
+        <p className="text-red-500 text-sm mt-3 flex items-center gap-1.5">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />{error}
+        </p>
+      )}
+
+      {suggestion && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-5 rounded-2xl overflow-hidden border border-cowc-sand"
+        >
+          {/* Mini gradient preview */}
+          <div
+            className="h-14 w-full"
+            style={{ background: primaryGradient(suggestion.primary, '135deg') }}
+          />
+
+          <div className="bg-white p-4">
+            {/* Swatches */}
+            <div className="flex items-center gap-3 mb-3">
+              {['primary', 'secondary', 'accent', 'color4', 'color5'].map((k, i) => (
+                <div key={k} className="flex flex-col items-center gap-1">
+                  <div
+                    className="w-9 h-9 rounded-full border-2 border-white shadow-md"
+                    style={{ background: suggestion[k] }}
+                    title={['Primary','Secondary','Accent','Highlight','Background'][i]}
+                  />
+                  <span className="text-[9px] text-cowc-gray font-mono">{suggestion[k]}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Vibe + reasoning */}
+            <p className="font-semibold text-cowc-dark text-sm">{suggestion.vibe}</p>
+            <p className="text-xs text-cowc-gray italic mt-0.5 mb-4">{suggestion.reasoning}</p>
+
+            {/* Actions */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => onApply(suggestion)}
+                className="flex-1 bg-cowc-dark text-white text-sm font-semibold rounded-xl py-2.5 hover:bg-cowc-dark/90 transition-all active:scale-95"
+              >
+                Apply Palette
+              </button>
+              <button
+                onClick={generate}
+                disabled={loading}
+                className="px-4 border border-cowc-sand rounded-xl text-cowc-gray hover:border-cowc-gold hover:text-cowc-gold transition-all"
+                title="Regenerate"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      <p className="text-[10px] text-cowc-light-gray mt-3 text-right">Powered by Claude AI</p>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// Reusable Vendor Category Select
+// ─────────────────────────────────────────────
+const VENDOR_CATEGORIES = [
+  { value: 'photo_video',    label: '📷🎥 Photo & Video (combined)' },
+  { value: 'photographer',  label: '📷 Photographer' },
+  { value: 'videographer',  label: '🎥 Videographer' },
+  { value: 'florist',       label: '💐 Florist' },
+  { value: 'caterer',       label: '🍽️ Caterer' },
+  { value: 'band',          label: '🎸 Band' },
+  { value: 'dj',            label: '🎧 DJ' },
+  { value: 'baker',         label: '🎂 Baker' },
+  { value: 'hair_makeup',   label: '💄 Hair & Makeup' },
+  { value: 'officiant',     label: '💍 Officiant' },
+  { value: 'planner',       label: '📋 Planner' },
+  { value: 'venue',         label: '🏛️ Venue' },
+  { value: 'transportation',label: '🚗 Transportation' },
+  { value: 'rentals',       label: '🪑 Rentals' },
+  { value: 'stationery',    label: '✉️ Stationery' },
+  { value: 'bar',           label: '🍾 Bar' },
+  { value: 'other',         label: '✨ Other' },
+]
+
+function formatVendorCategory(cat) {
+  if (!cat) return ''
+  const found = VENDOR_CATEGORIES.find(c => c.value === cat)
+  if (found) return found.label.replace(/^[\p{Emoji}\s]+/u, '').trim()
+  return cat.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+// ─────────────────────────────────────────────
+// VendorCard — company card with nested team members
+// ─────────────────────────────────────────────
+function VendorCard({
+  vendor, canEdit,
+  editingVendorId, setEditingVendorId,
+  editForms, setEditForms,
+  handleUpdateVendor, handleDeleteVendor, handleConfirmCoupleVendor,
+  addMemberForVendorId, setAddMemberForVendorId,
+  memberForm, setMemberForm,
+  savingMember, handleAddMember,
+  isMember = false,
+}) {
+  const [membersExpanded, setMembersExpanded] = useState(true)
+  const isEditing = editingVendorId === vendor.id
+  const isAddingMember = addMemberForVendorId === vendor.id
+
+  const statusStyle = (s) => {
+    if (s === 'paid')      return 'bg-green-100 text-green-700'
+    if (s === 'confirmed') return 'bg-blue-100 text-blue-700'
+    if (s === 'cancelled') return 'bg-red-100 text-red-500'
+    return 'bg-cowc-cream text-cowc-gray'
+  }
+
+  return (
+    <div className={isMember
+      ? 'ml-6 border-l-2 border-cowc-sand pl-4'
+      : 'card-premium p-6'
+    }>
+      {isEditing ? (
+        <div className="space-y-4">
+          <input
+            type="text"
+            defaultValue={vendor.name}
+            onChange={(e) => setEditForms({...editForms, [`vendor-${vendor.id}-name`]: e.target.value})}
+            className="input-premium"
+            placeholder="Vendor name"
+          />
+          {!isMember && (
+            <select
+              defaultValue={vendor.category}
+              onChange={(e) => setEditForms({...editForms, [`vendor-${vendor.id}-category`]: e.target.value})}
+              className="input-premium"
+            >
+              {VENDOR_CATEGORIES.map(c => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <input type="email" defaultValue={vendor.contact}
+              onChange={(e) => setEditForms({...editForms, [`vendor-${vendor.id}-contact`]: e.target.value})}
+              className="input-premium" placeholder="Email" />
+            <input type="tel" defaultValue={vendor.phone}
+              onChange={(e) => setEditForms({...editForms, [`vendor-${vendor.id}-phone`]: e.target.value})}
+              className="input-premium" placeholder="Phone" />
+          </div>
+          {!isMember && (
+            <div className="grid grid-cols-2 gap-4">
+              <input type="number" defaultValue={vendor.cost || ''}
+                onChange={(e) => setEditForms({...editForms, [`vendor-${vendor.id}-cost`]: e.target.value})}
+                className="input-premium" placeholder="Cost ($)" />
+              <select defaultValue={vendor.status || 'pending'}
+                onChange={(e) => setEditForms({...editForms, [`vendor-${vendor.id}-status`]: e.target.value})}
+                className="input-premium">
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="paid">Paid</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+          )}
+          {!isMember && (
+            <input type="url" defaultValue={vendor.website}
+              onChange={(e) => setEditForms({...editForms, [`vendor-${vendor.id}-website`]: e.target.value})}
+              className="input-premium" placeholder="Website" />
+          )}
+          <textarea defaultValue={vendor.notes}
+            onChange={(e) => setEditForms({...editForms, [`vendor-${vendor.id}-notes`]: e.target.value})}
+            className="input-premium min-h-[80px]" placeholder="Notes" />
+          <div className="flex gap-3">
+            <button
+              onClick={() => handleUpdateVendor(vendor.id, {
+                name: editForms[`vendor-${vendor.id}-name`] || vendor.name,
+                category: editForms[`vendor-${vendor.id}-category`] || vendor.category,
+                contact_email: editForms[`vendor-${vendor.id}-contact`] || vendor.contact,
+                phone: editForms[`vendor-${vendor.id}-phone`] || vendor.phone,
+                website: editForms[`vendor-${vendor.id}-website`] || vendor.website,
+                notes: editForms[`vendor-${vendor.id}-notes`] || vendor.notes,
+                cost: editForms[`vendor-${vendor.id}-cost`] ?? vendor.cost,
+                status: editForms[`vendor-${vendor.id}-status`] || vendor.status,
+              })}
+              className="px-4 py-2 rounded-xl bg-green-500 text-white hover:bg-green-600"
+            >Save</button>
+            <button onClick={() => setEditingVendorId(null)}
+              className="px-4 py-2 rounded-xl bg-gray-500 text-white hover:bg-gray-600">
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          {/* Main vendor row */}
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center flex-wrap gap-2 mb-1">
+                <h4 className={`font-semibold text-cowc-dark ${isMember ? 'text-base' : 'text-lg'}`}>
+                  {vendor.name}
+                </h4>
+                {!isMember && vendor.status && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusStyle(vendor.status)}`}>
+                    {vendor.status.charAt(0).toUpperCase() + vendor.status.slice(1)}
+                  </span>
+                )}
+                {vendor.submitted_by_couple && (
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
+                    💡 Suggested by couple
+                  </span>
+                )}
+              </div>
+
+              {!isMember && (
+                <div className="flex items-center gap-3 mb-2">
+                  <p className="text-sm text-cowc-gray">{formatVendorCategory(vendor.category)}</p>
+                  {vendor.cost && (
+                    <p className="text-sm font-semibold text-cowc-gold">${Number(vendor.cost).toLocaleString()}</p>
+                  )}
+                </div>
+              )}
+
+              {(vendor.contact || vendor.phone) && (
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {vendor.contact && (
+                    <a href={`mailto:${vendor.contact}`} className="text-sm text-cowc-gold hover:underline flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5" />{vendor.contact}
+                    </a>
+                  )}
+                  {vendor.phone && (
+                    <a href={`tel:${vendor.phone}`} className="text-sm text-cowc-gold hover:underline flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5" />{vendor.phone}
+                    </a>
+                  )}
+                </div>
+              )}
+              {vendor.notes && (
+                <p className="text-sm text-cowc-gray mt-1.5 italic">{vendor.notes}</p>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-1.5 flex-shrink-0 ml-3">
+              {!isMember && canEdit && vendor.members?.length > 0 && (
+                <button
+                  onClick={() => setMembersExpanded(prev => !prev)}
+                  className="p-1.5 hover:bg-cowc-cream rounded-lg text-cowc-gray"
+                  title={membersExpanded ? 'Collapse team' : 'Expand team'}
+                >
+                  {membersExpanded
+                    ? <ChevronUp className="w-4 h-4" />
+                    : <ChevronDown className="w-4 h-4" />
+                  }
+                </button>
+              )}
+              {canEdit && vendor.submitted_by_couple && vendor.status === 'pending' && (
+                <button onClick={() => handleConfirmCoupleVendor(vendor.id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500 text-white text-xs font-semibold hover:bg-green-600 transition-colors">
+                  <CheckCircle2 className="w-3.5 h-3.5" />Confirm
+                </button>
+              )}
+              {canEdit && (
+                <>
+                  <button onClick={() => setEditingVendorId(vendor.id)}
+                    className="p-2 hover:bg-cowc-cream rounded-lg">
+                    <Edit2 className="w-4 h-4 text-cowc-dark" />
+                  </button>
+                  <button onClick={() => handleDeleteVendor(vendor.id)}
+                    className="p-2 hover:bg-red-50 rounded-lg">
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Team members */}
+          {!isMember && vendor.members?.length > 0 && membersExpanded && (
+            <div className="mt-4 space-y-3">
+              {vendor.members.map(member => (
+                <VendorCard
+                  key={member.id}
+                  vendor={member}
+                  isMember
+                  canEdit={canEdit}
+                  editingVendorId={editingVendorId}
+                  setEditingVendorId={setEditingVendorId}
+                  editForms={editForms}
+                  setEditForms={setEditForms}
+                  handleUpdateVendor={handleUpdateVendor}
+                  handleDeleteVendor={handleDeleteVendor}
+                  handleConfirmCoupleVendor={handleConfirmCoupleVendor}
+                  addMemberForVendorId={addMemberForVendorId}
+                  setAddMemberForVendorId={setAddMemberForVendorId}
+                  memberForm={memberForm}
+                  setMemberForm={setMemberForm}
+                  savingMember={savingMember}
+                  handleAddMember={handleAddMember}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Add team member inline form */}
+          {!isMember && canEdit && (
+            <div className="mt-3">
+              {isAddingMember ? (
+                <div className="mt-3 p-4 rounded-xl bg-cowc-cream/60 border border-cowc-sand space-y-3">
+                  <p className="text-xs font-semibold text-cowc-gray uppercase tracking-wide">Add Team Member</p>
+                  <input
+                    type="text"
+                    value={memberForm.name}
+                    onChange={e => setMemberForm(f => ({...f, name: e.target.value}))}
+                    className="input-premium text-sm"
+                    placeholder="Name (e.g. Second Shooter, Lead Stylist)"
+                    autoFocus
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="email" value={memberForm.contact_email}
+                      onChange={e => setMemberForm(f => ({...f, contact_email: e.target.value}))}
+                      className="input-premium text-sm" placeholder="Email (optional)" />
+                    <input type="tel" value={memberForm.phone}
+                      onChange={e => setMemberForm(f => ({...f, phone: e.target.value}))}
+                      className="input-premium text-sm" placeholder="Phone (optional)" />
+                  </div>
+                  <input type="text" value={memberForm.notes}
+                    onChange={e => setMemberForm(f => ({...f, notes: e.target.value}))}
+                    className="input-premium text-sm" placeholder="Role / notes (optional)" />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleAddMember(vendor.id)}
+                      disabled={savingMember || !memberForm.name.trim()}
+                      className="flex items-center gap-2 px-4 py-2 bg-cowc-dark text-white text-sm rounded-xl hover:bg-cowc-dark/90 disabled:opacity-50"
+                    >
+                      {savingMember ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                      Add
+                    </button>
+                    <button onClick={() => { setAddMemberForVendorId(null); setMemberForm({ name: '', contact_email: '', phone: '', notes: '' }) }}
+                      className="px-4 py-2 border border-cowc-sand rounded-xl text-cowc-gray hover:bg-cowc-cream text-sm">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setAddMemberForVendorId(vendor.id)}
+                  className="mt-2 flex items-center gap-1.5 text-xs text-cowc-gray hover:text-cowc-gold transition-colors"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  Add team member
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// AI Palette Widget — natural language → hex
+// ─────────────────────────────────────────────
+
+// Style Tab — 5-color palette + Pinterest boards
+// ─────────────────────────────────────────────
+const COLOR_LABELS = ['Primary', 'Secondary', 'Accent', 'Highlight', 'Background']
+const COLOR_KEYS   = ['primary', 'secondary', 'accent', 'color4', 'color5']
+
+const VIBE_OPTIONS = [
+  'Romantic Garden', 'Modern Bohemian', 'Classic Elegant', 'Rustic Charm',
+  'Mountain Elegant', 'Beach Chic', 'Urban Modern', 'Vintage Glam',
+  'Desert Luxe', 'Autumn Romance',
+]
+
+function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
+  const toast = useToast()
+  const [saving, setSaving] = useState(false)
+
+  // Local copies for editing
+  const [colors, setColors] = useState({
+    primary:   wedding.theme?.primary   || '#d4a574',
+    secondary: wedding.theme?.secondary || '#2d3748',
+    accent:    wedding.theme?.accent    || '#faf9f7',
+    color4:    wedding.theme?.color4    || '#f0e6d3',
+    color5:    wedding.theme?.color5    || '#ffffff',
+  })
+  const [vibe, setVibe] = useState(wedding.theme?.vibe || 'Classic Elegant')
+  const [boards, setBoards] = useState(wedding.theme?.pinterest_boards || [])
+  const [newBoardName, setNewBoardName] = useState('')
+  const [newBoardUrl,  setNewBoardUrl]  = useState('')
+
+  // Refs so async callbacks always see the latest colors/vibe when auto-saving
+  const colorsRef = useRef(colors)
+  const vibeRef   = useRef(vibe)
+  useEffect(() => { colorsRef.current = colors }, [colors])
+  useEffect(() => { vibeRef.current   = vibe   }, [vibe])
+
+  // Preview shows the primary-driven gradient — same as what will appear on headers
+  const gradientStyle = {
+    background: primaryGradient(colors.primary, '135deg'),
+  }
+
+  const handleColorChange = (key, val) => {
+    setColors(prev => ({ ...prev, [key]: val }))
+  }
+
+  const fetchBoardCover = async (boardId, url) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-pinterest-board', {
+        body: { url },
+      })
+      if (error || data?.error) throw new Error(data?.error || error?.message)
+      const coverUrl = data.cover_url || null
+      setBoards(prev => {
+        const updated = prev.map(b =>
+          b.id === boardId ? { ...b, cover_url: coverUrl, fetching: false } : b
+        )
+        // Auto-save to DB so the couple dashboard shows the cover without a manual save
+        weddingsAPI.update(wedding.id, {
+          theme: { ...colorsRef.current, vibe: vibeRef.current, pinterest_boards: updated },
+        }).catch(err => console.error('Board cover auto-save failed:', err))
+        return updated
+      })
+    } catch {
+      setBoards(prev => prev.map(b =>
+        b.id === boardId ? { ...b, fetching: false } : b
+      ))
+    }
+  }
+
+  const handleAddBoard = async () => {
+    const name = newBoardName.trim()
+    const url  = newBoardUrl.trim()
+    if (!name || !url) return
+    const newBoard = { id: crypto.randomUUID(), name, url, cover_url: null, fetching: true }
+    setBoards(prev => [...prev, newBoard])
+    setNewBoardName('')
+    setNewBoardUrl('')
+    // Fetch cover in the background — non-blocking
+    fetchBoardCover(newBoard.id, url)
+  }
+
+  const handleRefreshBoardCover = (boardId, url) => {
+    setBoards(prev => prev.map(b => b.id === boardId ? { ...b, fetching: true } : b))
+    fetchBoardCover(boardId, url)
+  }
+
+  const handleRemoveBoard = (boardId) => {
+    setBoards(prev => prev.filter(b => b.id !== boardId))
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await weddingsAPI.update(wedding.id, {
+        theme: { ...colors, vibe, pinterest_boards: boards },
+      })
+      setWeddingTheme({ ...colors, vibe, pinterest_boards: boards })
+      toast.success('Style saved!')
+      await onSaved()
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to save style')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAIApply = (palette) => {
+    setColors({
+      primary:   palette.primary,
+      secondary: palette.secondary,
+      accent:    palette.accent,
+      color4:    palette.color4,
+      color5:    palette.color5,
+    })
+    if (palette.vibe) setVibe(palette.vibe)
+  }
+
+  return (
+    <div className="space-y-6">
+
+      {/* AI Palette Generator — only shown to editors */}
+      {canEdit && <AIPaletteWidget onApply={handleAIApply} />}
+
+      {/* Gradient Preview */}
+      <div className="card-premium overflow-hidden">
+        <div className="h-20 w-full transition-all duration-500" style={gradientStyle} />
+        <div className="p-4 flex items-center gap-3 flex-wrap">
+          {COLOR_KEYS.map((key, i) => (
+            <div key={key} className="flex items-center gap-2">
+              <div
+                className="w-8 h-8 rounded-full border-2 border-white shadow-md cursor-pointer"
+                style={{ background: colors[key] }}
+                title={COLOR_LABELS[i]}
+              />
+              <span className="text-xs text-cowc-gray font-medium">{COLOR_LABELS[i]}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Color Pickers */}
+      <div className="card-premium p-6 md:p-8">
+        <h3 className="text-xl md:text-2xl font-serif text-cowc-dark mb-6 flex items-center gap-3">
+          <Palette className="w-5 md:w-6 h-5 md:h-6 text-cowc-gold" />
+          Wedding Color Palette
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+          {COLOR_KEYS.map((key, i) => (
+            <div key={key} className="text-center">
+              <label className="block text-sm font-semibold text-cowc-dark mb-3">
+                {COLOR_LABELS[i]}
+              </label>
+              <div className="relative mx-auto w-20 h-20 rounded-2xl border-4 border-white shadow-lg overflow-hidden"
+                style={{ background: colors[key] }}>
+                {canEdit && (
+                  <input
+                    type="color"
+                    value={colors[key]}
+                    onChange={(e) => handleColorChange(key, e.target.value)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    title={`Pick ${COLOR_LABELS[i]} color`}
+                  />
+                )}
+              </div>
+              <p className="text-xs text-cowc-gray mt-2 font-mono">{colors[key]}</p>
+              {canEdit && (
+                <input
+                  type="text"
+                  value={colors[key]}
+                  onChange={(e) => {
+                    if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) handleColorChange(key, e.target.value)
+                  }}
+                  className="mt-1 w-full text-center text-xs border border-cowc-sand rounded-lg px-2 py-1 font-mono focus:outline-none focus:ring-1 focus:ring-cowc-gold"
+                  maxLength={7}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Vibe / Style */}
+      <div className="card-premium p-6 md:p-8">
+        <h3 className="text-xl md:text-2xl font-serif text-cowc-dark mb-6">Wedding Vibe</h3>
+        {canEdit ? (
+          <div className="flex flex-wrap gap-3">
+            {VIBE_OPTIONS.map(v => (
+              <button
+                key={v}
+                onClick={() => setVibe(v)}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all ${
+                  vibe === v
+                    ? 'border-cowc-gold bg-cowc-gold text-white'
+                    : 'border-cowc-sand text-cowc-gray hover:border-cowc-gold/50'
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <span className="px-4 py-2 rounded-xl bg-cowc-cream text-cowc-dark font-semibold">
+            {vibe || 'Not set'}
+          </span>
+        )}
+      </div>
+
+      {/* Pinterest Boards */}
+      <div className="card-premium p-6 md:p-8">
+        <h3 className="text-xl md:text-2xl font-serif text-cowc-dark mb-2 flex items-center gap-3">
+          {/* Pinterest P logo */}
+          <span className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0"
+            style={{ background: '#E60023' }}>P</span>
+          Pinterest Inspiration
+        </h3>
+        <p className="text-sm text-cowc-gray mb-6">
+          Add public board links — cover images are pulled in automatically.
+        </p>
+
+        {/* Visual board cards grid */}
+        {boards.length === 0 ? (
+          <div className="rounded-2xl border-2 border-dashed border-cowc-sand flex flex-col items-center justify-center py-12 mb-6 text-center">
+            <span className="w-12 h-12 rounded-full flex items-center justify-center text-white text-xl font-black mb-3"
+              style={{ background: '#E60023' }}>P</span>
+            <p className="text-cowc-gray font-medium mb-1">No boards yet</p>
+            <p className="text-xs text-cowc-light-gray">Add a Pinterest board URL below to pull in their cover image</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+            {boards.map(board => (
+              <div key={board.id} className="group relative rounded-2xl overflow-hidden bg-cowc-sand shadow-sm">
+                {/* Cover image area */}
+                <div className="aspect-square relative overflow-hidden">
+                  {board.fetching ? (
+                    <div className="w-full h-full flex items-center justify-center bg-cowc-cream">
+                      <Loader2 className="w-6 h-6 text-cowc-gold animate-spin" />
+                    </div>
+                  ) : board.cover_url ? (
+                    <img
+                      src={board.cover_url}
+                      alt={board.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-cowc-cream">
+                      <span className="w-10 h-10 rounded-full flex items-center justify-center text-white text-base font-black"
+                        style={{ background: '#E60023' }}>P</span>
+                      <p className="text-xs text-cowc-light-gray text-center px-2">No preview</p>
+                    </div>
+                  )}
+
+                  {/* Overlay on hover */}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-200 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                    <a
+                      href={board.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="px-3 py-1.5 rounded-full bg-white text-cowc-dark text-xs font-semibold flex items-center gap-1 hover:bg-cowc-cream transition-colors"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Open
+                    </a>
+                    {canEdit && !board.fetching && (
+                      <button
+                        onClick={() => handleRefreshBoardCover(board.id, board.url)}
+                        className="p-1.5 rounded-full bg-white text-cowc-gray hover:text-cowc-gold transition-colors"
+                        title="Refresh cover image"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Board name bar */}
+                <div className="p-2.5 flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-cowc-dark truncate flex-1">{board.name}</p>
+                  {canEdit && (
+                    <button
+                      onClick={() => handleRemoveBoard(board.id)}
+                      className="p-1 rounded-full hover:bg-red-50 flex-shrink-0 transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3 text-red-400" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add board form */}
+        {canEdit && (
+          <div className={boards.length > 0 ? 'border-t border-cowc-sand pt-5' : ''}>
+            <p className="text-sm font-semibold text-cowc-dark mb-3">Add a board</p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                value={newBoardName}
+                onChange={e => setNewBoardName(e.target.value)}
+                placeholder="Board name  (e.g. Florals)"
+                className="input-premium flex-1"
+              />
+              <input
+                type="url"
+                value={newBoardUrl}
+                onChange={e => setNewBoardUrl(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddBoard()}
+                placeholder="https://pinterest.com/username/board/"
+                className="input-premium flex-1"
+              />
+              <button
+                onClick={handleAddBoard}
+                disabled={!newBoardName.trim() || !newBoardUrl.trim()}
+                className="px-5 py-2 rounded-xl bg-cowc-gold text-white font-semibold hover:bg-opacity-90 disabled:opacity-40 flex items-center gap-2 flex-shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                Add
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Save button */}
+      {canEdit && (
+        <div className="flex justify-end">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-8 py-3 rounded-xl bg-cowc-gold text-white font-semibold hover:bg-opacity-90 disabled:opacity-50 flex items-center gap-2"
+          >
+            <Save className="w-5 h-5" />
+            {saving ? 'Saving…' : 'Save Style'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}

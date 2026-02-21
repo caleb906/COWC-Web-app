@@ -1,0 +1,11 @@
+{
+  "name": "Central Oregon Wedding Collective",
+  "short_name": "COWC",
+  "description": "Effortless Wedding Planning & Coordination",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#faf9f7",
+  "theme_color": "#d4a574",
+  "orientation": "portrait",
+  "icons": []
+}
