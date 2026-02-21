@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Users, Check, Star, Save, Search, X, UserPlus } from 'lucide-react'
+import { ArrowLeft, Users, Check, Star, Save, Search, X, UserPlus, User, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { weddingsAPI, usersAPI, coordinatorAssignmentsAPI } from '../services/unifiedAPI'
 import { formatDate } from '../utils/dates'
@@ -13,6 +13,11 @@ export default function AssignCoordinatorsScreenNew() {
   const [coordinators, setCoordinators] = useState([])
   const [selectedWedding, setSelectedWedding] = useState(null)
   const [assignments, setAssignments] = useState([])
+  const [staffCounts, setStaffCounts] = useState({
+    coordinator_count: '',
+    support_staff_count: '',
+    cleaning_crew_count: '',
+  })
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -30,7 +35,15 @@ export default function AssignCoordinatorsScreenNew() {
         usersAPI.getCoordinators(),
       ])
 
-      setWeddings(allWeddings)
+      // Bug 16: Filter out past weddings
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const upcomingWeddings = allWeddings.filter((w) => {
+        if (!w.wedding_date) return true // keep undated weddings
+        return new Date(w.wedding_date) >= today
+      })
+
+      setWeddings(upcomingWeddings)
       setCoordinators(allCoordinators)
     } catch (error) {
       console.error('Error loading data:', error)
@@ -47,6 +60,12 @@ export default function AssignCoordinatorsScreenNew() {
       coordinatorId: a.coordinator?.id || a.id,
       isLead: a.is_lead || false,
     })))
+    // Bug 15: Pre-fill staff counts from saved values
+    setStaffCounts({
+      coordinator_count: wedding.coordinator_count ?? '',
+      support_staff_count: wedding.support_staff_count ?? '',
+      cleaning_crew_count: wedding.cleaning_crew_count ?? '',
+    })
   }
 
   const toggleCoordinator = (coordinatorId) => {
@@ -59,8 +78,8 @@ export default function AssignCoordinatorsScreenNew() {
   }
 
   const toggleLead = (coordinatorId) => {
-    setAssignments(assignments.map(a => 
-      a.coordinatorId === coordinatorId 
+    setAssignments(assignments.map(a =>
+      a.coordinatorId === coordinatorId
         ? { ...a, isLead: !a.isLead }
         : a
     ))
@@ -93,10 +112,18 @@ export default function AssignCoordinatorsScreenNew() {
         }
       }
 
+      // Bug 15: Save staff counts to the wedding record
+      await weddingsAPI.update(selectedWedding.id, {
+        coordinator_count: staffCounts.coordinator_count !== '' ? parseInt(staffCounts.coordinator_count) : null,
+        support_staff_count: staffCounts.support_staff_count !== '' ? parseInt(staffCounts.support_staff_count) : null,
+        cleaning_crew_count: staffCounts.cleaning_crew_count !== '' ? parseInt(staffCounts.cleaning_crew_count) : null,
+      })
+
       toast.success('Coordinator assignments saved!')
       await loadData()
       setSelectedWedding(null)
       setAssignments([])
+      setStaffCounts({ coordinator_count: '', support_staff_count: '', cleaning_crew_count: '' })
     } catch (error) {
       console.error('Error saving assignments:', error)
       toast.error('Failed to save assignments: ' + (error.message || 'Unknown error'))
@@ -108,7 +135,7 @@ export default function AssignCoordinatorsScreenNew() {
   const filteredWeddings = weddings.filter(w => {
     const matchesSearch = w.couple_name.toLowerCase().includes(searchQuery.toLowerCase())
     const hasCoordinators = w.coordinators && w.coordinators.length > 0
-    
+
     if (showUnassignedOnly) {
       return matchesSearch && !hasCoordinators
     }
@@ -145,7 +172,7 @@ export default function AssignCoordinatorsScreenNew() {
             </div>
             <div>
               <h1 className="text-5xl font-serif font-light">Assign Coordinators</h1>
-              <p className="text-white/70 mt-2">Match coordinators to wedding</p>
+              <p className="text-white/70 mt-2">Match coordinators to upcoming weddings</p>
             </div>
           </div>
 
@@ -180,11 +207,12 @@ export default function AssignCoordinatorsScreenNew() {
           {/* Weddings List */}
           <div className="card-premium p-6">
             <h2 className="text-2xl font-serif text-cowc-dark mb-6">
-              Weddings ({filteredWeddings.length})
+              Upcoming Weddings ({filteredWeddings.length})
             </h2>
             <div className="space-y-3 max-h-[600px] overflow-y-auto">
               {filteredWeddings.map((wedding) => {
                 const hasCoordinators = wedding.coordinators && wedding.coordinators.length > 0
+                const hasStaffCounts = wedding.coordinator_count != null || wedding.support_staff_count != null || wedding.cleaning_crew_count != null
                 return (
                   <button
                     key={wedding.id}
@@ -214,11 +242,12 @@ export default function AssignCoordinatorsScreenNew() {
                             selectedWedding?.id === wedding.id ? 'text-white/60' : 'text-green-600'
                           }`}>
                             {wedding.coordinators.length} coordinator{wedding.coordinators.length !== 1 ? 's' : ''} assigned
+                            {hasStaffCounts && ' · staff counts set'}
                           </p>
                         )}
                       </div>
                       {hasCoordinators && (
-                        <Check className={`w-5 h-5 ${
+                        <Check className={`w-5 h-5 flex-shrink-0 ${
                           selectedWedding?.id === wedding.id ? 'text-white' : 'text-green-500'
                         }`} />
                       )}
@@ -231,14 +260,14 @@ export default function AssignCoordinatorsScreenNew() {
                 <div className="text-center py-12">
                   <Users className="w-16 h-16 text-cowc-light-gray mx-auto mb-4" />
                   <p className="text-cowc-gray">
-                    {showUnassignedOnly ? 'All weddings have coordinators!' : 'No weddings found'}
+                    {showUnassignedOnly ? 'All weddings have coordinators!' : 'No upcoming weddings found'}
                   </p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Coordinators List */}
+          {/* Coordinators + Staff Counts Panel */}
           <div className="card-premium p-6">
             <h2 className="text-2xl font-serif text-cowc-dark mb-6">
               {selectedWedding ? `Assign to ${selectedWedding.couple_name}` : 'Select a Wedding'}
@@ -253,7 +282,59 @@ export default function AssignCoordinatorsScreenNew() {
               </div>
             ) : (
               <>
-                <div className="space-y-3 max-h-[500px] overflow-y-auto mb-6">
+                {/* Bug 15: Staff Count Inputs */}
+                <div className="mb-6 p-4 bg-cowc-cream rounded-xl border border-cowc-sand">
+                  <p className="text-sm font-semibold text-cowc-dark uppercase tracking-wider mb-4">
+                    Staff Requirements
+                  </p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <label className="block">
+                      <span className="flex items-center gap-1.5 text-xs text-cowc-gray mb-1.5">
+                        <Star className="w-3.5 h-3.5 text-cowc-gold" />
+                        Coordinators
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={staffCounts.coordinator_count}
+                        onChange={(e) => setStaffCounts(s => ({ ...s, coordinator_count: e.target.value }))}
+                        placeholder="—"
+                        className="w-full px-3 py-2 rounded-lg border border-cowc-sand bg-white text-cowc-dark text-sm focus:outline-none focus:ring-2 focus:ring-cowc-gold text-center"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="flex items-center gap-1.5 text-xs text-cowc-gray mb-1.5">
+                        <User className="w-3.5 h-3.5 text-cowc-gold" />
+                        Support Staff
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={staffCounts.support_staff_count}
+                        onChange={(e) => setStaffCounts(s => ({ ...s, support_staff_count: e.target.value }))}
+                        placeholder="—"
+                        className="w-full px-3 py-2 rounded-lg border border-cowc-sand bg-white text-cowc-dark text-sm focus:outline-none focus:ring-2 focus:ring-cowc-gold text-center"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="flex items-center gap-1.5 text-xs text-cowc-gray mb-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-cowc-gold" />
+                        Cleaning Crew
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={staffCounts.cleaning_crew_count}
+                        onChange={(e) => setStaffCounts(s => ({ ...s, cleaning_crew_count: e.target.value }))}
+                        placeholder="—"
+                        className="w-full px-3 py-2 rounded-lg border border-cowc-sand bg-white text-cowc-dark text-sm focus:outline-none focus:ring-2 focus:ring-cowc-gold text-center"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Coordinator List */}
+                <div className="space-y-3 max-h-[380px] overflow-y-auto mb-6">
                   {coordinators.map((coordinator) => {
                     const isAssigned = assignments.some(a => a.coordinatorId === coordinator.id)
                     const isLead = assignments.find(a => a.coordinatorId === coordinator.id)?.isLead
@@ -290,7 +371,7 @@ export default function AssignCoordinatorsScreenNew() {
                           {/* Right side: role pill (when assigned) or assign button */}
                           {isAssigned ? (
                             <div className="flex items-center gap-2 flex-shrink-0">
-                              {/* Role toggle pill — click to switch Lead ↔ Coordinator */}
+                              {/* Role toggle pill */}
                               <button
                                 onClick={() => toggleLead(coordinator.id)}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all active:scale-95 ${
@@ -301,7 +382,7 @@ export default function AssignCoordinatorsScreenNew() {
                                 title={isLead ? 'Click to make Coordinator' : 'Click to make Lead'}
                               >
                                 <Star className={`w-3.5 h-3.5 flex-shrink-0 ${isLead ? 'fill-white' : ''}`} />
-                                {isLead ? 'Lead Coordinator' : 'Coordinator'}
+                                {isLead ? 'Lead' : 'Coordinator'}
                               </button>
 
                               {/* Remove button */}
@@ -343,6 +424,7 @@ export default function AssignCoordinatorsScreenNew() {
                     onClick={() => {
                       setSelectedWedding(null)
                       setAssignments([])
+                      setStaffCounts({ coordinator_count: '', support_staff_count: '', cleaning_crew_count: '' })
                     }}
                     className="flex-1 py-3 px-6 rounded-xl font-semibold text-cowc-gray hover:bg-cowc-cream transition-all"
                   >
@@ -354,7 +436,7 @@ export default function AssignCoordinatorsScreenNew() {
                     className="flex-1 py-3 px-6 rounded-xl font-semibold bg-cowc-gold text-white hover:bg-opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     <Save className="w-5 h-5" />
-                    {saving ? 'Saving...' : 'Save Assignments'}
+                    {saving ? 'Saving...' : 'Save'}
                   </button>
                 </div>
               </>

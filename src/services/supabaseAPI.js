@@ -223,6 +223,9 @@ export const weddingsAPI = {
     if (updates.archived !== undefined) updateData.archived = updates.archived
     if (updates.notes !== undefined) updateData.notes = updates.notes
     if (updates.package_type !== undefined) updateData.package_type = updates.package_type
+    if (updates.coordinator_count !== undefined) updateData.coordinator_count = updates.coordinator_count
+    if (updates.support_staff_count !== undefined) updateData.support_staff_count = updates.support_staff_count
+    if (updates.cleaning_crew_count !== undefined) updateData.cleaning_crew_count = updates.cleaning_crew_count
 
     // Theme updates
     if (updates.theme) {
@@ -786,6 +789,9 @@ function transformWedding(data) {
     package_type: data.package_type || null,
     archived: data.archived || false,
     notes: data.notes,
+    coordinator_count: data.coordinator_count ?? null,
+    support_staff_count: data.support_staff_count ?? null,
+    cleaning_crew_count: data.cleaning_crew_count ?? null,
     theme: (() => {
       const primary   = data.theme_primary_color   || '#d4a574'
       const secondary = data.theme_secondary_color || '#2d3748'
