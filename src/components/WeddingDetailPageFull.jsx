@@ -1552,15 +1552,33 @@ function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
     }
   }
 
-  const handleAIApply = (palette) => {
-    setColors({
+  const handleAIApply = async (palette) => {
+    const newColors = {
       primary:   palette.primary,
       secondary: palette.secondary,
       accent:    palette.accent,
       color4:    palette.color4,
       color5:    palette.color5,
-    })
-    if (palette.vibe) setVibe(palette.vibe)
+    }
+    const newVibe = palette.vibe || vibe
+    setColors(newColors)
+    if (palette.vibe) setVibe(newVibe)
+
+    // Auto-save immediately so "Apply Palette" persists without a separate save step
+    setSaving(true)
+    try {
+      await weddingsAPI.update(wedding.id, {
+        theme: { ...newColors, vibe: newVibe, pinterest_boards: boards },
+      })
+      setWeddingTheme({ ...newColors, vibe: newVibe, pinterest_boards: boards })
+      toast.success('Palette applied & saved!')
+      await onSaved()
+    } catch (err) {
+      console.error(err)
+      toast.error('Palette applied but failed to save — click Save to retry')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (

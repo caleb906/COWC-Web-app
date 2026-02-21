@@ -4,6 +4,9 @@ import {
   ArrowLeft, Search, Plus, X, Save, ExternalLink,
   Phone, Mail, Globe, Building2, User, Users,
   ChevronDown, ChevronUp, Pencil, Trash2, AlertTriangle, UserPlus,
+  Camera, Video, Flower2, Music2, Disc3, UtensilsCrossed, Cake,
+  Scissors, Heart, Landmark, Car, ClipboardList, Armchair,
+  Mail as MailIcon, Wine, Star,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { vendorsAPI } from '../services/unifiedAPI'
@@ -11,27 +14,27 @@ import { useToast } from './Toast'
 
 // ─── Category config ─────────────────────────────────────────────────────────
 const CATEGORIES = [
-  { value: 'photographer',   label: 'Photographer',    emoji: '📷' },
-  { value: 'videographer',   label: 'Videographer',    emoji: '🎥' },
-  { value: 'photo_video',    label: 'Photo & Video',   emoji: '📷' },
-  { value: 'florist',        label: 'Florist',         emoji: '💐' },
-  { value: 'dj',             label: 'DJ',              emoji: '🎧' },
-  { value: 'band',           label: 'Band',            emoji: '🎶' },
-  { value: 'caterer',        label: 'Catering',        emoji: '🍽️' },
-  { value: 'baker',          label: 'Wedding Cake',    emoji: '🎂' },
-  { value: 'hair_makeup',    label: 'Hair & Makeup',   emoji: '💄' },
-  { value: 'officiant',      label: 'Officiant',       emoji: '💍' },
-  { value: 'venue',          label: 'Venue',           emoji: '🏛️' },
-  { value: 'transportation', label: 'Transportation',  emoji: '🚗' },
-  { value: 'planner',        label: 'Planner',         emoji: '📋' },
-  { value: 'rentals',        label: 'Rentals',         emoji: '🪑' },
-  { value: 'stationery',     label: 'Stationery',      emoji: '✉️' },
-  { value: 'bar',            label: 'Bar / Beverages', emoji: '🍾' },
-  { value: 'other',          label: 'Other',           emoji: '⭐' },
+  { value: 'photographer',   label: 'Photographer',    Icon: Camera,          color: '#7c3aed' },
+  { value: 'videographer',   label: 'Videographer',    Icon: Video,           color: '#db2777' },
+  { value: 'photo_video',    label: 'Photo & Video',   Icon: Camera,          color: '#7c3aed' },
+  { value: 'florist',        label: 'Florist',         Icon: Flower2,         color: '#16a34a' },
+  { value: 'dj',             label: 'DJ',              Icon: Disc3,           color: '#0891b2' },
+  { value: 'band',           label: 'Band',            Icon: Music2,          color: '#d97706' },
+  { value: 'caterer',        label: 'Catering',        Icon: UtensilsCrossed, color: '#ea580c' },
+  { value: 'baker',          label: 'Wedding Cake',    Icon: Cake,            color: '#e879a0' },
+  { value: 'hair_makeup',    label: 'Hair & Makeup',   Icon: Scissors,        color: '#9333ea' },
+  { value: 'officiant',      label: 'Officiant',       Icon: Heart,           color: '#e11d48' },
+  { value: 'venue',          label: 'Venue',           Icon: Landmark,        color: '#0f766e' },
+  { value: 'transportation', label: 'Transportation',  Icon: Car,             color: '#1d4ed8' },
+  { value: 'planner',        label: 'Planner',         Icon: ClipboardList,   color: '#d4a574' },
+  { value: 'rentals',        label: 'Rentals',         Icon: Armchair,        color: '#92400e' },
+  { value: 'stationery',     label: 'Stationery',      Icon: MailIcon,        color: '#6b7280' },
+  { value: 'bar',            label: 'Bar / Beverages', Icon: Wine,            color: '#7f1d1d' },
+  { value: 'other',          label: 'Other',           Icon: Star,            color: '#d4a574' },
 ]
 
 const getCat = (val) =>
-  CATEGORIES.find((c) => c.value === val) || { label: val || 'Other', emoji: '⭐' }
+  CATEGORIES.find((c) => c.value === val) || { label: val || 'Other', Icon: Star, color: '#d4a574' }
 
 const BLANK_FORM = {
   name: '', category: '', contact_email: '', phone: '', website: '', notes: '',
@@ -99,6 +102,7 @@ function VendorCard({ vendor, index, onEdit, onDelete, onEditMember, onDeleteMem
   const [expanded, setExpanded] = useState(false)
   const cat = getCat(vendor.category)
   const hasMembers = vendor.members?.length > 0
+  const CatIcon = cat.Icon || Star
 
   return (
     <motion.div
@@ -110,9 +114,12 @@ function VendorCard({ vendor, index, onEdit, onDelete, onEditMember, onDeleteMem
       {/* Card body */}
       <div className="p-5">
         <div className="flex items-start gap-3">
-          {/* Category emoji */}
-          <div className="w-11 h-11 rounded-xl bg-cowc-cream flex items-center justify-center text-xl flex-shrink-0">
-            {cat.emoji}
+          {/* Category icon */}
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: `${cat.color}18` }}
+          >
+            <CatIcon className="w-5 h-5" style={{ color: cat.color }} />
           </div>
 
           <div className="flex-1 min-w-0">
@@ -507,17 +514,19 @@ export default function VendorListScreen() {
             </button>
             {usedCats.map((val) => {
               const c = getCat(val)
+              const PillIcon = c.Icon || Star
               return (
                 <button
                   key={val}
                   onClick={() => setCatFilter(catFilter === val ? 'all' : val)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                     catFilter === val
-                      ? 'bg-cowc-gold text-white'
+                      ? 'text-white'
                       : 'bg-cowc-cream text-cowc-gray hover:bg-cowc-sand'
                   }`}
+                  style={catFilter === val ? { backgroundColor: c.color } : {}}
                 >
-                  <span>{c.emoji}</span>
+                  <PillIcon className="w-3 h-3" />
                   {c.label}
                 </button>
               )
