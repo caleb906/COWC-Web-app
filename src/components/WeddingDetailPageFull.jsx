@@ -1815,9 +1815,26 @@ function VendorCard({
                   {vendor.name}
                 </h4>
                 {!isMember && vendor.status && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusStyle(vendor.status)}`}>
-                    {vendor.status.charAt(0).toUpperCase() + vendor.status.slice(1)}
-                  </span>
+                  canEdit ? (
+                    <select
+                      value={vendor.status}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        handleUpdateVendor(vendor.id, { ...vendor, status: e.target.value })
+                      }}
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium border-0 cursor-pointer appearance-none ${statusStyle(vendor.status)}`}
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="confirmed">Confirmed</option>
+                      <option value="paid">Paid</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  ) : (
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusStyle(vendor.status)}`}>
+                      {vendor.status.charAt(0).toUpperCase() + vendor.status.slice(1)}
+                    </span>
+                  )
                 )}
                 {vendor.submitted_by_couple && (
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
