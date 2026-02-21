@@ -1175,11 +1175,12 @@ export default function WeddingDetailPageFull() {
                 canEdit={canEdit}
                 onUpdate={async (itemId, updates) => {
                   try {
-                    await timelineAPI.update(itemId, {
-                      title: updates.title,
-                      time: updates.time || '',
-                      description: updates.description ?? '',
-                    })
+                    const patch = {}
+                    if (updates.title       !== undefined) patch.title       = updates.title
+                    if (updates.time        !== undefined) patch.time        = updates.time || ''
+                    if (updates.description !== undefined) patch.description = updates.description ?? ''
+                    if (updates.duration_minutes !== undefined) patch.duration_minutes = updates.duration_minutes
+                    await timelineAPI.update(itemId, patch)
                     await loadWedding()
                   } catch {
                     toast.error('Failed to update timeline item')

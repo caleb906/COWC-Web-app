@@ -495,6 +495,7 @@ export const timelineAPI = {
         time: item.time || null,
         description: item.description || '',
         sort_order: item.sort_order || item.order || 0,
+        duration_minutes: item.duration_minutes ?? 30,
       })
       .select()
       .single()
@@ -904,6 +905,7 @@ function transformTimelineItem(data) {
     title: data.title,
     time: data.time,
     description: data.description,
+    duration_minutes: data.duration_minutes ?? 30,
     order: data.sort_order,
     sort_order: data.sort_order,
     created_at: data.created_at,
