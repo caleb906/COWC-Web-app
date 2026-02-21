@@ -229,9 +229,20 @@ export default function CreateWeddingScreenSimple() {
     setStep(s => s + 1)
   }
 
+  const goSkip = () => {
+    setDirection(1)
+    setStep(s => s + 1)
+  }
+
   const goBack = () => {
     setDirection(-1)
     setStep(s => s - 1)
+  }
+
+  const goToStep = (target) => {
+    if (target === step) return
+    setDirection(target > step ? 1 : -1)
+    setStep(target)
   }
 
   const handleSubmit = async () => {
@@ -371,60 +382,63 @@ export default function CreateWeddingScreenSimple() {
     if (step === 2) return (
       <StepCard title="Style & Vibe" icon={Palette}>
         <div className="space-y-6">
-          <Field label="Wedding Vibe">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {vibeOptions.map(v => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setFormData(f => ({ ...f, vibe: v }))}
-                  className={`px-3 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 ${
-                    formData.vibe === v
-                      ? 'border-cowc-gold bg-cowc-gold text-white'
-                      : 'border-cowc-sand bg-white text-cowc-dark hover:border-cowc-gold/40'
-                  }`}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-          </Field>
-
+          {/* Coolors-style swatch strip */}
           <div>
-            <p className="text-sm font-semibold text-cowc-dark mb-3">Theme Colors</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <p className="text-sm font-semibold text-cowc-dark mb-3">Wedding Color Palette</p>
+            <div className="rounded-2xl overflow-hidden flex" style={{ height: 160 }}>
               {[
                 { label: 'Primary',   key: 'primaryColor' },
                 { label: 'Secondary', key: 'secondaryColor' },
                 { label: 'Accent',    key: 'accentColor' },
               ].map(({ label, key }) => (
-                <div key={key} className="flex items-center gap-3">
+                <label
+                  key={key}
+                  className="relative flex-1 flex flex-col items-center justify-end pb-3 cursor-pointer group"
+                  style={{ background: formData[key] }}
+                  title={`Click to change ${label} color`}
+                >
                   <input
                     type="color"
                     value={formData[key]}
                     onChange={(e) => setFormData(f => ({ ...f, [key]: e.target.value }))}
-                    className="w-12 h-12 rounded-lg border-2 border-cowc-sand cursor-pointer flex-shrink-0"
+                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
                   />
-                  <div className="flex-1">
-                    <p className="text-xs text-cowc-gray mb-1">{label}</p>
-                    <input
-                      type="text"
-                      value={formData[key]}
-                      onChange={(e) => setFormData(f => ({ ...f, [key]: e.target.value }))}
-                      className="input-premium text-sm py-2"
-                    />
+                  <div className="bg-black/30 group-hover:bg-black/50 transition-colors rounded-lg px-2 py-1 text-center">
+                    <p className="text-white/70 text-[10px] font-medium uppercase tracking-wide">{label}</p>
+                    <p className="text-white font-mono text-xs">{formData[key].toUpperCase()}</p>
                   </div>
-                </div>
+                </label>
               ))}
             </div>
-
-            {/* Live preview */}
+            {/* Gradient preview bar */}
             <div
-              className="mt-5 p-6 rounded-xl text-white text-center"
+              className="mt-3 h-10 rounded-xl flex items-center justify-center"
               style={{ background: `linear-gradient(135deg, ${formData.primaryColor}, ${formData.secondaryColor})` }}
             >
-              <p className="text-xl font-serif">{coupleName || 'Color Preview'}</p>
-              <p className="text-sm opacity-75 mt-1">Couple's dashboard gradient</p>
+              <span className="text-white/80 text-xs font-semibold drop-shadow">
+                {coupleName || 'Gradient Preview'}
+              </span>
+            </div>
+          </div>
+
+          {/* Vibe picker */}
+          <div>
+            <p className="text-sm font-semibold text-cowc-dark mb-3">Wedding Vibe</p>
+            <div className="flex flex-wrap gap-2">
+              {vibeOptions.map(v => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setFormData(f => ({ ...f, vibe: v }))}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all border-2 ${
+                    formData.vibe === v
+                      ? 'border-cowc-gold bg-cowc-gold text-white'
+                      : 'border-cowc-sand bg-white text-cowc-dark hover:border-cowc-gold/50'
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -494,8 +508,8 @@ export default function CreateWeddingScreenSimple() {
                 <div key={s.id} className="flex items-center flex-1 last:flex-none">
                   <button
                     type="button"
-                    onClick={() => { if (i < step) { setDirection(-1); setStep(i) } }}
-                    className={`flex flex-col items-center gap-1 group ${i < step ? 'cursor-pointer' : 'cursor-default'}`}
+                    onClick={() => goToStep(i)}
+                    className={`flex flex-col items-center gap-1 group ${i !== step ? 'cursor-pointer opacity-80 hover:opacity-100' : 'cursor-default'}`}
                   >
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                       done ? 'bg-green-500' : active ? 'bg-cowc-gold' : 'bg-white/10'
@@ -556,14 +570,23 @@ export default function CreateWeddingScreenSimple() {
           )}
 
           {step < STEPS.length - 1 ? (
-            <button
-              type="button"
-              onClick={goNext}
-              className="flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-semibold bg-cowc-gold text-white hover:bg-opacity-90 transition-all"
-            >
-              Continue
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            <div className="flex-1 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={goNext}
+                className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-semibold bg-cowc-gold text-white hover:bg-opacity-90 transition-all"
+              >
+                Continue
+                <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={goSkip}
+                className="w-full py-1.5 text-sm text-cowc-gray hover:text-cowc-dark transition-colors"
+              >
+                Skip this step
+              </button>
+            </div>
           ) : (
             <button
               type="button"

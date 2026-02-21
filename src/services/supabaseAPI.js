@@ -186,7 +186,7 @@ export const weddingsAPI = {
         venue_address: wedding.venue_address || '',
         guest_count: wedding.guest_count || 0,
         budget: wedding.budget || 0,
-        status: wedding.status?.toLowerCase() || 'planning',
+        status: wedding.status || 'Planning',
         package_type: wedding.package_type || null,
         notes: wedding.notes || '',
         theme_primary_color: wedding.theme?.primary || '#d4a574',
