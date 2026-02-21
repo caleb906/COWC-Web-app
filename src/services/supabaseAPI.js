@@ -403,6 +403,7 @@ export const vendorsAPI = {
         phone: vendor.phone || '',
         website: vendor.website || '',
         notes: vendor.notes || '',
+        role: vendor.role || null,
         cost: vendor.cost || null,
         status: vendor.status || 'pending',
         submitted_by_couple: vendor.submitted_by_couple || false,
@@ -819,6 +820,7 @@ function transformVendor(data) {
     paid: data.paid,
     status: data.status,
     submitted_by_couple: data.submitted_by_couple || false,
+    role: data.role || '',
     parent_vendor_id: data.parent_vendor_id || null,
     vendor_role: data.vendor_role || 'company',
     members: data.members || [], // populated by nestVendors()

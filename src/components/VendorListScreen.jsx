@@ -37,19 +37,33 @@ const BLANK_FORM = {
   name: '', category: '', contact_email: '', phone: '', website: '', notes: '',
 }
 
+const ROLES = [
+  'Owner', 'Lead Photographer', 'Second Shooter', 'Videographer',
+  'Lead Coordinator', 'Day-of Coordinator', 'Assistant Coordinator',
+  'Lead Florist', 'Assistant', 'DJ', 'Band Lead', 'Baker', 'Hair Stylist',
+  'Makeup Artist', 'Officiant', 'Driver', 'Other',
+]
+
 // ─── Individual member row inside a company card ─────────────────────────────
 function MemberRow({ member, onEditMember, onDeleteMember }) {
   return (
-    <div className="flex items-center gap-3 py-2.5 px-4 border-b last:border-b-0 border-cowc-sand/40">
-      <div className="w-7 h-7 rounded-full bg-cowc-cream flex items-center justify-center flex-shrink-0">
-        <User className="w-3.5 h-3.5 text-cowc-gray" />
+    <div className="flex items-center gap-3 py-3 px-4 border-b last:border-b-0 border-cowc-sand/40 bg-cowc-cream/30">
+      <div className="w-8 h-8 rounded-full bg-white border border-cowc-sand flex items-center justify-center flex-shrink-0">
+        <User className="w-4 h-4 text-cowc-gold" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-cowc-dark truncate">{member.name}</p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-sm font-semibold text-cowc-dark truncate">{member.name}</p>
+          {member.role && (
+            <span className="text-xs bg-cowc-gold/10 text-cowc-gold font-medium px-2 py-0.5 rounded-full">
+              {member.role}
+            </span>
+          )}
+        </div>
         {member.notes && (
-          <p className="text-xs text-cowc-gray italic truncate">{member.notes}</p>
+          <p className="text-xs text-cowc-gray italic truncate mt-0.5">{member.notes}</p>
         )}
-        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+        <div className="flex items-center gap-3 mt-1 flex-wrap">
           {member.contact_email && (
             <a href={`mailto:${member.contact_email}`}
               className="text-xs text-cowc-gold hover:underline flex items-center gap-1">
@@ -228,7 +242,7 @@ export default function VendorListScreen() {
   // Add / edit member modal
   const [addMemberFor, setAddMemberFor]           = useState(null)
   const [editMemberTarget, setEditMemberTarget]   = useState(null)
-  const [memberForm, setMemberForm]               = useState({ name: '', contact_email: '', phone: '', notes: '' })
+  const [memberForm, setMemberForm]               = useState({ name: '', role: '', contact_email: '', phone: '', notes: '' })
   const [savingMember, setSavingMember]           = useState(false)
   const [deleteMemberTarget, setDeleteMemberTarget] = useState(null)
 
@@ -337,7 +351,7 @@ export default function VendorListScreen() {
   const openAddMember = (parentVendor) => {
     setAddMemberFor(parentVendor)
     setEditMemberTarget(null)
-    setMemberForm({ name: '', contact_email: '', phone: '', notes: '' })
+    setMemberForm({ name: '', role: '', contact_email: '', phone: '', notes: '' })
   }
 
   const openEditMember = (member) => {
@@ -345,6 +359,7 @@ export default function VendorListScreen() {
     setAddMemberFor(null)
     setMemberForm({
       name:          member.name || '',
+      role:          member.role || '',
       contact_email: member.contact_email || '',
       phone:         member.phone || '',
       notes:         member.notes || '',
@@ -359,6 +374,7 @@ export default function VendorListScreen() {
       if (editMemberTarget) {
         await vendorsAPI.update(editMemberTarget.id, {
           name:          memberForm.name.trim(),
+          role:          memberForm.role.trim(),
           contact_email: memberForm.contact_email.trim(),
           phone:         memberForm.phone.trim(),
           notes:         memberForm.notes.trim(),
@@ -368,6 +384,7 @@ export default function VendorListScreen() {
         await vendorsAPI.addMember(addMemberFor.id, {
           wedding_id:    addMemberFor.wedding_id || null,
           name:          memberForm.name.trim(),
+          role:          memberForm.role.trim(),
           contact_email: memberForm.contact_email.trim(),
           phone:         memberForm.phone.trim(),
           notes:         memberForm.notes.trim(),
@@ -698,10 +715,22 @@ export default function VendorListScreen() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-cowc-dark mb-1.5">Role / Notes</label>
+                  <label className="block text-sm font-semibold text-cowc-dark mb-1.5">Role</label>
+                  <select value={memberForm.role}
+                    onChange={(e) => setMemberForm({ ...memberForm, role: e.target.value })}
+                    className="input-premium">
+                    <option value="">Select a role…</option>
+                    {ROLES.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-cowc-dark mb-1.5">Notes</label>
                   <input type="text" value={memberForm.notes}
                     onChange={(e) => setMemberForm({ ...memberForm, notes: e.target.value })}
-                    className="input-premium" placeholder="e.g. Lead photographer, Second shooter…" />
+                    className="input-premium" placeholder="Anything useful to know about this person…" />
                 </div>
 
                 <div className="flex gap-3 pt-2">
