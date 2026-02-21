@@ -4,7 +4,7 @@ import {
   Calendar, Users, Heart, Plus, TrendingUp,
   LogOut, Settings, Grid, List, Search, X,
   UserPlus, ClipboardList, ChevronDown, Archive,
-  RotateCcw, CheckCircle, ShoppingBag,
+  RotateCcw, CheckCircle, ShoppingBag, Package,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/appStore'
 import { weddingsAPI, vendorsAPI } from '../services/unifiedAPI'
@@ -307,6 +307,7 @@ export default function AdminDashboard() {
             { label: 'Create Wedding',      sub: 'Add a new couple and wedding details',     path: '/admin/create-wedding',      Icon: Plus },
             { label: 'Invite Users',         sub: 'Send invites to couples & coordinators',   path: '/admin/invite-users',         Icon: UserPlus },
             { label: 'Assign Coordinators',  sub: 'Match coordinators to weddings',           path: '/admin/assign-coordinators',  Icon: Calendar },
+            { label: 'Catalogue',            sub: 'Manage items couples can reserve',         path: '/admin/catalogue',            Icon: ShoppingBag },
           ].map(({ label, sub, path, Icon }) => (
             <button key={label} onClick={() => navigate(path)}
               className="card-premium p-8 text-left group hover:scale-105 transition-transform">
@@ -554,6 +555,7 @@ export default function AdminDashboard() {
                 { icon: Users,        label: 'Assign Coordinator',action: () => navigate('/admin/assign-coordinators') },
                 { icon: ClipboardList,label: 'All Tasks',         action: () => navigate('/admin/tasks') },
                 { icon: ShoppingBag,  label: 'All Vendors',       action: () => navigate('/admin/vendors') },
+                { icon: Package,      label: 'Catalogue',         action: () => navigate('/admin/catalogue') },
               ].map(({ icon: Icon, label, action }) => (
                 <button key={label}
                   onClick={() => { action(); setShowFABTray(false) }}

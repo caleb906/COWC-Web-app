@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Calendar, MapPin, CheckCircle2, Circle, Info, List, LogOut, ChevronRight, ExternalLink, X, Users } from 'lucide-react'
+import { Heart, Calendar, MapPin, CheckCircle2, Circle, Info, List, LogOut, ChevronRight, ExternalLink, X, Users, ShoppingBag } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 import { useAuthStore } from '../stores/appStore'
 import { weddingsAPI, tasksAPI, vendorsAPI, logChangeAndNotify } from '../services/unifiedAPI'
@@ -349,15 +349,16 @@ export default function CoupleDashboard({ previewWeddingId, isPreview } = {}) {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="grid grid-cols-3 gap-3"
+          className="grid grid-cols-4 gap-3"
         >
           {[
-            { icon: Info,     label: 'Overview', tab: '' },
-            { icon: Calendar, label: 'Timeline',  tab: 'timeline' },
-            { icon: List,     label: 'Vendors',   tab: 'vendors' },
-          ].map(({ icon: Icon, label, tab }) => (
+            { icon: Info,        label: 'Overview',  action: () => safeNavigate(`/wedding/${wedding.id}`) },
+            { icon: Calendar,    label: 'Timeline',  action: () => safeNavigate(`/wedding/${wedding.id}?tab=timeline`) },
+            { icon: List,        label: 'Vendors',   action: () => safeNavigate(`/wedding/${wedding.id}?tab=vendors`) },
+            { icon: ShoppingBag, label: 'Catalogue', action: () => safeNavigate('/catalogue') },
+          ].map(({ icon: Icon, label, action }) => (
             <button key={label}
-              onClick={() => safeNavigate(`/wedding/${wedding.id}${tab ? `?tab=${tab}` : ''}`)}
+              onClick={action}
               className="bg-white rounded-2xl p-4 flex flex-col items-center gap-2.5 shadow-sm hover:shadow-md transition-all active:scale-95"
             >
               <div className="w-10 h-10 rounded-xl flex items-center justify-center"

@@ -18,6 +18,8 @@ import AssignCoordinatorsScreen from './components/AssignCoordinatorsScreenNew'
 import UsersManagementScreen from './components/UsersManagementScreenNew'
 import TasksListScreen from './components/TasksListScreen'
 import VendorListScreen from './components/VendorListScreen'
+import CatalogueManagementScreen from './components/CatalogueManagementScreen'
+import CatalogueScreen from './components/CatalogueScreen'
 import DevPreview from './components/DevPreview'
 import DevSwitcher from './components/DevSwitcher'
 import ScrollToTop from './components/ScrollToTop'
@@ -172,6 +174,7 @@ function App() {
                 <Route path="/admin/create-wedding" element={<CreateWeddingScreen />} />
                 <Route path="/admin/invite-users" element={<InviteUsersScreen />} />
                 <Route path="/admin/assign-coordinators" element={<AssignCoordinatorsScreen />} />
+                <Route path="/admin/catalogue" element={<CatalogueManagementScreen />} />
                 <Route path="/admin/preview/couple/:id" element={<DevPreview />} />
                 <Route path="/wedding/:id" element={<WeddingDetailPage />} />
                 <Route path="*" element={<Navigate to="/admin" replace />} />
@@ -185,6 +188,7 @@ function App() {
             ) : user.role === 'couple' ? (
               <>
                 <Route path="/" element={<CoupleDashboard />} />
+                <Route path="/catalogue" element={<CatalogueScreen />} />
                 <Route path="/wedding/:id" element={<WeddingDetailPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </>
