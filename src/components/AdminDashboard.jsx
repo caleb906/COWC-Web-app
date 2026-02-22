@@ -248,6 +248,7 @@ export default function AdminDashboard() {
       setStats({
         totalWeddings: enriched.filter((w) => !w.archived).length,
         next30Days: enriched.filter((w) => {
+          if (!w.wedding_date) return false
           const d = new Date(w.wedding_date)
           return d >= now && d <= in30 && !w.archived
         }).length,
@@ -356,6 +357,7 @@ export default function AdminDashboard() {
     }
 
     // groupBy === 'status'
+    // Only use grouped view if showing all statuses (statusFilter === 'all')
     if (statusFilter !== 'all') return null // flat list for single-status filter
     return PIPELINE_STAGES.filter(s => s.value !== 'all').reduce((acc, stage) => {
       const group = [...activeWeddings]
@@ -473,6 +475,7 @@ export default function AdminDashboard() {
             { label: 'Invite Users',         sub: 'Send invites to couples & coordinators',   path: '/admin/invite-users',         Icon: UserPlus },
             { label: 'Assign Coordinators',  sub: 'Match coordinators to weddings',           path: '/admin/assign-coordinators',  Icon: Calendar },
             { label: 'Catalogue',            sub: 'Manage items couples can reserve',         path: '/admin/catalogue',            Icon: ShoppingBag },
+            { label: 'Vendors',              sub: 'Browse and manage your vendor directory',  path: '/admin/vendors',              Icon: Users },
             { label: 'Venues',               sub: 'Browse and manage your venue directory',   path: '/admin/venues',               Icon: Building2 },
           ].map(({ label, sub, path, Icon }) => (
             <button key={label} onClick={() => navigate(path)}
@@ -587,7 +590,7 @@ export default function AdminDashboard() {
           {activeWeddings.length === 0 ? (
             <div className="card-premium p-16 text-center">
               <Heart className="w-16 h-16 text-cowc-light-gray mx-auto mb-4" />
-              <p className="text-xl text-cowc-gray">No weddings in this stage</p>
+              <p className="text-xl text-cowc-gray">No weddings match your filters</p>
             </div>
           ) : groupedWeddings ? (
             /* ── Grouped view (by status or by date) ── */

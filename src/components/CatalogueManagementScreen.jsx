@@ -9,6 +9,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useToast } from './Toast'
+import { formatDate } from '../utils/dates'
 
 const CATEGORIES = [
   { value: 'florals',      label: 'Florals' },
@@ -45,7 +46,7 @@ function ReservationRow({ res, onStatusChange }) {
     <div className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
       <div>
         <p className="text-sm font-semibold text-cowc-dark">{res.wedding?.couple_name || 'Unknown couple'}</p>
-        <p className="text-xs text-cowc-gray">{res.wedding?.wedding_date || ''} · qty {res.quantity}</p>
+        <p className="text-xs text-cowc-gray">{res.wedding?.wedding_date ? formatDate(res.wedding.wedding_date) : 'No date'} · qty {res.quantity}</p>
         {res.notes && <p className="text-xs text-cowc-gray italic mt-0.5">{res.notes}</p>}
       </div>
       <div className="relative">

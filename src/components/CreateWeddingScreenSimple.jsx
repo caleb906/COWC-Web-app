@@ -57,10 +57,9 @@ function VenueSelector({ value, onChange, onAddressResolved }) {
       let resolvedAddress = ''
       setLookingUp(true)
       try {
-        const res = await supabase.functions.invoke('lookup-venue-address', {
-          body: { venueName: name },
-        })
-        if (res.data?.address) resolvedAddress = res.data.address
+        const { lookupVenueByName } = await import('../lib/googleMaps')
+        const data = await lookupVenueByName(name, '', 'Oregon')
+        if (data?.address) resolvedAddress = data.address
       } catch {}
       setLookingUp(false)
 

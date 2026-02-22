@@ -37,6 +37,7 @@ export default function CoordinatorDashboard() {
       const sixMonthsFromNow = new Date()
       sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6)
       const upcoming = weddingsData.filter((w) => {
+        if (!w.wedding_date) return false
         const weddingDate = new Date(w.wedding_date)
         return weddingDate >= new Date() && weddingDate <= sixMonthsFromNow
       })

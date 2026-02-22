@@ -224,18 +224,17 @@ export default function WeddingDetailPageFull() {
     }
   }
 
-  // ── AI venue address lookup ────────────────────────────────────────────────
+  // ── Venue address lookup via Google Maps ──────────────────────────────────
   const lookupVenueAddress = async () => {
     const venueName = editedWedding?.venue_name?.trim()
     if (!venueName) { toast.error('Enter a venue name first'); return }
     setLookingUpAddress(true)
     try {
-      const res = await supabase.functions.invoke('lookup-venue-address', {
-        body: { venueName },
-      })
-      if (res.data?.address) {
-        setEditedWedding(w => ({ ...w, venue_address: res.data.address }))
-        toast.success(`Address found: ${res.data.address}`)
+      const { lookupVenueByName } = await import('../lib/googleMaps')
+      const data = await lookupVenueByName(venueName)
+      if (data?.address) {
+        setEditedWedding(w => ({ ...w, venue_address: data.address }))
+        toast.success(`Address found: ${data.address}`)
       } else {
         toast.error('No address found for this venue')
       }
@@ -773,16 +772,16 @@ export default function WeddingDetailPageFull() {
                         >
                           {lookingUpAddress
                             ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            : <Sparkles className="w-3.5 h-3.5" />
+                            : <MapPin className="w-3.5 h-3.5" />
                           }
-                          {lookingUpAddress ? 'Looking up…' : 'AI Lookup'}
+                          {lookingUpAddress ? 'Looking up…' : 'Lookup'}
                         </button>
                       </div>
                       <textarea
                         value={editedWedding.venue_address || ''}
                         onChange={(e) => setEditedWedding({ ...editedWedding, venue_address: e.target.value })}
                         className="input-premium min-h-[80px]"
-                        placeholder="Click 'AI Lookup' to auto-fill from venue name"
+                        placeholder="Click 'Lookup' to auto-fill from venue name, or type manually"
                         rows={3}
                       />
                     </div>

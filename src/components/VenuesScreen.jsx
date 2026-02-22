@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, MapPin, Plus, Search, Edit2, Trash2, Save, X, Sparkles, Loader2, ExternalLink, Building2 } from 'lucide-react'
+import { ArrowLeft, MapPin, Plus, Search, Edit2, Trash2, Save, X, Loader2, ExternalLink, Building2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useToast } from './Toast'
+import { getVenuePredictions, getPlaceDetails } from '../lib/googleMaps'
 
-// ── Autocomplete hook ─────────────────────────────────────────────────────────
+// ── Autocomplete hook (Google Maps Places) ─────────────────────────────────────
 function useVenueAutocomplete() {
   const [suggestions, setSuggestions] = useState([])
   const [suggesting, setSuggesting] = useState(false)
@@ -17,10 +18,8 @@ function useVenueAutocomplete() {
     debounceRef.current = setTimeout(async () => {
       setSuggesting(true)
       try {
-        const res = await supabase.functions.invoke('venue-search', {
-          body: { action: 'suggest', query: query.trim() },
-        })
-        setSuggestions(res.data?.suggestions || [])
+        const results = await getVenuePredictions(query.trim())
+        setSuggestions(results)
       } catch {
         setSuggestions([])
       } finally {
@@ -30,10 +29,8 @@ function useVenueAutocomplete() {
   }, [])
 
   const fetchDetails = useCallback(async (placeId) => {
-    const res = await supabase.functions.invoke('venue-search', {
-      body: { action: 'details', placeId },
-    })
-    return res.data || {}
+    const details = await getPlaceDetails(placeId)
+    return details || {}
   }, [])
 
   const clear = useCallback(() => {
@@ -255,15 +252,13 @@ export default function VenuesScreen() {
   const handleLookupAddress = async (id, name) => {
     setLookingUpId(id)
     try {
+      const { lookupVenueByName } = await import('../lib/googleMaps')
       const currentVenue = venues.find(v => v.id === id)
       const hintCity  = (editingId === id ? editForm.city  : currentVenue?.city)  || ''
       const hintState = (editingId === id ? editForm.state : currentVenue?.state) || 'Oregon'
 
-      const res = await supabase.functions.invoke('lookup-venue-address', {
-        body: { venueName: name, city: hintCity, state: hintState },
-      })
+      const data = await lookupVenueByName(name, hintCity, hintState)
 
-      const data = res.data
       if (data?.address || data?.city) {
         if (editingId === id) {
           setEditForm(f => ({
@@ -416,10 +411,10 @@ export default function VenuesScreen() {
                           onClick={() => handleLookupAddress(venue.id, editForm.name)}
                           disabled={lookingUpId === venue.id}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cowc-gold/10 text-cowc-gold font-semibold text-xs hover:bg-cowc-gold/20 transition-colors flex-shrink-0"
-                          title="AI address lookup"
+                          title="Look up address via Google Maps"
                         >
-                          {lookingUpId === venue.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                          AI
+                          {lookingUpId === venue.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
+                          Lookup
                         </button>
                       </div>
                       <input type="text" value={editForm.city} onChange={e => setEditForm(f => ({ ...f, city: e.target.value }))} className="input-premium" placeholder="City" />
@@ -464,8 +459,8 @@ export default function VenuesScreen() {
                           disabled={lookingUpId === venue.id}
                           className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-cowc-gold hover:opacity-70 transition-opacity"
                         >
-                          {lookingUpId === venue.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                          {lookingUpId === venue.id ? 'Looking up…' : 'AI Lookup address'}
+                          {lookingUpId === venue.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <MapPin className="w-3 h-3" />}
+                          {lookingUpId === venue.id ? 'Looking up…' : 'Lookup address'}
                         </button>
                       )}
                     </div>

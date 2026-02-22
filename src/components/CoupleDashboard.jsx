@@ -346,7 +346,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                   />
                 </div>
               </div>
-              <span className="text-white font-semibold text-sm min-w-[36px] text-right">{progress}%</span>
+              <span className="text-white font-semibold text-sm min-w-[36px] text-right">{Math.round(progress)}%</span>
             </div>
           )}
         </div>
