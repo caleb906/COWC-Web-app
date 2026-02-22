@@ -208,8 +208,10 @@ export default function AdminDashboard() {
   const toast = useToast()
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState('grid')
+  const [groupBy, setGroupBy] = useState('status') // 'status' | 'date'
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [packageFilter, setPackageFilter] = useState('all') // 'all' | 'FP' | 'PP' | 'DOC'
   const [showArchived, setShowArchived] = useState(false)
   const [showFABTray, setShowFABTray] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -307,7 +309,7 @@ export default function AdminDashboard() {
 
   const handleSignOut = async () => { await supabase.auth.signOut() }
 
-  // Active (non-archived) weddings → filtered by pipeline stage + search + sorted
+  // Active (non-archived) weddings → filtered by pipeline stage + package + search
   // In 'all' view, Completed and Cancelled are hidden by default (use status tabs to view them)
   const HIDDEN_IN_ALL = ['Completed', 'Cancelled']
   const activeWeddings = weddings
@@ -315,20 +317,54 @@ export default function AdminDashboard() {
     .filter((w) => statusFilter === 'all'
       ? !HIDDEN_IN_ALL.includes(w.status)
       : w.status === statusFilter)
+    .filter((w) => packageFilter === 'all' || w.package_type === packageFilter)
     .filter((w) =>
+      !searchQuery.trim() ||
       w.couple_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       w.venue_name?.toLowerCase().includes(searchQuery.toLowerCase())
     )
-    .sort((a, b) => (STAGE_ORDER[a.status] ?? 99) - (STAGE_ORDER[b.status] ?? 99))
 
-  // When viewing All, group weddings by status for section headers
-  const groupedWeddings = statusFilter === 'all'
-    ? PIPELINE_STAGES.filter(s => s.value !== 'all').reduce((acc, stage) => {
-        const group = activeWeddings.filter(w => w.status === stage.value)
-        if (group.length > 0) acc.push({ stage, weddings: group })
-        return acc
-      }, [])
-    : null // null = not grouped (single-status filter uses flat list)
+  // ── Grouping logic ──────────────────────────────────────────────────────
+  // groupBy === 'status': group by pipeline stage (existing behaviour, sort by stage order)
+  // groupBy === 'date':   group by calendar month, sorted chronologically
+
+  const groupedWeddings = (() => {
+    if (groupBy === 'date') {
+      // Sort by wedding_date ascending (no date → end of list)
+      const sorted = [...activeWeddings].sort((a, b) => {
+        if (!a.wedding_date && !b.wedding_date) return 0
+        if (!a.wedding_date) return 1
+        if (!b.wedding_date) return -1
+        return new Date(a.wedding_date) - new Date(b.wedding_date)
+      })
+      // Group into { key: 'YYYY-MM', label: 'Month Year', weddings: [] }
+      const monthMap = new Map()
+      for (const w of sorted) {
+        let key, label
+        if (w.wedding_date) {
+          const d = new Date(w.wedding_date + 'T00:00:00')
+          key   = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+          label = d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+        } else {
+          key   = 'no-date'
+          label = 'No Date Set'
+        }
+        if (!monthMap.has(key)) monthMap.set(key, { key, label, weddings: [] })
+        monthMap.get(key).weddings.push(w)
+      }
+      return Array.from(monthMap.values())
+    }
+
+    // groupBy === 'status'
+    if (statusFilter !== 'all') return null // flat list for single-status filter
+    return PIPELINE_STAGES.filter(s => s.value !== 'all').reduce((acc, stage) => {
+      const group = [...activeWeddings]
+        .filter(w => w.status === stage.value)
+        .sort((a, b) => (STAGE_ORDER[a.status] ?? 99) - (STAGE_ORDER[b.status] ?? 99))
+      if (group.length > 0) acc.push({ stage, weddings: group })
+      return acc
+    }, [])
+  })()
 
   const archivedWeddings = weddings.filter((w) => w.archived)
 
@@ -479,7 +515,46 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Pipeline filter tabs */}
+          {/* Group by + Package filter row */}
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            {/* Group by toggle */}
+            <div className="flex items-center gap-1 bg-white rounded-xl p-1 border border-gray-200">
+              <button
+                onClick={() => setGroupBy('status')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${groupBy === 'status' ? 'bg-cowc-dark text-white' : 'text-cowc-gray hover:text-cowc-dark'}`}
+              >
+                By Status
+              </button>
+              <button
+                onClick={() => setGroupBy('date')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${groupBy === 'date' ? 'bg-cowc-dark text-white' : 'text-cowc-gray hover:text-cowc-dark'}`}
+              >
+                By Date
+              </button>
+            </div>
+
+            {/* Separator */}
+            <div className="w-px h-6 bg-gray-200" />
+
+            {/* Package type filter */}
+            <div className="flex gap-1.5 flex-wrap">
+              {[{ value: 'all', label: 'All Types' }, ...PACKAGES].map(pkg => (
+                <button
+                  key={pkg.value}
+                  onClick={() => setPackageFilter(pkg.value)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+                    packageFilter === pkg.value
+                      ? 'bg-cowc-dark text-white border-cowc-dark'
+                      : 'bg-white text-cowc-gray border-gray-200 hover:border-cowc-gold hover:text-cowc-dark'
+                  }`}
+                >
+                  {pkg.label || pkg.value}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Pipeline filter tabs (hidden in date-group mode since status pills still show on cards) */}
           <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-hide">
             {PIPELINE_STAGES.map((s) => {
               const count = countFor(s.value)
@@ -515,29 +590,38 @@ export default function AdminDashboard() {
               <p className="text-xl text-cowc-gray">No weddings in this stage</p>
             </div>
           ) : groupedWeddings ? (
-            /* ── Grouped by status (All view) ── */
+            /* ── Grouped view (by status or by date) ── */
             <div className="space-y-10">
-              {groupedWeddings.map(({ stage, weddings: group }) => (
-                <div key={stage.value}>
-                  {/* Section header */}
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${stage.dot}`} />
-                    <h2 className="text-base font-semibold text-cowc-dark">{stage.label}</h2>
-                    <span className="text-xs text-cowc-light-gray font-medium">({group.length})</span>
-                    <div className="flex-1 h-px bg-cowc-sand" />
-                  </div>
+              {groupedWeddings.map((group) => {
+                const isDateGroup = groupBy === 'date'
+                const key    = isDateGroup ? group.key   : group.stage.value
+                const label  = isDateGroup ? group.label : group.stage.label
+                const dot    = isDateGroup ? 'bg-cowc-gold' : group.stage.dot
+                const count  = group.weddings.length
+                return (
+                  <div key={key}>
+                    {/* Section header */}
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dot}`} />
+                      <h2 className="text-base font-semibold text-cowc-dark">{label}</h2>
+                      <span className="text-xs text-cowc-light-gray font-medium">
+                        {count} wedding{count !== 1 ? 's' : ''}
+                      </span>
+                      <div className="flex-1 h-px bg-cowc-sand" />
+                    </div>
 
-                  {view === 'grid' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {group.map((wedding, i) => <WeddingGridCard key={wedding.id} wedding={wedding} i={i} navigate={navigate} handleStatusChange={handleStatusChange} />)}
-                    </div>
-                  ) : (
-                    <div className="card-premium divide-y divide-cowc-sand">
-                      {group.map(wedding => <WeddingListRow key={wedding.id} wedding={wedding} navigate={navigate} handleStatusChange={handleStatusChange} />)}
-                    </div>
-                  )}
-                </div>
-              ))}
+                    {view === 'grid' ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {group.weddings.map((wedding, i) => <WeddingGridCard key={wedding.id} wedding={wedding} i={i} navigate={navigate} handleStatusChange={handleStatusChange} />)}
+                      </div>
+                    ) : (
+                      <div className="card-premium divide-y divide-cowc-sand">
+                        {group.weddings.map(wedding => <WeddingListRow key={wedding.id} wedding={wedding} navigate={navigate} handleStatusChange={handleStatusChange} />)}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           ) : view === 'grid' ? (
             /* ── Flat grid (single-status filter) ── */

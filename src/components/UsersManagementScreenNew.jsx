@@ -11,7 +11,7 @@ import { useToast } from './Toast'
 export default function UsersManagementScreenNew() {
   const navigate = useNavigate()
   const toast = useToast()
-  const [activeTab, setActiveTab] = useState('coordinators')
+  const [activeTab, setActiveTab] = useState('coordinators')  // 'coordinators' | 'couples' | 'admins'
   const [searchQuery, setSearchQuery] = useState('')
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -26,7 +26,7 @@ export default function UsersManagementScreenNew() {
   const loadUsers = async () => {
     setLoading(true)
     try {
-      const role = activeTab === 'coordinators' ? 'coordinator' : 'couple'
+      const role = activeTab === 'coordinators' ? 'coordinator' : activeTab === 'admins' ? 'admin' : 'couple'
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -43,12 +43,8 @@ export default function UsersManagementScreenNew() {
 
   // Call admin-user-ops edge function
   const adminOp = async (body) => {
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await supabase.functions.invoke('admin-user-ops', {
-      body,
-      headers: { Authorization: `Bearer ${session?.access_token}` },
-    })
-    if (res.error) throw res.error
+    const res = await supabase.functions.invoke('admin-user-ops', { body })
+    if (res.error) throw new Error(res.data?.error || res.error.message)
     if (res.data?.error) throw new Error(res.data.error)
     return res.data
   }
@@ -151,13 +147,13 @@ export default function UsersManagementScreenNew() {
             </div>
             <div className="flex-1">
               <h1 className="text-5xl font-serif font-light">Users</h1>
-              <p className="text-white/70 mt-2">{users.length} {activeTab === 'coordinators' ? 'coordinator' : 'couple'}{users.length !== 1 ? 's' : ''}</p>
+              <p className="text-white/70 mt-2">{users.length} {activeTab === 'coordinators' ? 'coordinator' : activeTab === 'admins' ? 'admin' : 'couple'}{users.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
 
           {/* Tabs */}
           <div className="flex gap-2 mb-6">
-            {['coordinators', 'couples'].map(tab => (
+            {['coordinators', 'couples', 'admins'].map(tab => (
               <button
                 key={tab}
                 onClick={() => { setActiveTab(tab); setSearchQuery(''); setEditingId(null); setRecoveryLink(null) }}
@@ -223,7 +219,7 @@ export default function UsersManagementScreenNew() {
         ) : filteredUsers.length === 0 ? (
           <div className="card-premium p-16 text-center">
             <UserCircle2 className="w-16 h-16 text-cowc-light-gray mx-auto mb-4" />
-            <p className="text-xl text-cowc-gray">{searchQuery ? 'No users match your search' : `No ${activeTab} yet`}</p>
+            <p className="text-xl text-cowc-gray">{searchQuery ? 'No users match your search' : `No ${activeTab === 'admins' ? 'admins' : activeTab} yet`}</p>
           </div>
         ) : (
           <div className="space-y-3">

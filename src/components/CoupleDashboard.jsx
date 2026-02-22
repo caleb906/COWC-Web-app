@@ -28,7 +28,7 @@ const VENDOR_SLOTS = [
 // All category values that are accounted for by a slot (won't appear in "Additional Vendors")
 const SLOT_CATEGORIES = new Set(VENDOR_SLOTS.flatMap(s => s.covers))
 
-export default function CoupleDashboard({ previewWeddingId, isPreview } = {}) {
+export default function CoupleDashboard({ previewWeddingId, isPreview, onPreviewNavigate } = {}) {
   const navigate = useNavigate()
   const toast = useToast()
   const { user } = useAuthStore()
@@ -94,10 +94,10 @@ export default function CoupleDashboard({ previewWeddingId, isPreview } = {}) {
     setRefreshing(false)
   }
 
-  // In preview mode, navigation would load the admin view — block it instead
+  // In preview mode, delegate navigation to parent overlay; otherwise use router
   const safeNavigate = (path) => {
     if (isPreview) {
-      toast.info('Navigation is disabled in preview mode')
+      if (onPreviewNavigate) onPreviewNavigate(path)
       return
     }
     navigate(path)

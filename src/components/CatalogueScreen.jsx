@@ -205,8 +205,9 @@ function CatalogueItemCard({ item, myReservation, available, onReserve, onCancel
 }
 
 // ── Main screen ───────────────────────────────────────────────────────────────
-export default function CatalogueScreen() {
+export default function CatalogueScreen({ onPreviewNavigate } = {}) {
   const navigate = useNavigate()
+  const goBack = () => onPreviewNavigate ? onPreviewNavigate('/') : navigate('/')
   const { user } = useAuthStore()
   const toast = useToast()
   const [items, setItems] = useState([])
@@ -302,7 +303,7 @@ export default function CatalogueScreen() {
       <div className="bg-gradient-to-br from-cowc-dark via-cowc-dark to-gray-800 text-white pt-12 pb-16 px-6">
         <div className="max-w-4xl mx-auto">
           <button
-            onClick={() => navigate('/')}
+            onClick={goBack}
             className="flex items-center gap-2 text-white/70 hover:text-white transition-colors mb-8"
           >
             <ArrowLeft className="w-5 h-5" />

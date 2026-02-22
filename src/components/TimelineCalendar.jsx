@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { Clock, GripVertical, Plus, Edit2, Trash2, Save } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { Clock, GripVertical, Plus, Edit2, Trash2, Save, Calendar } from 'lucide-react'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const START_HOUR      = 6
@@ -112,19 +113,46 @@ function rippleCascade(allItems, changedId, newStartHours, newDurMin) {
 }
 
 // ── Inline edit form ──────────────────────────────────────────────────────────
-function ItemEditForm({ item, onSave, onCancel }) {
+// Rendered via portal so it's never clipped by parent overflow/height constraints
+function ItemEditForm({ item, anchorRef, onSave, onCancel }) {
   const [title, setTitle] = useState(item.title || '')
   const [description, setDescription] = useState(item.description || '')
-  return (
-    <div className="space-y-2 p-3 bg-white rounded-xl shadow-lg border-2 border-cowc-gold/30 z-20 relative"
-      onClick={e => e.stopPropagation()}>
+  const [eventDate, setEventDate] = useState(item.event_date || '')
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 320 })
+
+  // Position the portal below the anchor element
+  useEffect(() => {
+    if (!anchorRef?.current) return
+    const rect = anchorRef.current.getBoundingClientRect()
+    const left = Math.min(rect.left, window.innerWidth - 340)
+    const top  = rect.bottom + 6 + window.scrollY
+    setPos({ top, left: Math.max(8, left), width: Math.max(320, rect.width) })
+  }, [anchorRef])
+
+  const form = (
+    <div
+      style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 9999 }}
+      className="space-y-2 p-3 bg-white rounded-xl shadow-2xl border-2 border-cowc-gold/40"
+      onClick={e => e.stopPropagation()}
+    >
       <input autoFocus type="text" value={title} onChange={e => setTitle(e.target.value)}
         className="input-premium text-sm py-2 w-full" placeholder="Event title" />
       <textarea value={description} onChange={e => setDescription(e.target.value)}
         className="input-premium text-sm py-2 w-full min-h-[60px]" rows={2}
         placeholder="Description (optional)" />
+      <div className="flex items-center gap-2">
+        <Calendar className="w-3.5 h-3.5 text-cowc-gold flex-shrink-0" />
+        <input type="date" value={eventDate} onChange={e => setEventDate(e.target.value)}
+          className="input-premium text-sm py-1.5 flex-1"
+          title="Date for this event (optional)" />
+        {eventDate && (
+          <button onClick={() => setEventDate('')} className="text-xs text-cowc-gray hover:text-red-500 flex-shrink-0">
+            Clear
+          </button>
+        )}
+      </div>
       <div className="flex gap-2">
-        <button onClick={() => onSave({ title: title.trim(), description: description.trim() })}
+        <button onClick={() => onSave({ title: title.trim(), description: description.trim(), event_date: eventDate || null })}
           disabled={!title.trim()}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500 text-white text-xs font-semibold hover:bg-green-600 disabled:opacity-40">
           <Save className="w-3 h-3" /> Save
@@ -136,12 +164,15 @@ function ItemEditForm({ item, onSave, onCancel }) {
       </div>
     </div>
   )
+
+  return createPortal(form, document.body)
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function TimelineCalendar({ items, canEdit, onUpdate, onDelete, onAddAt }) {
-  const calendarRef = useRef(null)
-  const scrollRef   = useRef(null)
+  const calendarRef  = useRef(null)
+  const scrollRef    = useRef(null)
+  const eventRefs    = useRef({})  // id → DOM element, for portal positioning
 
   // Local copy — updated optimistically so the UI never reloads mid-drag
   const [localItems, setLocalItems] = useState(items)
@@ -411,6 +442,7 @@ export default function TimelineCalendar({ items, canEdit, onUpdate, onDelete, o
 
                 return (
                   <div key={item.id} data-event={item.id}
+                    ref={el => { if (el) eventRefs.current[item.id] = el; else delete eventRefs.current[item.id] }}
                     className={`absolute left-3 right-3 z-10 ${isDragging ? 'opacity-20' : 'opacity-100'}`}
                     style={{
                       top:        displayTop + 1,
@@ -423,6 +455,7 @@ export default function TimelineCalendar({ items, canEdit, onUpdate, onDelete, o
                     }}>
                     {editingId === item.id ? (
                       <ItemEditForm item={item}
+                        anchorRef={{ current: eventRefs.current[item.id] }}
                         onSave={async (u) => {
                           setLocalItems(prev => prev.map(i => i.id === item.id ? { ...i, ...u } : i))
                           setEditingId(null)
@@ -474,6 +507,12 @@ export default function TimelineCalendar({ items, canEdit, onUpdate, onDelete, o
                               <span className="text-xs text-cowc-gold font-medium whitespace-nowrap">
                                 {item.time} – {endTimeLabel(hours, displayDur)}
                               </span>
+                              {item.event_date && (
+                                <p className="text-xs text-cowc-gray/80 mt-0.5 flex items-center gap-1">
+                                  <Calendar className="w-2.5 h-2.5 flex-shrink-0" />
+                                  {new Date(item.event_date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                </p>
+                              )}
                               {item.description && (
                                 <p className="text-xs text-cowc-gray mt-0.5 truncate">{item.description}</p>
                               )}
@@ -518,7 +557,9 @@ export default function TimelineCalendar({ items, canEdit, onUpdate, onDelete, o
           <h3 className="text-sm font-semibold text-cowc-gray mb-3 uppercase tracking-wide">No Time Set</h3>
           <div className="space-y-2">
             {unscheduled.map(item => (
-              <div key={item.id} className="flex items-center gap-3 p-3 bg-cowc-cream rounded-xl group relative">
+              <div key={item.id}
+                ref={el => { if (el) eventRefs.current[item.id] = el; else delete eventRefs.current[item.id] }}
+                className="flex items-center gap-3 p-3 bg-cowc-cream rounded-xl group relative">
                 <Clock className="w-4 h-4 text-cowc-light-gray flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-cowc-dark text-sm">{item.title}</p>
@@ -535,15 +576,14 @@ export default function TimelineCalendar({ items, canEdit, onUpdate, onDelete, o
                   </div>
                 )}
                 {editingId === item.id && (
-                  <div className="absolute left-0 right-0 top-full z-20 mt-1">
-                    <ItemEditForm item={item}
-                      onSave={async (u) => {
-                        setLocalItems(prev => prev.map(i => i.id === item.id ? { ...i, ...u } : i))
-                        setEditingId(null)
-                        await onUpdate(item.id, u)
-                      }}
-                      onCancel={() => setEditingId(null)} />
-                  </div>
+                  <ItemEditForm item={item}
+                    anchorRef={{ current: eventRefs.current[item.id] }}
+                    onSave={async (u) => {
+                      setLocalItems(prev => prev.map(i => i.id === item.id ? { ...i, ...u } : i))
+                      setEditingId(null)
+                      await onUpdate(item.id, u)
+                    }}
+                    onCancel={() => setEditingId(null)} />
                 )}
               </div>
             ))}
