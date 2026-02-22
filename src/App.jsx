@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, MemoryRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from './lib/supabase'
 import { useAuthStore } from './stores/appStore'
@@ -148,7 +148,17 @@ function App() {
           )}
           {isDev && devViewAs === 'couple' && devWeddingId && (
             <div className="fixed inset-0 z-[9000] overflow-auto">
-              <CoupleDashboard previewWeddingId={devWeddingId} isPreview />
+              {/* MemoryRouter gives the couple preview its own navigation context
+                  so /catalogue and other couple routes work without conflicting
+                  with the admin-level BrowserRouter */}
+              <MemoryRouter initialEntries={['/']}>
+                <Routes>
+                  <Route path="/" element={<CoupleDashboard previewWeddingId={devWeddingId} isPreview />} />
+                  <Route path="/catalogue" element={<CatalogueScreen />} />
+                  <Route path="/wedding/:id" element={<WeddingDetailPage />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </MemoryRouter>
             </div>
           )}
 

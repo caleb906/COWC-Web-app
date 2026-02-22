@@ -1,10 +1,151 @@
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, MapPin, Plus, Search, Edit2, Trash2, Save, X, Sparkles, Loader2, ExternalLink, Building2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useToast } from './Toast'
 
+// ── Autocomplete hook ─────────────────────────────────────────────────────────
+function useVenueAutocomplete() {
+  const [suggestions, setSuggestions] = useState([])
+  const [suggesting, setSuggesting] = useState(false)
+  const debounceRef = useRef(null)
+
+  const suggest = useCallback((query) => {
+    clearTimeout(debounceRef.current)
+    if (!query || query.trim().length < 2) { setSuggestions([]); return }
+    debounceRef.current = setTimeout(async () => {
+      setSuggesting(true)
+      try {
+        const res = await supabase.functions.invoke('venue-search', {
+          body: { action: 'suggest', query: query.trim() },
+        })
+        setSuggestions(res.data?.suggestions || [])
+      } catch {
+        setSuggestions([])
+      } finally {
+        setSuggesting(false)
+      }
+    }, 300)
+  }, [])
+
+  const fetchDetails = useCallback(async (placeId) => {
+    const res = await supabase.functions.invoke('venue-search', {
+      body: { action: 'details', placeId },
+    })
+    return res.data || {}
+  }, [])
+
+  const clear = useCallback(() => {
+    setSuggestions([])
+    clearTimeout(debounceRef.current)
+  }, [])
+
+  return { suggestions, suggesting, suggest, fetchDetails, clear }
+}
+
+// ── Autocomplete dropdown ─────────────────────────────────────────────────────
+function SuggestionsDropdown({ suggestions, suggesting, onSelect, query }) {
+  if (!query || query.trim().length < 2) return null
+  if (!suggesting && suggestions.length === 0) return null
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      className="absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-xl shadow-xl border border-cowc-sand overflow-hidden"
+    >
+      {suggesting && suggestions.length === 0 ? (
+        <div className="flex items-center gap-2 px-4 py-3 text-sm text-cowc-gray">
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-cowc-gold" />
+          Searching…
+        </div>
+      ) : (
+        suggestions.map((s) => (
+          <button
+            key={s.placeId}
+            type="button"
+            onClick={() => onSelect(s)}
+            className="w-full flex items-start gap-3 px-4 py-3 hover:bg-cowc-cream transition-colors text-left border-b border-cowc-sand/30 last:border-0"
+          >
+            <MapPin className="w-3.5 h-3.5 text-cowc-gold mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-cowc-dark leading-tight">{s.name}</p>
+              {s.address && <p className="text-xs text-cowc-gray mt-0.5">{s.address}</p>}
+            </div>
+          </button>
+        ))
+      )}
+    </motion.div>
+  )
+}
+
+// ── VenueNameField — name input with live suggestions ─────────────────────────
+function VenueNameField({ value, onChange, onFill, placeholder = 'Venue name *', className = '' }) {
+  const { suggestions, suggesting, suggest, fetchDetails, clear } = useVenueAutocomplete()
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef(null)
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const handleChange = (val) => {
+    onChange(val)
+    suggest(val)
+    setOpen(true)
+  }
+
+  const handleSelect = async (suggestion) => {
+    setOpen(false)
+    clear()
+    // Immediately fill the name
+    onChange(suggestion.name)
+    // Fetch full details and fill other fields
+    try {
+      const details = await fetchDetails(suggestion.placeId)
+      onFill({
+        name:    details.name    || suggestion.name,
+        address: details.address || '',
+        city:    details.city    || '',
+        state:   details.state   || '',
+        website: details.website || '',
+      })
+    } catch {
+      onFill({ name: suggestion.name })
+    }
+  }
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <input
+        type="text"
+        placeholder={placeholder}
+        value={value}
+        onChange={e => handleChange(e.target.value)}
+        onFocus={() => value.trim().length >= 2 && setOpen(true)}
+        className={className}
+        autoComplete="off"
+      />
+      <AnimatePresence>
+        {open && (
+          <SuggestionsDropdown
+            suggestions={suggestions}
+            suggesting={suggesting}
+            query={value}
+            onSelect={handleSelect}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 export default function VenuesScreen() {
   const navigate = useNavigate()
   const toast = useToast()
@@ -114,9 +255,6 @@ export default function VenuesScreen() {
   const handleLookupAddress = async (id, name) => {
     setLookingUpId(id)
     try {
-      // Pass city/state hints so the lookup stays in the right geography.
-      // If we're editing, use whatever is already in the edit form; otherwise
-      // use the saved venue's city/state (defaulting to Oregon if blank).
       const currentVenue = venues.find(v => v.id === id)
       const hintCity  = (editingId === id ? editForm.city  : currentVenue?.city)  || ''
       const hintState = (editingId === id ? editForm.state : currentVenue?.state) || 'Oregon'
@@ -128,7 +266,6 @@ export default function VenuesScreen() {
       const data = res.data
       if (data?.address || data?.city) {
         if (editingId === id) {
-          // Populate all three fields in the edit form
           setEditForm(f => ({
             ...f,
             ...(data.address && { address: data.address }),
@@ -220,7 +357,13 @@ export default function VenuesScreen() {
           >
             <h3 className="text-xl font-serif text-cowc-dark mb-4">Add New Venue</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <input type="text" placeholder="Venue name *" value={newVenue.name} onChange={e => setNewVenue(v => ({ ...v, name: e.target.value }))} className="input-premium" />
+              {/* Name with autocomplete */}
+              <VenueNameField
+                value={newVenue.name}
+                onChange={val => setNewVenue(v => ({ ...v, name: val }))}
+                onFill={fields => setNewVenue(v => ({ ...v, ...fields }))}
+                className="input-premium"
+              />
               <input type="text" placeholder="Address" value={newVenue.address} onChange={e => setNewVenue(v => ({ ...v, address: e.target.value }))} className="input-premium" />
               <input type="text" placeholder="City" value={newVenue.city} onChange={e => setNewVenue(v => ({ ...v, city: e.target.value }))} className="input-premium" />
               <input type="text" placeholder="State" value={newVenue.state} onChange={e => setNewVenue(v => ({ ...v, state: e.target.value }))} className="input-premium" />
@@ -259,7 +402,14 @@ export default function VenuesScreen() {
                   // Edit mode
                   <div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                      <input type="text" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} className="input-premium font-semibold" placeholder="Venue name" />
+                      {/* Name with autocomplete in edit mode */}
+                      <VenueNameField
+                        value={editForm.name}
+                        onChange={val => setEditForm(f => ({ ...f, name: val }))}
+                        onFill={fields => setEditForm(f => ({ ...f, ...fields }))}
+                        className="input-premium font-semibold"
+                        placeholder="Venue name"
+                      />
                       <div className="flex gap-2">
                         <input type="text" value={editForm.address} onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} className="input-premium flex-1" placeholder="Address" />
                         <button

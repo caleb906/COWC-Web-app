@@ -58,6 +58,33 @@ function hourLabel(h) {
   return h < 12 ? `${h} AM` : `${h - 12} PM`
 }
 
+// ── Clamp drop to avoid overlapping events that start BEFORE the drop point ───
+// Returns the earliest valid start time >= wantedHours where the event won't
+// overlap with a preceding event that hasn't finished yet.
+function clampToFreeSlot(allItems, changedId, wantedHours, wantedDurMin) {
+  const others = allItems
+    .filter(i => i.id !== changedId && parseTime(i.time) !== null)
+    .map(i => {
+      const s = parseTime(i.time)
+      const e = s + (i.duration_minutes ?? DEFAULT_DUR) / 60
+      return { start: s, end: e }
+    })
+
+  // Keep bumping wantedHours forward until there's no blocker that straddles us
+  let start = wantedHours
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const o of others) {
+      if (o.start < start && o.end > start) {
+        start = snapHours(o.end)
+        changed = true
+      }
+    }
+  }
+  return start
+}
+
 // ── Ripple cascade ────────────────────────────────────────────────────────────
 function rippleCascade(allItems, changedId, newStartHours, newDurMin) {
   const scheduled = allItems.filter(i => parseTime(i.time) !== null)
@@ -149,9 +176,14 @@ export default function TimelineCalendar({ items, canEdit, onUpdate, onDelete, o
   // ── Live ripple preview during drag ──────────────────────────────────────
   const livePositions = useMemo(() => {
     if (!dragging) return {}
-    const newHours = snapHours(dragging.ghostTop / HOUR_HEIGHT + START_HOUR)
-    const ripple   = rippleCascade(localItems, dragging.id, newHours, dragging.ghostDur)
+    const rawHours    = snapHours(dragging.ghostTop / HOUR_HEIGHT + START_HOUR)
+    const clampedHours = dragging.mode === 'move'
+      ? clampToFreeSlot(localItems, dragging.id, rawHours, dragging.ghostDur)
+      : rawHours
+    const ripple = rippleCascade(localItems, dragging.id, clampedHours, dragging.ghostDur)
     const map = {}
+    // Also include the dragged item's clamped position for the ghost display
+    map['__ghost__'] = { top: hoursToTop(clampedHours), hours: clampedHours }
     for (const u of ripple) {
       const h = parseTime(u.time)
       if (h !== null) {
@@ -160,7 +192,7 @@ export default function TimelineCalendar({ items, canEdit, onUpdate, onDelete, o
       }
     }
     return map
-  }, [dragging?.ghostTop, dragging?.ghostDur, dragging?.id, localItems])
+  }, [dragging?.ghostTop, dragging?.ghostDur, dragging?.id, dragging?.mode, localItems])
 
   // ── Drag mode from pointer position ──────────────────────────────────────
   function getDragMode(clientY, el) {
@@ -174,8 +206,11 @@ export default function TimelineCalendar({ items, canEdit, onUpdate, onDelete, o
   // ── Drop handler (shared mouse + touch) ──────────────────────────────────
   const commitDrop = useCallback(async () => {
     if (!dragging) return
-    const { id, ghostTop, ghostDur } = dragging
-    const newHours = snapHours(ghostTop / HOUR_HEIGHT + START_HOUR)
+    const { id, ghostTop, ghostDur, mode } = dragging
+    const rawHours  = snapHours(ghostTop / HOUR_HEIGHT + START_HOUR)
+    const newHours  = mode === 'move'
+      ? clampToFreeSlot(localItems, id, rawHours, ghostDur)
+      : rawHours
     const newTime  = formatTime(newHours)
     const newDur   = ghostDur
     const ripple   = rippleCascade(localItems, id, newHours, newDur)
@@ -330,12 +365,26 @@ export default function TimelineCalendar({ items, canEdit, onUpdate, onDelete, o
                 )}
               </div>
 
-              {/* Drag ghost */}
+              {/* Drag ghost — shows clamped (collision-free) position */}
               {dragging && (() => {
-                const ghostH = snapHours(dragging.ghostTop / HOUR_HEIGHT + START_HOUR)
+                const ghostInfo = livePositions['__ghost__']
+                const ghostTop  = dragging.mode === 'move'
+                  ? (ghostInfo?.top ?? dragging.ghostTop)
+                  : dragging.ghostTop
+                const ghostH    = dragging.mode === 'move'
+                  ? (ghostInfo?.hours ?? snapHours(dragging.ghostTop / HOUR_HEIGHT + START_HOUR))
+                  : snapHours(dragging.ghostTop / HOUR_HEIGHT + START_HOUR)
+                const isClamped = dragging.mode === 'move' && ghostInfo?.hours !== snapHours(dragging.ghostTop / HOUR_HEIGHT + START_HOUR)
                 return (
-                  <div className="absolute left-3 right-3 z-30 pointer-events-none rounded-xl bg-cowc-gold border-2 border-cowc-gold/80 shadow-2xl"
-                    style={{ top: dragging.ghostTop, height: eventHeightPx(dragging.ghostDur), opacity: 0.88 }}>
+                  <div className="absolute left-3 right-3 z-30 pointer-events-none rounded-xl border-2 shadow-2xl"
+                    style={{
+                      top: ghostTop,
+                      height: eventHeightPx(dragging.ghostDur),
+                      opacity: 0.88,
+                      backgroundColor: isClamped ? 'rgb(245 158 11)' : 'rgb(209 164 92)',
+                      borderColor: isClamped ? 'rgb(217 119 6)' : 'rgba(209,164,92,0.8)',
+                      transition: 'top 0.06s linear',
+                    }}>
                     <div className="flex items-center gap-2 px-3 py-1.5 text-white text-sm font-semibold">
                       <Clock className="w-3.5 h-3.5 flex-shrink-0" />
                       <span>{formatTime(ghostH)}</span>

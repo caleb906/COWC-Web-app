@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  ArrowLeft, Users, Mail, Phone, Edit, Save, X, Trash2, Search, UserPlus
+  ArrowLeft, Users, Mail, Phone, Edit2, Save, X, Trash2, Search,
+  ShieldOff, ShieldCheck, KeyRound, Loader2, Copy, Check, UserCircle2
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { usersAPI } from '../services/unifiedAPI'
 import { supabase } from '../lib/supabase'
 import { useToast } from './Toast'
 
@@ -15,91 +15,128 @@ export default function UsersManagementScreenNew() {
   const [searchQuery, setSearchQuery] = useState('')
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
-  const [editingUser, setEditingUser] = useState(null)
+  const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState({})
+  const [busyId, setBusyId] = useState(null)   // userId currently being acted on
+  const [recoveryLink, setRecoveryLink] = useState(null)  // { userId, link }
+  const [copied, setCopied] = useState(false)
 
-  useEffect(() => {
-    loadUsers()
-  }, [activeTab])
+  useEffect(() => { loadUsers() }, [activeTab])
 
   const loadUsers = async () => {
     setLoading(true)
     try {
       const role = activeTab === 'coordinators' ? 'coordinator' : 'couple'
-      const data = await usersAPI.getByRole(role)
-      setUsers(data.map(u => ({ ...u, status: u.status || 'active' })))
-    } catch (error) {
-      console.error('Error loading users:', error)
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', role)
+        .order('full_name', { ascending: true })
+      if (error) throw error
+      setUsers(data || [])
+    } catch {
       toast.error('Failed to load users')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleEdit = (user) => {
-    setEditingUser(user.id)
-    setEditForm({
-      full_name: user.full_name,
-      email: user.email,
-      phone: user.phone || '',
-      status: user.status || 'active',
+  // Call admin-user-ops edge function
+  const adminOp = async (body) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await supabase.functions.invoke('admin-user-ops', {
+      body,
+      headers: { Authorization: `Bearer ${session?.access_token}` },
     })
+    if (res.error) throw res.error
+    if (res.data?.error) throw new Error(res.data.error)
+    return res.data
   }
 
-  const handleSave = async (userId) => {
+  const handleDelete = async (user) => {
+    if (!window.confirm(`Permanently delete ${user.full_name || user.email}? This cannot be undone.`)) return
+    setBusyId(user.id)
     try {
-      await usersAPI.update(userId, {
-        full_name: editForm.full_name,
-        email: editForm.email,
-        phone: editForm.phone || '',
-        status: editForm.status,
+      await adminOp({ action: 'delete', userId: user.id })
+      setUsers(u => u.filter(x => x.id !== user.id))
+      toast.success('User deleted')
+    } catch (e) {
+      toast.error(e.message || 'Failed to delete user')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleToggleActive = async (user) => {
+    const isActive = (user.status || 'Active').toLowerCase() !== 'inactive'
+    const action = isActive ? 'deactivate' : 'reactivate'
+    setBusyId(user.id)
+    try {
+      await adminOp({ action, userId: user.id })
+      setUsers(u => u.map(x => x.id === user.id
+        ? { ...x, status: isActive ? 'Inactive' : 'Active' }
+        : x
+      ))
+      toast.success(isActive ? 'User deactivated' : 'User reactivated')
+    } catch (e) {
+      toast.error(e.message || 'Failed to update user')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleRecovery = async (user) => {
+    setBusyId(user.id)
+    try {
+      const result = await adminOp({ action: 'send_recovery', email: user.email })
+      setRecoveryLink({ userId: user.id, link: result.recoveryLink })
+      toast.success('Recovery link generated')
+    } catch (e) {
+      toast.error(e.message || 'Failed to generate recovery link')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleSaveEdit = async (user) => {
+    setBusyId(user.id)
+    try {
+      await adminOp({
+        action: 'update_profile',
+        userId: user.id,
+        updates: { full_name: editForm.full_name, phone: editForm.phone },
       })
-      toast.success('User updated successfully')
-      setEditingUser(null)
-      await loadUsers()
-    } catch (error) {
-      console.error('Error updating user:', error)
-      toast.error('Failed to update user: ' + (error.message || 'Unknown error'))
+      setUsers(u => u.map(x => x.id === user.id
+        ? { ...x, full_name: editForm.full_name, phone: editForm.phone }
+        : x
+      ))
+      setEditingId(null)
+      toast.success('User updated')
+    } catch (e) {
+      toast.error(e.message || 'Failed to update user')
+    } finally {
+      setBusyId(null)
     }
   }
 
-  const handleDelete = async (userId, userName) => {
-    if (!confirm(`Are you sure you want to remove ${userName}? This cannot be undone.`)) {
-      return
-    }
-
-    try {
-      const { error } = await supabase.from('profiles').delete().eq('id', userId)
-      if (error) throw error
-      toast.success(`${userName} removed`)
-      await loadUsers()
-    } catch (error) {
-      console.error('Error deleting user:', error)
-      toast.error('Failed to remove user')
-    }
+  const handleCopyLink = () => {
+    if (!recoveryLink?.link) return
+    navigator.clipboard.writeText(recoveryLink.link)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
-  const filteredUsers = users.filter(user =>
-    user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredUsers = users.filter(u =>
+    !searchQuery.trim() ||
+    u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.email?.toLowerCase().includes(searchQuery.toLowerCase())
   )
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-cowc-cream flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-cowc-gold border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-cowc-gray font-serif text-xl">Loading users...</p>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-cowc-cream pb-24">
       {/* Header */}
       <div className="bg-gradient-to-br from-cowc-dark via-cowc-dark to-gray-800 text-white pt-12 pb-16 px-6">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           <button
             onClick={() => navigate('/admin')}
             className="flex items-center gap-2 text-white/70 hover:text-white transition-colors mb-8"
@@ -108,205 +145,227 @@ export default function UsersManagementScreenNew() {
             Back to Dashboard
           </button>
 
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-cowc-gold rounded-full flex items-center justify-center">
-                <Users className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-5xl font-serif font-light">Users Management</h1>
-                <p className="text-white/70 mt-2">Manage coordinators and couples</p>
-              </div>
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-16 h-16 bg-cowc-gold rounded-full flex items-center justify-center">
+              <Users className="w-8 h-8 text-white" />
             </div>
-
-            <button
-              onClick={() => navigate('/admin/invite')}
-              className="px-6 py-3 rounded-xl bg-cowc-gold hover:bg-opacity-90 transition-all font-semibold flex items-center gap-2 self-start md:self-auto"
-            >
-              <UserPlus className="w-5 h-5" />
-              Add User
-            </button>
+            <div className="flex-1">
+              <h1 className="text-5xl font-serif font-light">Users</h1>
+              <p className="text-white/70 mt-2">{users.length} {activeTab === 'coordinators' ? 'coordinator' : 'couple'}{users.length !== 1 ? 's' : ''}</p>
+            </div>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-4">
-            <button
-              onClick={() => setActiveTab('coordinators')}
-              className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-                activeTab === 'coordinators'
-                  ? 'bg-white text-cowc-dark'
-                  : 'bg-white/10 text-white hover:bg-white/20'
-              }`}
-            >
-              Coordinators ({users.filter(u => u.role === 'coordinator').length})
-            </button>
-            <button
-              onClick={() => setActiveTab('couples')}
-              className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-                activeTab === 'couples'
-                  ? 'bg-white text-cowc-dark'
-                  : 'bg-white/10 text-white hover:bg-white/20'
-              }`}
-            >
-              Couples ({users.filter(u => u.role === 'couple').length})
-            </button>
+          <div className="flex gap-2 mb-6">
+            {['coordinators', 'couples'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => { setActiveTab(tab); setSearchQuery(''); setEditingId(null); setRecoveryLink(null) }}
+                className={`px-5 py-2 rounded-xl font-semibold capitalize transition-all ${
+                  activeTab === tab
+                    ? 'bg-cowc-gold text-white'
+                    : 'bg-white/10 text-white/70 hover:bg-white/20'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
+            <input
+              type="text"
+              placeholder="Search by name or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-cowc-gold"
+            />
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 -mt-8">
-        <div className="card-premium p-6">
-          {/* Search */}
-          <div className="mb-6 relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-cowc-gray" />
-            <input
-              type="text"
-              placeholder="Search users..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="input-premium pl-12"
-            />
-          </div>
+      <div className="max-w-5xl mx-auto px-6 -mt-8">
+        {/* Recovery link banner */}
+        <AnimatePresence>
+          {recoveryLink && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="card-premium p-4 mb-4 flex items-center gap-3 border-l-4 border-cowc-gold"
+            >
+              <KeyRound className="w-5 h-5 text-cowc-gold flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-cowc-dark mb-1">Recovery Link</p>
+                <p className="text-xs text-cowc-gray truncate font-mono">{recoveryLink.link}</p>
+              </div>
+              <button
+                onClick={handleCopyLink}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cowc-gold text-white text-xs font-semibold flex-shrink-0"
+              >
+                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+              <button onClick={() => setRecoveryLink(null)} className="p-1 hover:bg-cowc-cream rounded-lg">
+                <X className="w-4 h-4 text-cowc-gray" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-          {/* Users List */}
-          <div className="space-y-4">
-            {filteredUsers.map((user) => (
-              <div key={user.id} className="card-premium p-6">
-                {editingUser === user.id ? (
-                  // Edit Mode
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-cowc-dark mb-2">
-                          Full Name
-                        </label>
+        {/* User list */}
+        {loading ? (
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="w-8 h-8 animate-spin text-cowc-gold" />
+          </div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="card-premium p-16 text-center">
+            <UserCircle2 className="w-16 h-16 text-cowc-light-gray mx-auto mb-4" />
+            <p className="text-xl text-cowc-gray">{searchQuery ? 'No users match your search' : `No ${activeTab} yet`}</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredUsers.map(user => {
+              const isActive = (user.status || 'Active').toLowerCase() !== 'inactive'
+              const isBusy = busyId === user.id
+
+              return (
+                <motion.div key={user.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card-premium p-5">
+                  {editingId === user.id ? (
+                    // Edit mode
+                    <div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                         <input
                           type="text"
                           value={editForm.full_name}
-                          onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
-                          className="input-premium"
+                          onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))}
+                          className="input-premium font-semibold"
+                          placeholder="Full name"
                         />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-semibold text-cowc-dark mb-2">
-                          Email
-                        </label>
                         <input
                           type="email"
-                          value={editForm.email}
-                          onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                          className="input-premium"
+                          value={user.email}
+                          disabled
+                          className="input-premium opacity-50 cursor-not-allowed"
+                          placeholder="Email"
                         />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-semibold text-cowc-dark mb-2">
-                          Phone
-                        </label>
                         <input
                           type="tel"
-                          value={editForm.phone}
-                          onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                          value={editForm.phone || ''}
+                          onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))}
                           className="input-premium"
+                          placeholder="Phone"
                         />
                       </div>
-
-                      <div>
-                        <label className="block text-sm font-semibold text-cowc-dark mb-2">
-                          Status
-                        </label>
-                        <select
-                          value={editForm.status}
-                          onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                          className="input-premium"
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => handleSaveEdit(user)}
+                          disabled={isBusy}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500 text-white font-semibold hover:bg-green-600 disabled:opacity-50"
                         >
-                          <option value="Active">Active</option>
-                          <option value="Inactive">Inactive</option>
-                          <option value="Pending">Pending</option>
-                        </select>
+                          {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                          Save
+                        </button>
+                        <button onClick={() => setEditingId(null)} className="px-4 py-2 rounded-xl bg-gray-200 text-cowc-dark font-semibold hover:bg-gray-300">
+                          Cancel
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => handleSave(user.id)}
-                        className="px-6 py-2 rounded-xl bg-green-500 text-white hover:bg-green-600 transition-all flex items-center gap-2 font-semibold"
-                      >
-                        <Save className="w-4 h-4" />
-                        Save
-                      </button>
-                      <button
-                        onClick={() => setEditingUser(null)}
-                        className="px-6 py-2 rounded-xl bg-gray-500 text-white hover:bg-gray-600 transition-all flex items-center gap-2 font-semibold"
-                      >
-                        <X className="w-4 h-4" />
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  // View Mode
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h3 className="text-xl font-semibold text-cowc-dark mb-2">{user.full_name}</h3>
-                      <div className="flex flex-wrap gap-4 text-sm text-cowc-gray">
-                        <div className="flex items-center gap-2">
-                          <Mail className="w-4 h-4" />
-                          <a href={`mailto:${user.email}`} className="hover:text-cowc-gold transition-colors">
-                            {user.email}
-                          </a>
+                  ) : (
+                    // View mode
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 bg-cowc-gold/10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <UserCircle2 className="w-5 h-5 text-cowc-gold" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-cowc-dark text-lg">{user.full_name || '(no name)'}</p>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                            isActive
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {isActive ? 'Active' : 'Inactive'}
+                          </span>
                         </div>
-                        {user.phone && (
-                          <div className="flex items-center gap-2">
-                            <Phone className="w-4 h-4" />
-                            <a href={`tel:${user.phone}`} className="hover:text-cowc-gold transition-colors">
-                              {user.phone}
-                            </a>
-                          </div>
+                        {user.email && (
+                          <p className="text-sm text-cowc-gray flex items-center gap-1.5 mt-0.5">
+                            <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+                            {user.email}
+                          </p>
                         )}
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          user.status === 'Active' ? 'bg-green-100 text-green-700' :
-                          user.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
-                          {user.status}
-                        </span>
+                        {user.phone && (
+                          <p className="text-sm text-cowc-gray flex items-center gap-1.5 mt-0.5">
+                            <Phone className="w-3.5 h-3.5 flex-shrink-0" />
+                            {user.phone}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-1 flex-shrink-0 flex-wrap justify-end">
+                        {/* Recovery link */}
+                        <button
+                          onClick={() => handleRecovery(user)}
+                          disabled={isBusy}
+                          title="Generate recovery link"
+                          className="p-2 hover:bg-cowc-cream rounded-lg transition-colors disabled:opacity-40"
+                        >
+                          {isBusy && busyId === user.id && recoveryLink?.userId !== user.id
+                            ? <Loader2 className="w-4 h-4 text-cowc-gold animate-spin" />
+                            : <KeyRound className="w-4 h-4 text-cowc-gold" />
+                          }
+                        </button>
+
+                        {/* Deactivate / Reactivate */}
+                        <button
+                          onClick={() => handleToggleActive(user)}
+                          disabled={isBusy}
+                          title={isActive ? 'Deactivate user' : 'Reactivate user'}
+                          className="p-2 hover:bg-cowc-cream rounded-lg transition-colors disabled:opacity-40"
+                        >
+                          {isBusy
+                            ? <Loader2 className="w-4 h-4 animate-spin text-cowc-gray" />
+                            : isActive
+                              ? <ShieldOff className="w-4 h-4 text-amber-500" />
+                              : <ShieldCheck className="w-4 h-4 text-green-500" />
+                          }
+                        </button>
+
+                        {/* Edit */}
+                        <button
+                          onClick={() => {
+                            setEditingId(user.id)
+                            setEditForm({ full_name: user.full_name || '', phone: user.phone || '' })
+                          }}
+                          className="p-2 hover:bg-cowc-cream rounded-lg transition-colors"
+                          title="Edit user"
+                        >
+                          <Edit2 className="w-4 h-4 text-cowc-dark" />
+                        </button>
+
+                        {/* Delete */}
+                        <button
+                          onClick={() => handleDelete(user)}
+                          disabled={isBusy}
+                          className="p-2 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                          title="Delete user"
+                        >
+                          {isBusy
+                            ? <Loader2 className="w-4 h-4 animate-spin text-red-400" />
+                            : <Trash2 className="w-4 h-4 text-red-500" />
+                          }
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => handleEdit(user)}
-                        className="p-3 rounded-xl bg-cowc-cream hover:bg-cowc-sand transition-all"
-                        title="Edit user"
-                      >
-                        <Edit className="w-5 h-5 text-cowc-dark" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(user.id, user.full_name)}
-                        className="p-3 rounded-xl bg-red-50 hover:bg-red-100 transition-all"
-                        title="Delete user"
-                      >
-                        <Trash2 className="w-5 h-5 text-red-500" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {filteredUsers.length === 0 && (
-              <div className="text-center py-12">
-                <Users className="w-16 h-16 text-cowc-light-gray mx-auto mb-4" />
-                <p className="text-xl text-cowc-gray mb-2">No {activeTab} found</p>
-                <p className="text-sm text-cowc-light-gray">
-                  {searchQuery ? 'Try a different search term' : 'Click "Add User" to create one'}
-                </p>
-              </div>
-            )}
+                  )}
+                </motion.div>
+              )
+            })}
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
