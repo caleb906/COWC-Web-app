@@ -1,53 +1,55 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
-import { Clock, GripVertical, Plus, Edit2, Trash2, Save, X } from 'lucide-react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { Clock, GripVertical, Plus, Edit2, Trash2, Save } from 'lucide-react'
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const START_HOUR      = 6    // 6 AM
-const END_HOUR        = 24   // midnight
+const START_HOUR      = 6
+const END_HOUR        = 24
 const TOTAL_HOURS     = END_HOUR - START_HOUR
-const HOUR_HEIGHT     = 80   // px per hour
-const SNAP_TO         = 0.25 // snap to 15-minute intervals
-const DEFAULT_DUR     = 30   // default event duration in minutes
-const MIN_DUR         = 15   // minimum duration in minutes
-const RESIZE_ZONE     = 10   // px from top/bottom edge that triggers resize
-const MIN_EVENT_PX    = 28   // minimum rendered event height
+const HOUR_HEIGHT     = 80
+const SNAP_TO         = 0.25
+const DEFAULT_DUR     = 30
+const MIN_DUR         = 15
+const RESIZE_ZONE     = 10
+const MIN_EVENT_PX    = 28
 
 // ── Time helpers ─────────────────────────────────────────────────────────────
 function parseTime(str) {
   if (!str) return null
   const m24 = str.match(/^(\d{1,2}):(\d{2})$/)
   if (m24) return parseInt(m24[1]) + parseInt(m24[2]) / 60
-
   const m12 = str.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i)
   if (!m12) return null
   let h = parseInt(m12[1])
   const min = parseInt(m12[2])
-  const meridiem = m12[3].toUpperCase()
-  if (meridiem === 'PM' && h !== 12) h += 12
-  if (meridiem === 'AM' && h === 12) h = 0
+  const mer = m12[3].toUpperCase()
+  if (mer === 'PM' && h !== 12) h += 12
+  if (mer === 'AM' && h === 12) h = 0
   return h + min / 60
 }
 
 function formatTime(hours24) {
   const h = Math.floor(hours24)
   const m = Math.round((hours24 - h) * 60)
-  const meridiem = h >= 12 ? 'PM' : 'AM'
+  const mer = h >= 12 ? 'PM' : 'AM'
   const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h
-  return `${h12}:${m.toString().padStart(2, '0')} ${meridiem}`
+  return `${h12}:${m.toString().padStart(2, '0')} ${mer}`
 }
 
 function snapHours(raw) {
-  const snapped = Math.round(raw / SNAP_TO) * SNAP_TO
-  return Math.max(START_HOUR, Math.min(END_HOUR - SNAP_TO, snapped))
+  return Math.max(START_HOUR, Math.min(END_HOUR - SNAP_TO,
+    Math.round(raw / SNAP_TO) * SNAP_TO))
 }
 
 function snapDuration(minutes) {
-  const snapped = Math.round(minutes / (SNAP_TO * 60)) * (SNAP_TO * 60)
-  return Math.max(MIN_DUR, snapped)
+  return Math.max(MIN_DUR, Math.round(minutes / (SNAP_TO * 60)) * (SNAP_TO * 60))
 }
 
-function hoursToTop(hours24) {
-  return (hours24 - START_HOUR) * HOUR_HEIGHT
+function hoursToTop(h) { return (h - START_HOUR) * HOUR_HEIGHT }
+
+function eventHeightPx(dur) { return Math.max(MIN_EVENT_PX, (dur / 60) * HOUR_HEIGHT) }
+
+function endTimeLabel(startHours, durMin) {
+  return formatTime(Math.min(startHours + durMin / 60, END_HOUR))
 }
 
 function hourLabel(h) {
@@ -56,35 +58,28 @@ function hourLabel(h) {
   return h < 12 ? `${h} AM` : `${h - 12} PM`
 }
 
-function eventHeightPx(durationMin) {
-  return Math.max(MIN_EVENT_PX, (durationMin / 60) * HOUR_HEIGHT)
-}
-
-// ── Ripple cascade ───────────────────────────────────────────────────────────
-// After moving/resizing an event, push any subsequent overlapping events forward
-function rippleCascade(allItems, changedId, newStartHours, newDurationMin) {
+// ── Ripple cascade ────────────────────────────────────────────────────────────
+function rippleCascade(allItems, changedId, newStartHours, newDurMin) {
   const scheduled = allItems.filter(i => parseTime(i.time) !== null)
   const working = scheduled.map(i => ({
     id: i.id,
     start: i.id === changedId ? newStartHours : parseTime(i.time),
-    dur: (i.id === changedId ? newDurationMin : (i.duration_minutes ?? DEFAULT_DUR)) / 60,
+    dur:   (i.id === changedId ? newDurMin : (i.duration_minutes ?? DEFAULT_DUR)) / 60,
     isChanged: i.id === changedId,
   })).sort((a, b) => a.start - b.start)
 
-  const changedIdx = working.findIndex(i => i.isChanged)
-  if (changedIdx === -1) return []
+  const idx = working.findIndex(i => i.isChanged)
+  if (idx === -1) return []
 
   const updates = []
-  let prevEnd = working[changedIdx].start + working[changedIdx].dur
-
-  for (let i = changedIdx + 1; i < working.length; i++) {
-    const item = working[i]
-    let newStart = item.start
-    if (newStart < prevEnd) {
-      newStart = snapHours(prevEnd)
-      updates.push({ id: item.id, time: formatTime(newStart), duration_minutes: item.dur * 60 })
+  let prevEnd = working[idx].start + working[idx].dur
+  for (let i = idx + 1; i < working.length; i++) {
+    let s = working[i].start
+    if (s < prevEnd) {
+      s = snapHours(prevEnd)
+      updates.push({ id: working[i].id, time: formatTime(s) })
     }
-    prevEnd = newStart + item.dur
+    prevEnd = s + working[i].dur
   }
   return updates
 }
@@ -93,36 +88,22 @@ function rippleCascade(allItems, changedId, newStartHours, newDurationMin) {
 function ItemEditForm({ item, onSave, onCancel }) {
   const [title, setTitle] = useState(item.title || '')
   const [description, setDescription] = useState(item.description || '')
-
   return (
-    <div className="space-y-2 p-3 bg-white rounded-xl shadow-lg border-2 border-cowc-gold/30 z-20 relative" onClick={e => e.stopPropagation()}>
-      <input
-        autoFocus
-        type="text"
-        value={title}
-        onChange={e => setTitle(e.target.value)}
-        className="input-premium text-sm py-2 w-full"
-        placeholder="Event title"
-      />
-      <textarea
-        value={description}
-        onChange={e => setDescription(e.target.value)}
-        className="input-premium text-sm py-2 w-full min-h-[60px]"
-        placeholder="Description (optional)"
-        rows={2}
-      />
+    <div className="space-y-2 p-3 bg-white rounded-xl shadow-lg border-2 border-cowc-gold/30 z-20 relative"
+      onClick={e => e.stopPropagation()}>
+      <input autoFocus type="text" value={title} onChange={e => setTitle(e.target.value)}
+        className="input-premium text-sm py-2 w-full" placeholder="Event title" />
+      <textarea value={description} onChange={e => setDescription(e.target.value)}
+        className="input-premium text-sm py-2 w-full min-h-[60px]" rows={2}
+        placeholder="Description (optional)" />
       <div className="flex gap-2">
-        <button
-          onClick={() => onSave({ title: title.trim(), description: description.trim() })}
+        <button onClick={() => onSave({ title: title.trim(), description: description.trim() })}
           disabled={!title.trim()}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500 text-white text-xs font-semibold hover:bg-green-600 disabled:opacity-40"
-        >
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500 text-white text-xs font-semibold hover:bg-green-600 disabled:opacity-40">
           <Save className="w-3 h-3" /> Save
         </button>
-        <button
-          onClick={onCancel}
-          className="px-3 py-1.5 rounded-lg bg-gray-200 text-cowc-dark text-xs font-semibold hover:bg-gray-300"
-        >
+        <button onClick={onCancel}
+          className="px-3 py-1.5 rounded-lg bg-gray-200 text-cowc-dark text-xs font-semibold hover:bg-gray-300">
           Cancel
         </button>
       </div>
@@ -132,190 +113,151 @@ function ItemEditForm({ item, onSave, onCancel }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function TimelineCalendar({ items, canEdit, onUpdate, onDelete, onAddAt }) {
-  const calendarRef  = useRef(null)   // click-to-add overlay
-  const scrollRef    = useRef(null)   // scrollable container
-  const [editingId, setEditingId] = useState(null)
+  const calendarRef = useRef(null)
+  const scrollRef   = useRef(null)
+
+  // Local copy — updated optimistically so the UI never reloads mid-drag
+  const [localItems, setLocalItems] = useState(items)
+  useEffect(() => { setLocalItems(items) }, [items])
+
+  const [editingId,  setEditingId]  = useState(null)
   const [hoverHour,  setHoverHour]  = useState(null)
-
-  // drag state: { id, mode: 'move'|'top'|'bottom', ghostTop, ghostDur, startY, initialTop, initialDur }
-  const [dragging, setDragging] = useState(null)
-
-  // ripple animation: set of ids that just shifted
   const [rippledIds, setRippledIds] = useState(new Set())
 
-  // Sort items by time; unscheduled at bottom
-  const sorted = [...items].sort((a, b) => {
-    const ta = parseTime(a.time)
-    const tb = parseTime(b.time)
+  // drag: { id, mode:'move'|'top'|'bottom', ghostTop, ghostDur, startY, initialTop, initialDur }
+  const [dragging, setDragging] = useState(null)
+
+  // ── Sorted views ──────────────────────────────────────────────────────────
+  const sorted = [...localItems].sort((a, b) => {
+    const ta = parseTime(a.time), tb = parseTime(b.time)
     if (ta === null && tb === null) return 0
     if (ta === null) return 1
     if (tb === null) return -1
     return ta - tb
   })
+  const scheduled   = sorted.filter(i => parseTime(i.time) !== null)
+  const unscheduled = sorted.filter(i => parseTime(i.time) === null)
 
-  // ── Auto-scroll to first event on mount ────────────────────────────────────
+  // ── Auto-scroll to first event ─────────────────────────────────────────────
   useEffect(() => {
-    const scheduled = sorted.filter(i => parseTime(i.time) !== null)
     if (!scrollRef.current || scheduled.length === 0) return
     const firstHour = parseTime(scheduled[0].time)
-    const targetTop = Math.max(0, hoursToTop(firstHour) - HOUR_HEIGHT * 1.5)
-    scrollRef.current.scrollTop = targetTop
-  // Only run on mount / when items first arrive
+    scrollRef.current.scrollTop = Math.max(0, hoursToTop(firstHour) - HOUR_HEIGHT * 1.5)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.length > 0 ? 'loaded' : 'empty'])
+  }, [!!scheduled.length])
 
-  // ── Determine drag mode from pointer position within an event ───────────────
-  function getDragMode(e, eventEl) {
-    const rect = eventEl.getBoundingClientRect()
-    const y = (e.clientY ?? e.touches?.[0]?.clientY) - rect.top
+  // ── Live ripple preview during drag ──────────────────────────────────────
+  const livePositions = useMemo(() => {
+    if (!dragging) return {}
+    const newHours = snapHours(dragging.ghostTop / HOUR_HEIGHT + START_HOUR)
+    const ripple   = rippleCascade(localItems, dragging.id, newHours, dragging.ghostDur)
+    const map = {}
+    for (const u of ripple) {
+      const h = parseTime(u.time)
+      if (h !== null) {
+        const orig = localItems.find(i => i.id === u.id)
+        map[u.id] = { top: hoursToTop(h), dur: orig?.duration_minutes ?? DEFAULT_DUR }
+      }
+    }
+    return map
+  }, [dragging?.ghostTop, dragging?.ghostDur, dragging?.id, localItems])
+
+  // ── Drag mode from pointer position ──────────────────────────────────────
+  function getDragMode(clientY, el) {
+    const rect = el.getBoundingClientRect()
+    const y = clientY - rect.top
     if (y <= RESIZE_ZONE) return 'top'
     if (y >= rect.height - RESIZE_ZONE) return 'bottom'
     return 'move'
   }
 
-  // ── Mouse drag handlers ─────────────────────────────────────────────────────
-  const handleDragStart = useCallback((e, item) => {
-    if (!canEdit) return
-    e.preventDefault()
-    const mode = getDragMode(e, e.currentTarget.closest('[data-event]') || e.currentTarget)
-    const parsedHours = parseTime(item.time) ?? START_HOUR + 8
-    const dur = item.duration_minutes ?? DEFAULT_DUR
-    const initialTop = hoursToTop(parsedHours)
-    setDragging({
-      id: item.id,
-      mode,
-      ghostTop: initialTop,
-      ghostDur: dur,
-      startY: e.clientY,
-      initialTop,
-      initialDur: dur,
-    })
-  }, [canEdit])
-
-  const handleMouseMove = useCallback((e) => {
-    if (!dragging) return
-    const dy = e.clientY - dragging.startY
-
-    if (dragging.mode === 'move') {
-      const rawTop = dragging.initialTop + dy
-      const clampedTop = Math.max(0, Math.min(TOTAL_HOURS * HOUR_HEIGHT - MIN_EVENT_PX, rawTop))
-      setDragging(d => ({ ...d, ghostTop: clampedTop }))
-
-    } else if (dragging.mode === 'bottom') {
-      // Stretch bottom: keep start fixed, change duration
-      const newDurMin = snapDuration((dragging.initialDur / 60 + dy / HOUR_HEIGHT) * 60)
-      setDragging(d => ({ ...d, ghostDur: newDurMin }))
-
-    } else if (dragging.mode === 'top') {
-      // Stretch top: keep end fixed, move start up/down
-      const endHours = dragging.initialTop / HOUR_HEIGHT + START_HOUR + dragging.initialDur / 60
-      const rawNewTop = dragging.initialTop + dy
-      const clampedTop = Math.max(0, Math.min(hoursToTop(endHours) - MIN_EVENT_PX, rawNewTop))
-      const newStartHours = snapHours(clampedTop / HOUR_HEIGHT + START_HOUR)
-      const newDurMin = snapDuration((endHours - newStartHours) * 60)
-      setDragging(d => ({ ...d, ghostTop: hoursToTop(newStartHours), ghostDur: newDurMin }))
-    }
-  }, [dragging])
-
-  const handleMouseUp = useCallback(async () => {
+  // ── Drop handler (shared mouse + touch) ──────────────────────────────────
+  const commitDrop = useCallback(async () => {
     if (!dragging) return
     const { id, ghostTop, ghostDur } = dragging
     const newHours = snapHours(ghostTop / HOUR_HEIGHT + START_HOUR)
     const newTime  = formatTime(newHours)
     const newDur   = ghostDur
+    const ripple   = rippleCascade(localItems, id, newHours, newDur)
+
+    // Optimistic local state — no reload needed
+    const allUpdates = [{ id, time: newTime, duration_minutes: newDur }, ...ripple]
+    setLocalItems(prev => prev.map(item => {
+      const u = allUpdates.find(x => x.id === item.id)
+      return u ? { ...item, ...u } : item
+    }))
+
+    // Ripple highlight animation
+    const rSet = new Set(ripple.map(u => u.id))
+    if (rSet.size > 0) {
+      setRippledIds(rSet)
+      setTimeout(() => setRippledIds(new Set()), 700)
+    }
+
     setDragging(null)
 
-    // Compute ripple updates
-    const rippleUpdates = rippleCascade(items, id, newHours, newDur)
-    const rippledSet = new Set(rippleUpdates.map(u => u.id))
+    // Persist all in parallel — parent does NOT need to reload
+    await Promise.all([
+      onUpdate(id, { time: newTime, duration_minutes: newDur }),
+      ...ripple.map(u => onUpdate(u.id, { time: u.time })),
+    ])
+  }, [dragging, localItems, onUpdate])
 
-    if (rippledSet.size > 0) {
-      setRippledIds(rippledSet)
-      setTimeout(() => setRippledIds(new Set()), 600)
-    }
-
-    // Apply main update
-    await onUpdate(id, { time: newTime, duration_minutes: newDur })
-
-    // Apply ripple updates
-    for (const u of rippleUpdates) {
-      await onUpdate(u.id, { time: u.time })
-    }
-  }, [dragging, items, onUpdate])
-
-  // ── Touch handlers ──────────────────────────────────────────────────────────
-  const handleTouchStart = useCallback((e, item) => {
+  // ── Mouse handlers ────────────────────────────────────────────────────────
+  const startDrag = useCallback((clientY, item, el) => {
     if (!canEdit) return
-    const touch = e.touches[0]
-    const mode = getDragMode({ clientY: touch.clientY }, e.currentTarget.closest('[data-event]') || e.currentTarget)
-    const parsedHours = parseTime(item.time) ?? START_HOUR + 8
+    const mode = getDragMode(clientY, el)
+    const parsedH = parseTime(item.time) ?? START_HOUR + 8
     const dur = item.duration_minutes ?? DEFAULT_DUR
-    const initialTop = hoursToTop(parsedHours)
-    setDragging({
-      id: item.id,
-      mode,
-      ghostTop: initialTop,
-      ghostDur: dur,
-      startY: touch.clientY,
-      initialTop,
-      initialDur: dur,
-    })
+    const initialTop = hoursToTop(parsedH)
+    setDragging({ id: item.id, mode, ghostTop: initialTop, ghostDur: dur,
+                  startY: clientY, initialTop, initialDur: dur })
   }, [canEdit])
+
+  const moveDrag = useCallback((clientY) => {
+    if (!dragging) return
+    const dy = clientY - dragging.startY
+    setDragging(d => {
+      if (d.mode === 'move') {
+        const clamp = v => Math.max(0, Math.min(TOTAL_HOURS * HOUR_HEIGHT - MIN_EVENT_PX, v))
+        return { ...d, ghostTop: clamp(d.initialTop + dy) }
+      }
+      if (d.mode === 'bottom') {
+        return { ...d, ghostDur: snapDuration((d.initialDur / 60 + dy / HOUR_HEIGHT) * 60) }
+      }
+      // top resize — keep end fixed
+      const endH = d.initialTop / HOUR_HEIGHT + START_HOUR + d.initialDur / 60
+      const rawTop = Math.max(0, Math.min(hoursToTop(endH) - MIN_EVENT_PX, d.initialTop + dy))
+      const newStart = snapHours(rawTop / HOUR_HEIGHT + START_HOUR)
+      return { ...d, ghostTop: hoursToTop(newStart),
+                     ghostDur: snapDuration((endH - newStart) * 60) }
+    })
+  }, [dragging])
+
+  const handleMouseDown = useCallback((e, item) => {
+    e.preventDefault()
+    startDrag(e.clientY, item, e.currentTarget.closest('[data-event]') || e.currentTarget)
+  }, [startDrag])
+
+  const handleMouseMove = useCallback((e) => { moveDrag(e.clientY) }, [moveDrag])
+  const handleMouseUp   = useCallback(async () => { await commitDrop() }, [commitDrop])
+
+  const handleTouchStart = useCallback((e, item) => {
+    const t = e.touches[0]
+    startDrag(t.clientY, item, e.currentTarget.closest('[data-event]') || e.currentTarget)
+  }, [startDrag])
 
   const handleTouchMove = useCallback((e) => {
-    if (!dragging) return
-    e.preventDefault()
-    const touch = e.touches[0]
-    const dy = touch.clientY - dragging.startY
+    e.preventDefault(); moveDrag(e.touches[0].clientY)
+  }, [moveDrag])
+  const handleTouchEnd = useCallback(async () => { await commitDrop() }, [commitDrop])
 
-    if (dragging.mode === 'move') {
-      const rawTop = dragging.initialTop + dy
-      const clampedTop = Math.max(0, Math.min(TOTAL_HOURS * HOUR_HEIGHT - MIN_EVENT_PX, rawTop))
-      setDragging(d => ({ ...d, ghostTop: clampedTop }))
-
-    } else if (dragging.mode === 'bottom') {
-      const newDurMin = snapDuration((dragging.initialDur / 60 + dy / HOUR_HEIGHT) * 60)
-      setDragging(d => ({ ...d, ghostDur: newDurMin }))
-
-    } else if (dragging.mode === 'top') {
-      const endHours = dragging.initialTop / HOUR_HEIGHT + START_HOUR + dragging.initialDur / 60
-      const rawNewTop = dragging.initialTop + dy
-      const clampedTop = Math.max(0, Math.min(hoursToTop(endHours) - MIN_EVENT_PX, rawNewTop))
-      const newStartHours = snapHours(clampedTop / HOUR_HEIGHT + START_HOUR)
-      const newDurMin = snapDuration((endHours - newStartHours) * 60)
-      setDragging(d => ({ ...d, ghostTop: hoursToTop(newStartHours), ghostDur: newDurMin }))
-    }
-  }, [dragging])
-
-  const handleTouchEnd = useCallback(async () => {
-    if (!dragging) return
-    const { id, ghostTop, ghostDur } = dragging
-    const newHours = snapHours(ghostTop / HOUR_HEIGHT + START_HOUR)
-    const newTime  = formatTime(newHours)
-    const newDur   = ghostDur
-    setDragging(null)
-
-    const rippleUpdates = rippleCascade(items, id, newHours, newDur)
-    const rippledSet = new Set(rippleUpdates.map(u => u.id))
-    if (rippledSet.size > 0) {
-      setRippledIds(rippledSet)
-      setTimeout(() => setRippledIds(new Set()), 600)
-    }
-
-    await onUpdate(id, { time: newTime, duration_minutes: newDur })
-    for (const u of rippleUpdates) {
-      await onUpdate(u.id, { time: u.time })
-    }
-  }, [dragging, items, onUpdate])
-
-  // Global listeners
   useEffect(() => {
-    if (dragging) {
-      window.addEventListener('mousemove', handleMouseMove)
-      window.addEventListener('mouseup',   handleMouseUp)
-      window.addEventListener('touchmove', handleTouchMove, { passive: false })
-      window.addEventListener('touchend',  handleTouchEnd)
-    }
+    if (!dragging) return
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup',   handleMouseUp)
+    window.addEventListener('touchmove', handleTouchMove, { passive: false })
+    window.addEventListener('touchend',  handleTouchEnd)
     return () => {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup',   handleMouseUp)
@@ -324,33 +266,16 @@ export default function TimelineCalendar({ items, canEdit, onUpdate, onDelete, o
     }
   }, [dragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd])
 
-  // ── Click-to-add ─────────────────────────────────────────────────────────────
   const handleCalendarClick = (e) => {
-    if (!canEdit || dragging) return
-    if (e.target !== e.currentTarget) return
+    if (!canEdit || dragging || e.target !== e.currentTarget) return
     const rect = calendarRef.current?.getBoundingClientRect()
     if (!rect) return
-    const y = e.clientY - rect.top
-    const hours = snapHours(y / HOUR_HEIGHT + START_HOUR)
-    onAddAt(formatTime(hours))
+    onAddAt(formatTime(snapHours((e.clientY - rect.top) / HOUR_HEIGHT + START_HOUR)))
   }
 
-  // ── Cursor style for resize zones ────────────────────────────────────────────
-  const getEventCursor = (e, item) => {
-    if (!canEdit) return 'default'
-    const el = e.currentTarget
-    const rect = el.getBoundingClientRect()
-    const y = e.clientY - rect.top
-    if (y <= RESIZE_ZONE || y >= rect.height - RESIZE_ZONE) return 'ns-resize'
-    return 'grab'
-  }
-
-  const scheduled   = sorted.filter(item => parseTime(item.time) !== null)
-  const unscheduled = sorted.filter(item => parseTime(item.time) === null)
-
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      {/* Calendar */}
       <div className="card-premium overflow-hidden">
         {canEdit && (
           <div className="px-4 py-3 border-b border-cowc-sand/50 flex items-center gap-2 text-xs text-cowc-gray">
@@ -359,197 +284,173 @@ export default function TimelineCalendar({ items, canEdit, onUpdate, onDelete, o
           </div>
         )}
 
-        {/* Scrollable calendar */}
         <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: '70vh' }}>
           <div className="flex">
             {/* Time labels */}
             <div className="flex-shrink-0 w-16 relative select-none" style={{ height: TOTAL_HOURS * HOUR_HEIGHT }}>
               {Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => (
-                <div
-                  key={i}
-                  className="absolute right-3 text-xs text-cowc-light-gray font-medium"
-                  style={{ top: i * HOUR_HEIGHT - 8, lineHeight: '1' }}
-                >
+                <div key={i} className="absolute right-3 text-xs text-cowc-light-gray font-medium"
+                  style={{ top: i * HOUR_HEIGHT - 8, lineHeight: '1' }}>
                   {hourLabel(START_HOUR + i)}
                 </div>
               ))}
             </div>
 
-            {/* Grid + events */}
+            {/* Grid */}
             <div className="flex-1 relative border-l border-cowc-sand/50" style={{ height: TOTAL_HOURS * HOUR_HEIGHT }}>
-              {/* Hour lines */}
               {Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => (
-                <div
-                  key={i}
+                <div key={i}
                   className={`absolute left-0 right-0 border-t ${i === 0 ? 'border-cowc-sand' : 'border-cowc-sand/40'}`}
-                  style={{ top: i * HOUR_HEIGHT }}
-                />
+                  style={{ top: i * HOUR_HEIGHT }} />
               ))}
-              {/* Half-hour lines */}
               {Array.from({ length: TOTAL_HOURS }, (_, i) => (
-                <div
-                  key={`half-${i}`}
+                <div key={`h-${i}`}
                   className="absolute left-0 right-0 border-t border-dashed border-cowc-sand/20"
-                  style={{ top: i * HOUR_HEIGHT + HOUR_HEIGHT / 2 }}
-                />
+                  style={{ top: i * HOUR_HEIGHT + HOUR_HEIGHT / 2 }} />
               ))}
 
               {/* Click-to-add overlay */}
-              <div
-                ref={calendarRef}
-                className="absolute inset-0 z-0"
+              <div ref={calendarRef} className="absolute inset-0 z-0"
                 style={{ cursor: canEdit ? 'crosshair' : 'default' }}
                 onClick={handleCalendarClick}
-                onMouseMove={(e) => {
+                onMouseMove={e => {
                   if (!canEdit || dragging) return
                   const rect = e.currentTarget.getBoundingClientRect()
-                  const y = e.clientY - rect.top
-                  setHoverHour(snapHours(y / HOUR_HEIGHT + START_HOUR))
+                  setHoverHour(snapHours((e.clientY - rect.top) / HOUR_HEIGHT + START_HOUR))
                 }}
-                onMouseLeave={() => setHoverHour(null)}
-              >
-                {/* Hover indicator */}
+                onMouseLeave={() => setHoverHour(null)}>
                 {canEdit && hoverHour !== null && !dragging && (
-                  <div
-                    className="absolute left-2 right-2 flex items-center gap-2 pointer-events-none"
-                    style={{ top: hoursToTop(hoverHour) - 1 }}
-                  >
+                  <div className="absolute left-2 right-2 flex items-center gap-2 pointer-events-none"
+                    style={{ top: hoursToTop(hoverHour) - 1 }}>
                     <div className="h-0.5 flex-1 bg-cowc-gold/30 rounded" />
                     <span className="text-xs text-cowc-gold/60 font-medium flex items-center gap-1">
-                      <Plus className="w-3 h-3" />
-                      {formatTime(hoverHour)}
+                      <Plus className="w-3 h-3" />{formatTime(hoverHour)}
                     </span>
                   </div>
                 )}
               </div>
 
               {/* Drag ghost */}
-              {dragging && (
-                <div
-                  className="absolute left-3 right-3 z-30 pointer-events-none rounded-xl bg-cowc-gold/90 shadow-2xl border-2 border-cowc-gold"
-                  style={{
-                    top: dragging.ghostTop,
-                    height: eventHeightPx(dragging.ghostDur),
-                    opacity: 0.85,
-                  }}
-                >
-                  <div className="flex items-center gap-2 px-3 py-2 text-white text-sm font-semibold h-full">
-                    <Clock className="w-4 h-4 flex-shrink-0" />
-                    <span>{formatTime(snapHours(dragging.ghostTop / HOUR_HEIGHT + START_HOUR))}</span>
-                    <span className="text-white/70 text-xs ml-auto">{dragging.ghostDur}m</span>
+              {dragging && (() => {
+                const ghostH = snapHours(dragging.ghostTop / HOUR_HEIGHT + START_HOUR)
+                return (
+                  <div className="absolute left-3 right-3 z-30 pointer-events-none rounded-xl bg-cowc-gold border-2 border-cowc-gold/80 shadow-2xl"
+                    style={{ top: dragging.ghostTop, height: eventHeightPx(dragging.ghostDur), opacity: 0.88 }}>
+                    <div className="flex items-center gap-2 px-3 py-1.5 text-white text-sm font-semibold">
+                      <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{formatTime(ghostH)}</span>
+                      <span className="text-white/70 mx-0.5">–</span>
+                      <span>{endTimeLabel(ghostH, dragging.ghostDur)}</span>
+                      <span className="ml-auto text-white/60 text-xs">{dragging.ghostDur}m</span>
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
 
-              {/* Scheduled events */}
-              {scheduled.map((item) => {
+              {/* Events */}
+              {scheduled.map(item => {
                 const hours      = parseTime(item.time)
-                const top        = hoursToTop(hours)
                 const dur        = item.duration_minutes ?? DEFAULT_DUR
-                const heightPx   = eventHeightPx(dur)
                 const isDragging = dragging?.id === item.id
-                const isEditing  = editingId === item.id
+                const live       = !isDragging ? livePositions[item.id] : null
+                const displayTop = isDragging ? dragging.ghostTop   : (live?.top ?? hoursToTop(hours))
+                const displayDur = isDragging ? dragging.ghostDur   : (live?.dur ?? dur)
+                const isRippling = !!live
                 const isRippled  = rippledIds.has(item.id)
-                const isShort    = heightPx < 48
+                const heightPx   = eventHeightPx(displayDur)
+                const isShort    = heightPx < 52
 
                 return (
-                  <div
-                    key={item.id}
-                    data-event={item.id}
-                    className={`absolute left-3 right-3 z-10 ${isDragging ? 'opacity-25' : 'opacity-100'} ${isRippled ? 'animate-pulse' : ''}`}
+                  <div key={item.id} data-event={item.id}
+                    className={`absolute left-3 right-3 z-10 ${isDragging ? 'opacity-20' : 'opacity-100'}`}
                     style={{
-                      top: top + 1,
-                      height: heightPx,
-                      transition: isDragging ? 'none' : 'top 0.35s cubic-bezier(0.34,1.56,0.64,1)',
-                    }}
-                    onMouseMove={(e) => {
-                      if (!canEdit || dragging) return
-                      const rect = e.currentTarget.getBoundingClientRect()
-                      const y = e.clientY - rect.top
-                      const cursor = (y <= RESIZE_ZONE || y >= rect.height - RESIZE_ZONE) ? 'ns-resize' : 'grab'
-                      e.currentTarget.style.cursor = cursor
-                    }}
-                  >
-                    {isEditing ? (
-                      <ItemEditForm
-                        item={item}
-                        onSave={async (updates) => { await onUpdate(item.id, updates); setEditingId(null) }}
-                        onCancel={() => setEditingId(null)}
-                      />
+                      top:        displayTop + 1,
+                      height:     heightPx,
+                      transition: isDragging
+                        ? 'none'
+                        : dragging
+                          ? 'top 0.08s linear, height 0.08s linear'   // fast live-ripple
+                          : 'top 0.35s cubic-bezier(0.34,1.56,0.64,1)',  // spring on drop
+                    }}>
+                    {editingId === item.id ? (
+                      <ItemEditForm item={item}
+                        onSave={async (u) => {
+                          setLocalItems(prev => prev.map(i => i.id === item.id ? { ...i, ...u } : i))
+                          setEditingId(null)
+                          await onUpdate(item.id, u)
+                        }}
+                        onCancel={() => setEditingId(null)} />
                     ) : (
                       <div
-                        className={`relative flex items-start gap-2 px-3 rounded-xl border-2 shadow-sm group transition-all h-full overflow-hidden ${
-                          isDragging
-                            ? 'bg-cowc-gold/10 border-cowc-gold'
-                            : isRippled
-                            ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-200'
-                            : 'bg-white border-cowc-sand hover:border-cowc-gold/40'
+                        data-event={item.id}
+                        className={`relative flex items-start gap-2 px-3 rounded-xl border-2 shadow-sm group h-full overflow-hidden select-none ${
+                          isDragging  ? 'bg-cowc-gold/10 border-cowc-gold' :
+                          isRippling  ? 'bg-amber-50/80 border-amber-300' :
+                          isRippled   ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-200' :
+                          'bg-white border-cowc-sand hover:border-cowc-gold/40'
                         }`}
-                        onMouseDown={canEdit ? (e) => handleDragStart(e, item) : undefined}
-                        onTouchStart={canEdit ? (e) => handleTouchStart(e, item) : undefined}
-                        style={{ cursor: canEdit ? 'grab' : 'default', paddingTop: isShort ? '4px' : '8px', paddingBottom: isShort ? '4px' : '8px' }}
-                      >
-                        {/* Top resize handle */}
+                        onMouseDown={canEdit ? e => handleMouseDown(e, item) : undefined}
+                        onTouchStart={canEdit ? e => handleTouchStart(e, item) : undefined}
+                        style={{
+                          cursor: canEdit ? 'grab' : 'default',
+                          paddingTop:    isShort ? 4 : 8,
+                          paddingBottom: isShort ? 4 : 8,
+                        }}>
+
+                        {/* Top resize grip */}
                         {canEdit && (
-                          <div
-                            className="absolute top-0 left-0 right-0 h-2.5 cursor-ns-resize z-20 group/top"
-                            title="Drag to move start time"
-                          >
-                            <div className="absolute top-0.5 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-cowc-light-gray/40 group-hover/top:bg-cowc-gold/60 transition-colors" />
+                          <div className="absolute top-0 left-0 right-0 h-2.5 cursor-ns-resize z-20 group/top">
+                            <div className="absolute top-0.5 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-cowc-light-gray/30 group-hover/top:bg-cowc-gold/60 transition-colors" />
                           </div>
                         )}
 
-                        {/* Event content */}
+                        {/* Content */}
                         <div className="flex-shrink-0 mt-0.5">
                           <div className="w-5 h-5 bg-cowc-gold/10 rounded-full flex items-center justify-center">
                             <Clock className="w-3 h-3 text-cowc-gold" />
                           </div>
                         </div>
+
                         <div className="flex-1 min-w-0">
                           {isShort ? (
                             <div className="flex items-center gap-2">
                               <p className="font-semibold text-cowc-dark text-xs truncate">{item.title}</p>
-                              <span className="text-xs text-cowc-gold font-medium flex-shrink-0">{item.time}</span>
+                              <span className="text-xs text-cowc-gold font-medium flex-shrink-0 whitespace-nowrap">
+                                {item.time} – {endTimeLabel(hours, displayDur)}
+                              </span>
                             </div>
                           ) : (
                             <>
-                              <div className="flex items-baseline gap-2">
-                                <p className="font-semibold text-cowc-dark text-sm truncate">{item.title}</p>
-                                <span className="text-xs text-cowc-gold font-medium flex-shrink-0">{item.time}</span>
-                              </div>
-                              {item.description && !isShort && (
+                              <p className="font-semibold text-cowc-dark text-sm truncate leading-tight">{item.title}</p>
+                              <span className="text-xs text-cowc-gold font-medium whitespace-nowrap">
+                                {item.time} – {endTimeLabel(hours, displayDur)}
+                              </span>
+                              {item.description && (
                                 <p className="text-xs text-cowc-gray mt-0.5 truncate">{item.description}</p>
                               )}
-                              <p className="text-xs text-cowc-light-gray mt-0.5">{dur}m</p>
                             </>
                           )}
                         </div>
+
                         {canEdit && (
                           <div className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity self-start mt-0.5">
-                            <button
-                              onMouseDown={e => e.stopPropagation()}
+                            <button onMouseDown={e => e.stopPropagation()}
                               onClick={e => { e.stopPropagation(); setEditingId(item.id) }}
-                              className="p-1 hover:bg-cowc-cream rounded"
-                            >
+                              className="p-1 hover:bg-cowc-cream rounded">
                               <Edit2 className="w-3 h-3 text-cowc-dark" />
                             </button>
-                            <button
-                              onMouseDown={e => e.stopPropagation()}
+                            <button onMouseDown={e => e.stopPropagation()}
                               onClick={e => { e.stopPropagation(); onDelete(item.id) }}
-                              className="p-1 hover:bg-red-50 rounded"
-                            >
+                              className="p-1 hover:bg-red-50 rounded">
                               <Trash2 className="w-3 h-3 text-red-500" />
                             </button>
                           </div>
                         )}
 
-                        {/* Bottom resize handle */}
+                        {/* Bottom resize grip */}
                         {canEdit && (
-                          <div
-                            className="absolute bottom-0 left-0 right-0 h-2.5 cursor-ns-resize z-20 group/bottom"
-                            title="Drag to change duration"
-                          >
-                            <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-cowc-light-gray/40 group-hover/bottom:bg-cowc-gold/60 transition-colors" />
+                          <div className="absolute bottom-0 left-0 right-0 h-2.5 cursor-ns-resize z-20 group/bottom">
+                            <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-cowc-light-gray/30 group-hover/bottom:bg-cowc-gold/60 transition-colors" />
                           </div>
                         )}
                       </div>
@@ -586,11 +487,13 @@ export default function TimelineCalendar({ items, canEdit, onUpdate, onDelete, o
                 )}
                 {editingId === item.id && (
                   <div className="absolute left-0 right-0 top-full z-20 mt-1">
-                    <ItemEditForm
-                      item={item}
-                      onSave={async (updates) => { await onUpdate(item.id, updates); setEditingId(null) }}
-                      onCancel={() => setEditingId(null)}
-                    />
+                    <ItemEditForm item={item}
+                      onSave={async (u) => {
+                        setLocalItems(prev => prev.map(i => i.id === item.id ? { ...i, ...u } : i))
+                        setEditingId(null)
+                        await onUpdate(item.id, u)
+                      }}
+                      onCancel={() => setEditingId(null)} />
                   </div>
                 )}
               </div>
@@ -599,7 +502,6 @@ export default function TimelineCalendar({ items, canEdit, onUpdate, onDelete, o
         </div>
       )}
 
-      {/* Empty state */}
       {items.length === 0 && !canEdit && (
         <div className="card-premium p-12 text-center">
           <Clock className="w-16 h-16 text-cowc-light-gray mx-auto mb-4" />

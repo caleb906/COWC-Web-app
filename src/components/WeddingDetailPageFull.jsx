@@ -1174,16 +1174,21 @@ export default function WeddingDetailPageFull() {
                 items={localTimeline}
                 canEdit={canEdit}
                 onUpdate={async (itemId, updates) => {
+                  // Optimistic local update — no page reload, no flicker
+                  setLocalTimeline(prev => prev.map(item =>
+                    item.id === itemId ? { ...item, ...updates } : item
+                  ))
                   try {
                     const patch = {}
-                    if (updates.title       !== undefined) patch.title       = updates.title
-                    if (updates.time        !== undefined) patch.time        = updates.time || ''
-                    if (updates.description !== undefined) patch.description = updates.description ?? ''
+                    if (updates.title            !== undefined) patch.title            = updates.title
+                    if (updates.time             !== undefined) patch.time             = updates.time || ''
+                    if (updates.description      !== undefined) patch.description      = updates.description ?? ''
                     if (updates.duration_minutes !== undefined) patch.duration_minutes = updates.duration_minutes
                     await timelineAPI.update(itemId, patch)
-                    await loadWedding()
+                    // No loadWedding() — TimelineCalendar owns its own local state
                   } catch {
                     toast.error('Failed to update timeline item')
+                    await loadWedding() // Restore on error only
                   }
                 }}
                 onDelete={handleDeleteTimeline}
@@ -1662,7 +1667,10 @@ function VendorCard({
   savingMember, handleAddMember,
   isMember = false,
 }) {
-  const [membersExpanded, setMembersExpanded] = useState(true)
+  const [membersExpanded, setMembersExpanded] = useState(false)
+  // Lead = first member whose notes/role contains "lead" (case-insensitive), else first member
+  const leadMember = vendor.members?.find(m => m.notes?.toLowerCase().includes('lead')) ?? vendor.members?.[0]
+  const otherMembers = vendor.members?.filter(m => m.id !== leadMember?.id) ?? []
   const isEditing = editingVendorId === vendor.id
   const isAddingMember = addMemberForVendorId === vendor.id
 
@@ -1817,18 +1825,6 @@ function VendorCard({
 
             {/* Actions */}
             <div className="flex items-center gap-1.5 flex-shrink-0 ml-3">
-              {!isMember && canEdit && vendor.members?.length > 0 && (
-                <button
-                  onClick={() => setMembersExpanded(prev => !prev)}
-                  className="p-1.5 hover:bg-cowc-cream rounded-lg text-cowc-gray"
-                  title={membersExpanded ? 'Collapse team' : 'Expand team'}
-                >
-                  {membersExpanded
-                    ? <ChevronUp className="w-4 h-4" />
-                    : <ChevronDown className="w-4 h-4" />
-                  }
-                </button>
-              )}
               {canEdit && vendor.submitted_by_couple && vendor.status === 'pending' && (
                 <button onClick={() => handleConfirmCoupleVendor(vendor.id)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500 text-white text-xs font-semibold hover:bg-green-600 transition-colors">
@@ -1850,10 +1846,54 @@ function VendorCard({
             </div>
           </div>
 
-          {/* Team members */}
-          {!isMember && vendor.members?.length > 0 && membersExpanded && (
-            <div className="mt-4 space-y-3">
-              {vendor.members.map(member => (
+          {/* Lead contact — always visible when there are team members */}
+          {!isMember && leadMember && (
+            <div className="mt-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-cowc-gray">
+                <span className="font-medium text-cowc-dark">{leadMember.name}</span>
+                {leadMember.notes && (
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-cowc-cream text-cowc-gray italic">
+                    {leadMember.notes}
+                  </span>
+                )}
+                {leadMember.contact_email && (
+                  <a href={`mailto:${leadMember.contact_email}`}
+                    className="text-xs text-cowc-gold hover:underline hidden sm:inline"
+                    onClick={e => e.stopPropagation()}>
+                    {leadMember.contact_email}
+                  </a>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                {canEdit && (
+                  <>
+                    <button onClick={e => { e.stopPropagation(); setEditingVendorId(leadMember.id) }}
+                      className="p-1 hover:bg-cowc-cream rounded">
+                      <Edit2 className="w-3 h-3 text-cowc-dark" />
+                    </button>
+                    <button onClick={e => { e.stopPropagation(); handleDeleteVendor(leadMember.id) }}
+                      className="p-1 hover:bg-red-50 rounded">
+                      <Trash2 className="w-3 h-3 text-red-400" />
+                    </button>
+                  </>
+                )}
+                {otherMembers.length > 0 && (
+                  <button
+                    onClick={() => setMembersExpanded(p => !p)}
+                    className="ml-1 text-xs text-cowc-gray hover:text-cowc-gold flex items-center gap-0.5 transition-colors">
+                    {membersExpanded
+                      ? <><ChevronUp className="w-3.5 h-3.5" />{otherMembers.length} less</>
+                      : <><ChevronDown className="w-3.5 h-3.5" />+{otherMembers.length} more</>}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Remaining team members — hidden by default */}
+          {!isMember && membersExpanded && otherMembers.length > 0 && (
+            <div className="mt-2 space-y-2 pl-2 border-l-2 border-cowc-sand/50">
+              {otherMembers.map(member => (
                 <VendorCard
                   key={member.id}
                   vendor={member}
