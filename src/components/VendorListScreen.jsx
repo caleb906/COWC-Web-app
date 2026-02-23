@@ -6,7 +6,7 @@ import {
   ChevronDown, ChevronUp, Pencil, Trash2, AlertTriangle, UserPlus,
   Camera, Video, Flower2, Music2, Disc3, UtensilsCrossed, Cake,
   Scissors, Heart, Landmark, Car, ClipboardList, Armchair,
-  Mail as MailIcon, Wine, Star, Link2,
+  Mail as MailIcon, Wine, Star, Link2, MapPin, Loader2,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { vendorsAPI } from '../services/unifiedAPI'
@@ -290,6 +290,8 @@ export default function VendorListScreen() {
   const [editTarget, setEditTarget] = useState(null)
   const [form, setForm]             = useState(BLANK_FORM)
   const [saving, setSaving]         = useState(false)
+  const [lookingUp, setLookingUp]   = useState(false)
+  const [googleResult, setGoogleResult] = useState(null) // { name, address, phone, website, rating, totalRatings }
 
   // Delete vendor
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -372,6 +374,7 @@ export default function VendorListScreen() {
   const openAdd = () => {
     setForm(BLANK_FORM)
     setEditTarget(null)
+    setGoogleResult(null)
     setShowModal(true)
   }
 
@@ -385,7 +388,36 @@ export default function VendorListScreen() {
       notes:         vendor.notes || '',
     })
     setEditTarget(vendor)
+    setGoogleResult(null)
     setShowModal(true)
+  }
+
+  const handleGoogleLookup = async () => {
+    if (!form.name.trim()) { toast.error('Enter a vendor name first'); return }
+    setLookingUp(true)
+    setGoogleResult(null)
+    try {
+      const { lookupBusinessByName } = await import('../lib/googleMaps')
+      const categoryLabel = form.category
+        ? form.category.replace(/_/g, ' ')
+        : ''
+      const result = await lookupBusinessByName(form.name.trim(), categoryLabel)
+      if (result) {
+        setGoogleResult(result)
+        // Auto-fill empty fields
+        setForm(f => ({
+          ...f,
+          phone:   f.phone   || result.phone   || f.phone,
+          website: f.website || result.website || f.website,
+        }))
+      } else {
+        toast.error('Not found on Google — try a more specific name')
+      }
+    } catch {
+      toast.error('Lookup failed')
+    } finally {
+      setLookingUp(false)
+    }
   }
 
   const handleSaveVendor = async (e) => {
@@ -691,9 +723,40 @@ export default function VendorListScreen() {
                   <label className="block text-sm font-semibold text-cowc-dark mb-1.5">
                     Company / Vendor Name <span className="text-red-400">*</span>
                   </label>
-                  <input type="text" value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="input-premium" placeholder="e.g. Bleu Bite Catering" required />
+                  <div className="flex gap-2">
+                    <input type="text" value={form.name}
+                      onChange={(e) => { setForm({ ...form, name: e.target.value }); setGoogleResult(null) }}
+                      className="input-premium flex-1" placeholder="e.g. Bleu Bite Catering" required />
+                    <button
+                      type="button"
+                      onClick={handleGoogleLookup}
+                      disabled={lookingUp || !form.name.trim()}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cowc-gold/10 text-cowc-gold font-semibold text-xs hover:bg-cowc-gold/20 transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="Look up on Google Business"
+                    >
+                      {lookingUp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
+                      {lookingUp ? 'Searching…' : 'Find on Google'}
+                    </button>
+                  </div>
+
+                  {/* Google result preview */}
+                  {googleResult && (
+                    <div className="mt-2 p-3 rounded-xl bg-green-50 border border-green-200 text-xs space-y-1">
+                      <div className="flex items-center gap-1.5 font-semibold text-green-700">
+                        <MapPin className="w-3 h-3" />
+                        Found on Google
+                        {googleResult.rating && (
+                          <span className="ml-auto flex items-center gap-0.5 text-cowc-gold font-semibold">
+                            <Star className="w-3 h-3 fill-cowc-gold" />
+                            {googleResult.rating} ({googleResult.totalRatings?.toLocaleString()})
+                          </span>
+                        )}
+                      </div>
+                      {googleResult.address && <p className="text-green-600">{googleResult.address}</p>}
+                      {googleResult.phone   && <p className="text-green-600">{googleResult.phone}</p>}
+                      {googleResult.website && <p className="text-green-600 truncate">{googleResult.website.replace(/^https?:\/\//, '')}</p>}
+                    </div>
+                  )}
                 </div>
 
                 <div>

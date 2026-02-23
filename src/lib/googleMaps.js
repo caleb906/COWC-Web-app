@@ -101,7 +101,7 @@ export async function getVenuePredictions(query) {
 
 /**
  * Get full details for a place by placeId
- * Returns: { name, address, city, state, website } or null
+ * Returns: { name, address, city, state, phone, website, rating, totalRatings } or null
  */
 export async function getPlaceDetails(placeId) {
   try {
@@ -110,18 +110,31 @@ export async function getPlaceDetails(placeId) {
       service.getDetails(
         {
           placeId,
-          fields: ['name', 'formatted_address', 'website', 'address_components'],
+          fields: [
+            'name',
+            'formatted_address',
+            'formatted_phone_number',
+            'website',
+            'address_components',
+            'rating',
+            'user_ratings_total',
+            'business_status',
+          ],
         },
         (place, status) => {
           const OK = window.google.maps.places.PlacesServiceStatus.OK
           if (status === OK && place) {
             const { city, state } = parseAddressComponents(place.address_components)
             resolve({
-              name: place.name || '',
-              address: place.formatted_address || '',
+              name:         place.name || '',
+              address:      place.formatted_address || '',
               city,
               state,
-              website: place.website || '',
+              phone:        place.formatted_phone_number || '',
+              website:      place.website || '',
+              rating:       place.rating || null,
+              totalRatings: place.user_ratings_total || 0,
+              isOpen:       place.business_status === 'OPERATIONAL',
             })
           } else {
             resolve(null)
@@ -129,6 +142,36 @@ export async function getPlaceDetails(placeId) {
         }
       )
     })
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Look up a business by name (for vendors) — returns phone + website + address
+ * Returns: { name, address, city, state, phone, website, rating, totalRatings } or null
+ */
+export async function lookupBusinessByName(businessName, categoryHint = '') {
+  try {
+    const service = await getPlacesService()
+    const query = [businessName, categoryHint, 'Oregon'].filter(Boolean).join(' ')
+
+    const placeId = await new Promise((resolve) => {
+      service.textSearch(
+        { query },
+        (results, status) => {
+          const OK = window.google.maps.places.PlacesServiceStatus.OK
+          if (status === OK && results?.length) {
+            resolve(results[0].place_id)
+          } else {
+            resolve(null)
+          }
+        }
+      )
+    })
+
+    if (!placeId) return null
+    return getPlaceDetails(placeId)
   } catch {
     return null
   }
