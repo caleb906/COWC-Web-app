@@ -38,6 +38,7 @@ const getCat = (val) =>
 
 const BLANK_FORM = {
   name: '', category: '', contact_email: '', phone: '', website: '', notes: '',
+  google_rating: null, google_place_id: null,
 }
 
 const ROLES = [
@@ -66,6 +67,8 @@ function groupVendors(vendors) {
         phone: v.phone,
         website: v.website,
         notes: v.notes,
+        google_rating: v.google_rating || null,
+        google_place_id: v.google_place_id || null,
         weddings: [],
         members: [],
         vendorIds: [],
@@ -161,9 +164,18 @@ function CompanyRow({ group, index, onEdit, onDelete, onEditMember, onDeleteMemb
 
         {/* Company name + wedding pills + contact */}
         <div className="flex-1 min-w-0">
-          {/* Line 1: Company name + wedding pills */}
+          {/* Line 1: Company name + Google rating + wedding pills */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-bold text-cowc-dark text-sm leading-snug">{group.name}</span>
+            {group.google_rating && (
+              <span
+                className="inline-flex items-center gap-0.5 text-xs font-semibold text-cowc-gold"
+                title={`Google rating: ${group.google_rating}`}
+              >
+                <Star className="w-3 h-3 fill-cowc-gold" />
+                {Number(group.google_rating).toFixed(1)}
+              </span>
+            )}
             {group.weddings.map((w) => (
               <span
                 key={w.id}
@@ -380,12 +392,14 @@ export default function VendorListScreen() {
 
   const openEdit = (vendor) => {
     setForm({
-      name:          vendor.name || '',
-      category:      vendor.category || '',
-      contact_email: vendor.contact_email || '',
-      phone:         vendor.phone || '',
-      website:       vendor.website || '',
-      notes:         vendor.notes || '',
+      name:            vendor.name || '',
+      category:        vendor.category || '',
+      contact_email:   vendor.contact_email || '',
+      phone:           vendor.phone || '',
+      website:         vendor.website || '',
+      notes:           vendor.notes || '',
+      google_rating:   vendor.google_rating || null,
+      google_place_id: vendor.google_place_id || null,
     })
     setEditTarget(vendor)
     setGoogleResult(null)
@@ -407,8 +421,10 @@ export default function VendorListScreen() {
         // Auto-fill empty fields
         setForm(f => ({
           ...f,
-          phone:   f.phone   || result.phone   || f.phone,
-          website: f.website || result.website || f.website,
+          phone:           f.phone   || result.phone   || f.phone,
+          website:         f.website || result.website || f.website,
+          google_rating:   result.rating   || f.google_rating,
+          google_place_id: result.placeId  || f.google_place_id,
         }))
       } else {
         toast.error('Not found on Google — try a more specific name')
@@ -427,24 +443,28 @@ export default function VendorListScreen() {
     try {
       if (editTarget) {
         await vendorsAPI.update(editTarget.id, {
-          name:          form.name.trim(),
-          category:      form.category || 'other',
-          contact_email: form.contact_email.trim(),
-          phone:         form.phone.trim(),
-          website:       form.website.trim(),
-          notes:         form.notes.trim(),
+          name:            form.name.trim(),
+          category:        form.category || 'other',
+          contact_email:   form.contact_email.trim(),
+          phone:           form.phone.trim(),
+          website:         form.website.trim(),
+          notes:           form.notes.trim(),
+          google_rating:   form.google_rating   ?? null,
+          google_place_id: form.google_place_id ?? null,
         })
         toast.success('Vendor updated')
       } else {
         await vendorsAPI.create({
-          name:          form.name.trim(),
-          category:      form.category || 'other',
-          contact_email: form.contact_email.trim(),
-          phone:         form.phone.trim(),
-          website:       form.website.trim(),
-          notes:         form.notes.trim(),
-          status:        'confirmed',
-          vendor_role:   'company',
+          name:            form.name.trim(),
+          category:        form.category || 'other',
+          contact_email:   form.contact_email.trim(),
+          phone:           form.phone.trim(),
+          website:         form.website.trim(),
+          notes:           form.notes.trim(),
+          status:          'confirmed',
+          vendor_role:     'company',
+          google_rating:   form.google_rating   ?? null,
+          google_place_id: form.google_place_id ?? null,
         })
         toast.success(`${form.name.trim()} added to directory`)
       }

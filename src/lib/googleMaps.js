@@ -171,7 +171,9 @@ export async function lookupBusinessByName(businessName, categoryHint = '') {
     })
 
     if (!placeId) return null
-    return getPlaceDetails(placeId)
+    const details = await getPlaceDetails(placeId)
+    if (!details) return null
+    return { ...details, placeId } // include placeId for storage
   } catch {
     return null
   }
