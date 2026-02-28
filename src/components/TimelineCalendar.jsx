@@ -349,7 +349,7 @@ export default function TimelineCalendar({
       <div
         ref={el => { if (el) eventRefs.current[item.id] = el; else delete eventRefs.current[item.id] }}
         key={item.id}
-        className={isGrid ? 'absolute left-3 right-3 z-10' : ''}
+        className={isGrid ? `absolute left-3 right-3 ${isExpanded ? 'z-20' : 'z-10'}` : ''}
         style={isGrid ? { top: hoursToTop(hours) + 1 } : {}}
       >
         <div
