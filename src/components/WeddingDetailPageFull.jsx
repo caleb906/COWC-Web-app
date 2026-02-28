@@ -77,6 +77,10 @@ export default function WeddingDetailPageFull() {
   const [showAddVendor, setShowAddVendor] = useState(false)
   const [showAddTimeline, setShowAddTimeline] = useState(false)
   const [addTimelineTime, setAddTimelineTime] = useState(null)
+  const [showAITimeline, setShowAITimeline] = useState(false)
+  const [aiTimelineInput, setAITimelineInput] = useState('')
+  const [aiTimelineLoading, setAITimelineLoading] = useState(false)
+  const [aiTimelineError, setAITimelineError] = useState('')
   const [showFABTray, setShowFABTray] = useState(false)
 
   // Edit states for items
@@ -509,6 +513,64 @@ export default function WeddingDetailPageFull() {
       console.error('Error reordering timeline:', error)
       toast.error('Failed to reorder timeline')
     }
+  }
+
+  // AI bulk-import timeline from free-text
+  const handleAITimelineImport = async () => {
+    if (!aiTimelineInput.trim()) return
+    setAITimelineLoading(true)
+    setAITimelineError('')
+    try {
+      const { data, error } = await supabase.functions.invoke('parse-timeline', {
+        body: { text: aiTimelineInput, wedding_id: id },
+      })
+      if (error) throw error
+      if (!data?.items?.length) throw new Error('No events found — try adding more detail.')
+
+      // Create all parsed items
+      const created = []
+      for (const item of data.items) {
+        const newItem = await timelineAPI.create({
+          wedding_id: id,
+          title: item.title,
+          time: item.time || '',
+          description: item.description || '',
+          duration_minutes: item.duration_minutes ?? 30,
+          sort_order: item.sort_order ?? 0,
+        })
+        created.push(newItem)
+      }
+
+      setLocalTimeline(prev => {
+        const merged = [...prev, ...created]
+        return merged.sort((a, b) => {
+          const pa = parseTimeStr(a.time), pb = parseTimeStr(b.time)
+          if (!pa && !pb) return 0
+          if (!pa) return 1
+          if (!pb) return -1
+          return pa - pb
+        })
+      })
+
+      toast.success(`Added ${created.length} timeline event${created.length !== 1 ? 's' : ''}!`)
+      setShowAITimeline(false)
+      setAITimelineInput('')
+    } catch (err) {
+      setAITimelineError(err.message || 'Something went wrong.')
+    } finally {
+      setAITimelineLoading(false)
+    }
+  }
+
+  // Simple time parser for local sort (mirrors TimelineCalendar)
+  const parseTimeStr = (str) => {
+    if (!str) return null
+    const m12 = str.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i)
+    if (!m12) return null
+    let h = parseInt(m12[1])
+    if (m12[3].toUpperCase() === 'PM' && h !== 12) h += 12
+    if (m12[3].toUpperCase() === 'AM' && h === 12) h = 0
+    return h + parseInt(m12[2]) / 60
   }
 
   const handleTimelineDragEnd = (result) => {
@@ -1196,13 +1258,61 @@ export default function WeddingDetailPageFull() {
           {activeTab === 'timeline' && (
             <div className="space-y-4">
               {canEdit && (
-                <button
-                  onClick={() => { setAddTimelineTime(null); setShowAddTimeline(true) }}
-                  className="w-full py-4 rounded-xl border-2 border-dashed border-cowc-gold text-cowc-gold hover:bg-cowc-gold/5 transition-all flex items-center justify-center gap-2 font-semibold"
-                >
-                  <Plus className="w-5 h-5" />
-                  Add Timeline Item
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => { setAddTimelineTime(null); setShowAddTimeline(true) }}
+                    className="flex-1 py-4 rounded-xl border-2 border-dashed border-cowc-gold text-cowc-gold hover:bg-cowc-gold/5 transition-all flex items-center justify-center gap-2 font-semibold"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Add Item
+                  </button>
+                  <button
+                    onClick={() => { setShowAITimeline(v => !v); setAITimelineError('') }}
+                    className="flex-1 py-4 rounded-xl border-2 border-dashed border-purple-400 text-purple-600 hover:bg-purple-50 transition-all flex items-center justify-center gap-2 font-semibold"
+                  >
+                    <Sparkles className="w-5 h-5" />
+                    AI Import
+                  </button>
+                </div>
+              )}
+
+              {/* AI Timeline import panel */}
+              {showAITimeline && canEdit && (
+                <div className="card-premium p-5 space-y-3 border-2 border-purple-200">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-500" />
+                    <p className="font-semibold text-cowc-dark text-sm">AI Timeline Import</p>
+                  </div>
+                  <p className="text-xs text-cowc-gray">Paste or type a list of events with times — any format. AI will parse and add them all.</p>
+                  <textarea
+                    value={aiTimelineInput}
+                    onChange={e => { setAITimelineInput(e.target.value); setAITimelineError('') }}
+                    placeholder={`Example:\n9:00 AM – Ceremony (30 min)\n9:45 – Cocktail Hour\n11:00 Dinner, 90 minutes\nFirst Dance at 12:30`}
+                    rows={6}
+                    className="w-full input-premium text-sm resize-none"
+                  />
+                  {aiTimelineError && (
+                    <p className="text-red-500 text-xs">{aiTimelineError}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleAITimelineImport}
+                      disabled={aiTimelineLoading || !aiTimelineInput.trim()}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                    >
+                      {aiTimelineLoading
+                        ? <><Loader2 className="w-4 h-4 animate-spin" /> Parsing…</>
+                        : <><Sparkles className="w-4 h-4" /> Import Events</>
+                      }
+                    </button>
+                    <button
+                      onClick={() => { setShowAITimeline(false); setAITimelineInput(''); setAITimelineError('') }}
+                      className="px-4 py-2 rounded-xl bg-gray-100 text-cowc-dark text-sm font-semibold hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               )}
               <TimelineCalendar
                 items={localTimeline}
@@ -1218,6 +1328,7 @@ export default function WeddingDetailPageFull() {
                     if (updates.time             !== undefined) patch.time             = updates.time || ''
                     if (updates.description      !== undefined) patch.description      = updates.description ?? ''
                     if (updates.duration_minutes !== undefined) patch.duration_minutes = updates.duration_minutes
+                    if (updates.notes            !== undefined) patch.notes            = updates.notes ?? ''
                     await timelineAPI.update(itemId, patch)
                     // No loadWedding() — TimelineCalendar owns its own local state
                   } catch {

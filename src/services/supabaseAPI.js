@@ -906,6 +906,7 @@ function transformTimelineItem(data) {
     time: data.time,
     description: data.description,
     duration_minutes: data.duration_minutes ?? 30,
+    notes: data.notes ?? '',
     order: data.sort_order,
     sort_order: data.sort_order,
     created_at: data.created_at,
