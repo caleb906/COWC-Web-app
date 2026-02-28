@@ -8,7 +8,7 @@ import {
   CheckCircle2, Circle, AlertCircle, DollarSign, Edit2,
   Palette, ExternalLink, Link, Sparkles, Loader2, RefreshCw,
   Eye, ClipboardList, ShoppingBag, ListMusic, UserPlus, ChevronDown, ChevronUp, GripVertical,
-  Send, Package, Tag, Check, Copy
+  Send, Package, Tag, Check, Copy, Settings, ArrowUp, ArrowDown
 } from 'lucide-react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../stores/appStore'
@@ -21,17 +21,6 @@ import { primaryGradient, primaryAccent, primaryAlpha, primaryPageBg, primaryCar
 import { AddTaskModal, AddVendorModal, AddTimelineModal } from './AddModals'
 import InternalNotesWidget from './InternalNotesWidget'
 
-// Default timeline templates
-const DEFAULT_TIMELINE = [
-  { title: 'Rehearsal Dinner', time: '6:00 PM', description: 'Night before wedding', order: 1 },
-  { title: 'Ceremony Begins', time: '4:00 PM', description: '', order: 2 },
-  { title: 'Cocktail Hour', time: '5:00 PM', description: '', order: 3 },
-  { title: 'Reception Begins', time: '6:00 PM', description: '', order: 4 },
-  { title: 'First Dance', time: '7:00 PM', description: '', order: 5 },
-  { title: 'Dinner Service', time: '7:30 PM', description: '', order: 6 },
-  { title: 'Cake Cutting', time: '8:30 PM', description: '', order: 7 },
-  { title: 'Last Dance', time: '10:00 PM', description: '', order: 8 },
-]
 
 export default function WeddingDetailPageFull() {
   const { id } = useParams()
@@ -56,6 +45,7 @@ export default function WeddingDetailPageFull() {
   const [invitedPassword, setInvitedPassword] = useState(null) // shown after successful invite
   const [inviteRevoking, setInviteRevoking] = useState(false)
   const [showRevokeConfirm, setShowRevokeConfirm] = useState(false)
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false)
 
   // Rentals state (admin view)
   const [rentals, setRentals] = useState([])
@@ -81,6 +71,7 @@ export default function WeddingDetailPageFull() {
   const [aiTimelineInput, setAITimelineInput] = useState('')
   const [aiTimelineLoading, setAITimelineLoading] = useState(false)
   const [aiTimelineError, setAITimelineError] = useState('')
+  const [clearingTimeline, setClearingTimeline] = useState(false)
   const [showFABTray, setShowFABTray] = useState(false)
 
   // Edit states for items
@@ -143,16 +134,8 @@ export default function WeddingDetailPageFull() {
         return
       }
       
-      // Add default timeline if empty and user can edit
-      if ((!weddingData.timeline_items || weddingData.timeline_items.length === 0) && canEdit) {
-        await addDefaultTimeline(id)
-        const refreshed = await weddingsAPI.getById(id)
-        setWedding(refreshed)
-        setEditedWedding(refreshed)
-      } else {
-        setWedding(weddingData)
-        setEditedWedding(weddingData)
-      }
+      setWedding(weddingData)
+      setEditedWedding(weddingData)
       
       // Apply wedding theme for all roles (drives header gradient)
       const finalData = weddingData
@@ -164,24 +147,6 @@ export default function WeddingDetailPageFull() {
       console.log
     } finally {
       setLoading(false)
-    }
-  }
-
-  const addDefaultTimeline = async (weddingId) => {
-    try {
-      await Promise.all(
-        DEFAULT_TIMELINE.map(item =>
-          timelineAPI.create({
-            wedding_id: weddingId,
-            title: item.title,
-            time: item.time,
-            description: item.description,
-            sort_order: item.order,
-          })
-        )
-      )
-    } catch (error) {
-      console.error('Error adding default timeline:', error)
     }
   }
 
@@ -488,30 +453,37 @@ export default function WeddingDetailPageFull() {
     }
   }
 
-  const handleUpdateTimeline = async (itemId, updates) => {
+  const handleClearAllTimeline = async () => {
+    if (!window.confirm(`Remove all timeline events for this wedding? This cannot be undone.`)) return
+    setClearingTimeline(true)
     try {
-      await timelineAPI.update(itemId, {
-        title: updates.title,
-        time: updates.time || '',
-        description: updates.description || '',
-        sort_order: Number(updates.order) || 0,
-      })
-      setEditingTimelineId(null)
-      toast.success('Timeline item updated')
-      await loadWedding()
+      await Promise.all(localTimeline.map(item => timelineAPI.delete(item.id)))
+      setLocalTimeline([])
+      toast.success('All timeline events removed')
     } catch (error) {
-      console.error('Error updating timeline item:', error)
-      toast.error('Failed to update timeline item')
+      console.error('Error clearing timeline:', error)
+      toast.error('Failed to clear timeline')
+      await loadWedding()
+    } finally {
+      setClearingTimeline(false)
     }
   }
 
-  const handleTimelineReorder = async (reorderedItems) => {
+  const handleTimelineReorder = async (itemId, direction) => {
+    const idx = localTimeline.findIndex(i => i.id === itemId)
+    if (idx === -1) return
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (swapIdx < 0 || swapIdx >= localTimeline.length) return
+
+    const reordered = [...localTimeline]
+    ;[reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]]
+    const withOrder = reordered.map((item, i) => ({ ...item, sort_order: i }))
+    setLocalTimeline(withOrder)
     try {
-      await timelineAPI.reorder(id, reorderedItems.map(item => item.id))
+      await Promise.all(withOrder.map(item => timelineAPI.update(item.id, { sort_order: item.sort_order })))
+    } catch {
+      toast.error('Failed to reorder')
       await loadWedding()
-    } catch (error) {
-      console.error('Error reordering timeline:', error)
-      toast.error('Failed to reorder timeline')
     }
   }
 
@@ -573,15 +545,6 @@ export default function WeddingDetailPageFull() {
     return h + parseInt(m12[2]) / 60
   }
 
-  const handleTimelineDragEnd = (result) => {
-    if (!result.destination) return
-    if (result.destination.index === result.source.index) return
-    const reordered = Array.from(localTimeline)
-    const [moved] = reordered.splice(result.source.index, 1)
-    reordered.splice(result.destination.index, 0, moved)
-    setLocalTimeline(reordered)
-    handleTimelineReorder(reordered)
-  }
 
   if (loading) {
     return (
@@ -682,57 +645,83 @@ export default function WeddingDetailPageFull() {
                       <Edit className="w-5 h-5" />
                       Edit
                     </button>
-                    {/* Invite / Resend button — always visible once a wedding exists */}
-                    <button
-                      onClick={() => {
-                        setInviteEmail(wedding.couple_email || '')
-                        setInvitedPassword(null)
-                        setShowInviteModal(true)
-                      }}
-                      className={`px-4 md:px-6 py-3 rounded-xl transition-all flex items-center gap-2 font-semibold text-sm md:text-base ${
-                        wedding.couple_user_id
-                          ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 hover:text-emerald-100'
-                          : wedding.couple_invite_sent_at
-                            ? 'bg-white/10 hover:bg-white/20 text-white/80 hover:text-white'
-                            : 'bg-cowc-gold hover:bg-cowc-gold/80 text-white'
-                      }`}
-                    >
-                      {wedding.couple_user_id
-                        ? <><Check className="w-4 h-4" /><span className="hidden sm:inline">Portal Active</span></>
-                        : <><Send className="w-4 h-4" /><span className="hidden sm:inline">{wedding.couple_invite_sent_at ? 'Resend Invite' : 'Invite Couple'}</span></>
-                      }
-                    </button>
-                    {/* Revoke button — shown when any invite exists */}
-                    {(wedding.couple_invite_sent_at || wedding.couple_user_id) && (
+
+                    {/* Compact settings dropdown */}
+                    <div className="relative">
                       <button
-                        onClick={() => setShowRevokeConfirm(true)}
-                        className="px-3 py-3 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-400 hover:text-red-300 transition-all flex items-center gap-1.5 text-sm font-semibold"
-                        title="Revoke couple access and reset invite"
+                        onClick={() => setShowSettingsMenu(v => !v)}
+                        className="p-3 rounded-xl bg-white/10 hover:bg-white/20 transition-all flex items-center gap-1.5 font-semibold text-white/80 hover:text-white"
+                        title="More options"
                       >
-                        <X className="w-4 h-4" />
-                        <span className="hidden sm:inline">Revoke</span>
+                        <Settings className="w-5 h-5" />
                       </button>
-                    )}
-                    {/* View couple portal — available to coordinators AND admins */}
-                    {(user.role === 'admin' || user.role === 'coordinator') && (
-                      <button
-                        onClick={() => window.open(`/admin/preview/couple/${id}`, '_blank')}
-                        className="px-4 md:px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 transition-all flex items-center gap-2 font-semibold text-white/80 hover:text-white text-sm md:text-base"
-                        title="View the couple's portal (opens new tab)"
-                      >
-                        <Eye className="w-5 h-5" />
-                        <span className="hidden sm:inline">Couple Portal</span>
-                      </button>
-                    )}
-                    {user.role === 'admin' && (
-                      <button
-                        onClick={handleDelete}
-                        className="px-4 md:px-6 py-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 transition-all flex items-center gap-2 font-semibold text-red-300 hover:text-red-100 text-sm md:text-base"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                        Delete
-                      </button>
-                    )}
+
+                      {showSettingsMenu && (
+                        <>
+                          {/* Backdrop */}
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setShowSettingsMenu(false)}
+                          />
+                          {/* Menu */}
+                          <div className="absolute right-0 top-full mt-2 z-50 w-52 bg-cowc-dark border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+                            {/* Invite / Portal status */}
+                            <button
+                              onClick={() => {
+                                setShowSettingsMenu(false)
+                                setInviteEmail(wedding.couple_email || '')
+                                setInvitedPassword(null)
+                                setShowInviteModal(true)
+                              }}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-white/10 transition-colors text-left"
+                            >
+                              {wedding.couple_user_id
+                                ? <><Check className="w-4 h-4 text-emerald-400 flex-shrink-0" /><span className="text-emerald-300">Portal Active</span></>
+                                : wedding.couple_invite_sent_at
+                                  ? <><Send className="w-4 h-4 text-cowc-gold flex-shrink-0" /><span className="text-white/80">Resend Invite</span></>
+                                  : <><Send className="w-4 h-4 text-cowc-gold flex-shrink-0" /><span className="text-white/80">Invite Couple</span></>
+                              }
+                            </button>
+
+                            {/* Revoke — only when invite exists */}
+                            {(wedding.couple_invite_sent_at || wedding.couple_user_id) && (
+                              <button
+                                onClick={() => { setShowSettingsMenu(false); setShowRevokeConfirm(true) }}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-white/10 transition-colors text-left"
+                              >
+                                <X className="w-4 h-4 text-red-400 flex-shrink-0" />
+                                <span className="text-red-300">Revoke Access</span>
+                              </button>
+                            )}
+
+                            {/* Couple portal — coordinator + admin */}
+                            {(user.role === 'admin' || user.role === 'coordinator') && (
+                              <button
+                                onClick={() => { setShowSettingsMenu(false); window.open(`/admin/preview/couple/${id}`, '_blank') }}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-white/10 transition-colors text-left"
+                              >
+                                <Eye className="w-4 h-4 text-white/60 flex-shrink-0" />
+                                <span className="text-white/80">Couple Portal</span>
+                              </button>
+                            )}
+
+                            {/* Divider + Delete — admin only */}
+                            {user.role === 'admin' && (
+                              <>
+                                <div className="border-t border-white/10" />
+                                <button
+                                  onClick={() => { setShowSettingsMenu(false); handleDelete() }}
+                                  className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-red-500/20 transition-colors text-left"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-400 flex-shrink-0" />
+                                  <span className="text-red-300">Delete Wedding</span>
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </>
                 )}
               </div>
@@ -1274,6 +1263,17 @@ export default function WeddingDetailPageFull() {
                     <Sparkles className="w-5 h-5" />
                     AI Import
                   </button>
+                  {localTimeline.length > 0 && (
+                    <button
+                      onClick={handleClearAllTimeline}
+                      disabled={clearingTimeline}
+                      className="py-4 px-4 rounded-xl border-2 border-dashed border-red-300 text-red-400 hover:bg-red-50 transition-all flex items-center justify-center gap-2 font-semibold disabled:opacity-50"
+                      title="Remove all timeline events"
+                    >
+                      {clearingTimeline ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      <span className="hidden sm:inline">Clear All</span>
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -1318,6 +1318,8 @@ export default function WeddingDetailPageFull() {
               <TimelineCalendar
                 items={localTimeline}
                 canEdit={canEdit}
+                isCouple={isCouple}
+                onReorder={canEdit ? handleTimelineReorder : undefined}
                 onUpdate={async (itemId, updates) => {
                   // Optimistic local update — no page reload, no flicker
                   setLocalTimeline(prev => prev.map(item =>
@@ -1330,6 +1332,7 @@ export default function WeddingDetailPageFull() {
                     if (updates.description      !== undefined) patch.description      = updates.description ?? ''
                     if (updates.duration_minutes !== undefined) patch.duration_minutes = updates.duration_minutes
                     if (updates.notes            !== undefined) patch.notes            = updates.notes ?? ''
+                    if (updates.timeline_type    !== undefined) patch.timeline_type    = updates.timeline_type
                     await timelineAPI.update(itemId, patch)
                     // No loadWedding() — TimelineCalendar owns its own local state
                   } catch {

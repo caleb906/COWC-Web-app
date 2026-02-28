@@ -496,6 +496,7 @@ export const timelineAPI = {
         description: item.description || '',
         sort_order: item.sort_order || item.order || 0,
         duration_minutes: item.duration_minutes ?? 30,
+        timeline_type: item.timeline_type || 'wedding',
       })
       .select()
       .single()
@@ -907,6 +908,7 @@ function transformTimelineItem(data) {
     description: data.description,
     duration_minutes: data.duration_minutes ?? 30,
     notes: data.notes ?? '',
+    timeline_type: data.timeline_type ?? 'wedding',
     order: data.sort_order,
     sort_order: data.sort_order,
     created_at: data.created_at,
