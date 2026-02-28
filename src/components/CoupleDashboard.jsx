@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Calendar, MapPin, CheckCircle2, Circle, Info, List, LogOut, ChevronRight, ExternalLink, X, Users, ShoppingBag, Palette, Package, Camera, Video, Flower2, Music2, UtensilsCrossed, Cake, Sparkles, BookOpen, Building2, Car } from 'lucide-react'
+import { Heart, Calendar, MapPin, CheckCircle2, Circle, Info, List, LogOut, ChevronRight, ExternalLink, X, Users, ShoppingBag, Palette, Package, Camera, Video, Flower2, Music2, UtensilsCrossed, Cake, Sparkles, BookOpen, Building2, Car, Settings, Loader2, Eye, EyeOff } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 import { useAuthStore } from '../stores/appStore'
 import { weddingsAPI, tasksAPI, vendorsAPI, logChangeAndNotify } from '../services/unifiedAPI'
@@ -38,6 +38,15 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
   const [wedding, setWedding] = useState(null)
   const [tasks, setTasks] = useState([])
   const [myReservations, setMyReservations] = useState([])
+
+  // Account settings state
+  const [showAccountModal, setShowAccountModal] = useState(false)
+  const [accountTab, setAccountTab] = useState('email') // 'email' | 'password'
+  const [newEmail, setNewEmail] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [accountSaving, setAccountSaving] = useState(false)
 
   // Vendor suggestion state
   const [suggestingSlot, setSuggestingSlot] = useState(null)
@@ -204,6 +213,47 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
     await supabase.auth.signOut()
   }
 
+  const handleUpdateEmail = async () => {
+    if (!newEmail.trim()) return
+    setAccountSaving(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() })
+      if (error) throw error
+      toast.success('Confirmation email sent — check your inbox to verify the new address')
+      setNewEmail('')
+      setShowAccountModal(false)
+    } catch (err) {
+      toast.error('Failed to update email: ' + err.message)
+    } finally {
+      setAccountSaving(false)
+    }
+  }
+
+  const handleUpdatePassword = async () => {
+    if (!newPassword || !confirmPassword) return
+    if (newPassword !== confirmPassword) {
+      toast.error('Passwords do not match')
+      return
+    }
+    if (newPassword.length < 8) {
+      toast.error('Password must be at least 8 characters')
+      return
+    }
+    setAccountSaving(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw error
+      toast.success('Password updated successfully')
+      setNewPassword('')
+      setConfirmPassword('')
+      setShowAccountModal(false)
+    } catch (err) {
+      toast.error('Failed to update password: ' + err.message)
+    } finally {
+      setAccountSaving(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-cowc-cream flex items-center justify-center">
@@ -276,11 +326,26 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                   Preview
                 </div>
               ) : (
-                <button onClick={handleSignOut}
-                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                  aria-label="Sign out">
-                  <LogOut className="w-4 h-4" />
-                </button>
+                <>
+                  <button
+                    onClick={() => {
+                      setNewEmail(user?.email || '')
+                      setNewPassword('')
+                      setConfirmPassword('')
+                      setAccountTab('email')
+                      setShowAccountModal(true)
+                    }}
+                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                    aria-label="Account settings"
+                  >
+                    <Settings className="w-4 h-4" />
+                  </button>
+                  <button onClick={handleSignOut}
+                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                    aria-label="Sign out">
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -961,6 +1026,150 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
         </motion.button>
 
       </div>
+
+      {/* ── Account Settings Modal ────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showAccountModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-sm"
+            onClick={e => { if (e.target === e.currentTarget) setShowAccountModal(false) }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 40 }}
+              className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                    style={{ background: softRing }}>
+                    <Settings className="w-4 h-4" style={{ color: accent }} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-semibold text-cowc-dark">Account Settings</h2>
+                    <p className="text-xs text-cowc-gray">{user?.email}</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowAccountModal(false)}
+                  className="p-2 rounded-full hover:bg-cowc-cream transition-colors">
+                  <X className="w-4 h-4 text-cowc-gray" />
+                </button>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex border-b border-gray-100">
+                {[
+                  { key: 'email', label: 'Change Email' },
+                  { key: 'password', label: 'Change Password' },
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setAccountTab(tab.key)}
+                    className={`flex-1 py-3 text-sm font-semibold transition-colors ${
+                      accountTab === tab.key
+                        ? 'border-b-2 text-cowc-dark'
+                        : 'text-cowc-gray hover:text-cowc-dark'
+                    }`}
+                    style={accountTab === tab.key ? { borderColor: accent, color: accent } : {}}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="p-6">
+                {/* Email Tab */}
+                {accountTab === 'email' && (
+                  <div className="space-y-4">
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">
+                      After saving, we'll send a confirmation to your new email. You must click that link to complete the change.
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-cowc-dark mb-2">New Email Address</label>
+                      <input
+                        type="email"
+                        value={newEmail}
+                        onChange={e => setNewEmail(e.target.value)}
+                        placeholder="new@email.com"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 text-cowc-dark"
+                        style={{ focusRingColor: accent }}
+                        autoFocus
+                      />
+                    </div>
+                    <button
+                      onClick={handleUpdateEmail}
+                      disabled={accountSaving || !newEmail.trim() || newEmail === user?.email}
+                      className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                      style={{ background: accent }}
+                    >
+                      {accountSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      Send Confirmation Email
+                    </button>
+                  </div>
+                )}
+
+                {/* Password Tab */}
+                {accountTab === 'password' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-cowc-dark mb-2">New Password</label>
+                      <div className="relative">
+                        <input
+                          type={showNewPassword ? 'text' : 'password'}
+                          value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)}
+                          placeholder="At least 8 characters"
+                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none pr-11 text-cowc-dark"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword(p => !p)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-cowc-gray hover:text-cowc-dark"
+                        >
+                          {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-cowc-dark mb-2">Confirm Password</label>
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        placeholder="Re-enter new password"
+                        className={`w-full border rounded-xl px-4 py-3 text-sm focus:outline-none text-cowc-dark ${
+                          confirmPassword && newPassword !== confirmPassword
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-gray-200'
+                        }`}
+                      />
+                      {confirmPassword && newPassword !== confirmPassword && (
+                        <p className="text-xs text-red-500 mt-1">Passwords don't match</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleUpdatePassword}
+                      disabled={accountSaving || !newPassword || newPassword !== confirmPassword || newPassword.length < 8}
+                      className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                      style={{ background: accent }}
+                    >
+                      {accountSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      Update Password
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   )
 }

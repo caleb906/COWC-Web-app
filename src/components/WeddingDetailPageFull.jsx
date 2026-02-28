@@ -8,7 +8,7 @@ import {
   CheckCircle2, Circle, AlertCircle, DollarSign, Edit2,
   Palette, ExternalLink, Link, Sparkles, Loader2, RefreshCw,
   Eye, ClipboardList, ShoppingBag, ListMusic, UserPlus, ChevronDown, ChevronUp, GripVertical,
-  Send, Package, Tag, Check
+  Send, Package, Tag, Check, Copy
 } from 'lucide-react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../stores/appStore'
@@ -53,6 +53,9 @@ export default function WeddingDetailPageFull() {
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteSending, setInviteSending] = useState(false)
+  const [invitedPassword, setInvitedPassword] = useState(null) // shown after successful invite
+  const [inviteRevoking, setInviteRevoking] = useState(false)
+  const [showRevokeConfirm, setShowRevokeConfirm] = useState(false)
 
   // Rentals state (admin view)
   const [rentals, setRentals] = useState([])
@@ -268,14 +271,40 @@ export default function WeddingDetailPageFull() {
       )
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to send invite')
-      toast.success(`Invite sent to ${inviteEmail}!`)
-      setShowInviteModal(false)
-      setInviteEmail('')
+      setInvitedPassword(json.tempPassword)  // flip modal to password reveal screen
       await loadWedding()
     } catch (err) {
       toast.error('Failed to send invite: ' + err.message)
     } finally {
       setInviteSending(false)
+    }
+  }
+
+  const handleRevokeInvite = async () => {
+    setInviteRevoking(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-couple-invite`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ action: 'revoke', weddingId: id }),
+        }
+      )
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to revoke invite')
+      toast.success('Invite revoked — couple access removed')
+      setShowRevokeConfirm(false)
+      setShowInviteModal(false)
+      await loadWedding()
+    } catch (err) {
+      toast.error('Failed to revoke: ' + err.message)
+    } finally {
+      setInviteRevoking(false)
     }
   }
 
@@ -591,30 +620,36 @@ export default function WeddingDetailPageFull() {
                       <Edit className="w-5 h-5" />
                       Edit
                     </button>
-                    {/* Invite Couple button — visible to all editors when couple hasn't signed up yet */}
-                    {!wedding.couple_user_id && (
-                      <button
-                        onClick={() => {
-                          setInviteEmail(wedding.couple_email || '')
-                          setShowInviteModal(true)
-                        }}
-                        className={`px-4 md:px-6 py-3 rounded-xl transition-all flex items-center gap-2 font-semibold text-sm md:text-base ${
-                          wedding.couple_invite_sent_at
-                            ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 hover:text-emerald-100'
+                    {/* Invite / Resend button — always visible once a wedding exists */}
+                    <button
+                      onClick={() => {
+                        setInviteEmail(wedding.couple_email || '')
+                        setInvitedPassword(null)
+                        setShowInviteModal(true)
+                      }}
+                      className={`px-4 md:px-6 py-3 rounded-xl transition-all flex items-center gap-2 font-semibold text-sm md:text-base ${
+                        wedding.couple_user_id
+                          ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 hover:text-emerald-100'
+                          : wedding.couple_invite_sent_at
+                            ? 'bg-white/10 hover:bg-white/20 text-white/80 hover:text-white'
                             : 'bg-cowc-gold hover:bg-cowc-gold/80 text-white'
-                        }`}
-                        title={wedding.couple_invite_sent_at ? `Invite sent — resend?` : 'Send portal invite to couple'}
+                      }`}
+                    >
+                      {wedding.couple_user_id
+                        ? <><Check className="w-4 h-4" /><span className="hidden sm:inline">Portal Active</span></>
+                        : <><Send className="w-4 h-4" /><span className="hidden sm:inline">{wedding.couple_invite_sent_at ? 'Resend Invite' : 'Invite Couple'}</span></>
+                      }
+                    </button>
+                    {/* Revoke button — shown when any invite exists */}
+                    {(wedding.couple_invite_sent_at || wedding.couple_user_id) && (
+                      <button
+                        onClick={() => setShowRevokeConfirm(true)}
+                        className="px-3 py-3 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-400 hover:text-red-300 transition-all flex items-center gap-1.5 text-sm font-semibold"
+                        title="Revoke couple access and reset invite"
                       >
-                        <Send className="w-4 h-4" />
-                        <span className="hidden sm:inline">
-                          {wedding.couple_invite_sent_at ? 'Resend Invite' : 'Invite Couple'}
-                        </span>
+                        <X className="w-4 h-4" />
+                        <span className="hidden sm:inline">Revoke</span>
                       </button>
-                    )}
-                    {wedding.couple_user_id && (
-                      <span className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 text-sm font-semibold">
-                        <Check className="w-4 h-4" /> Portal Active
-                      </span>
                     )}
                     {user.role === 'admin' && (
                       <>
@@ -1219,7 +1254,7 @@ export default function WeddingDetailPageFull() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-            onClick={e => { if (e.target === e.currentTarget) setShowInviteModal(false) }}
+            onClick={e => { if (e.target === e.currentTarget) { setShowInviteModal(false); setInvitedPassword(null); setInviteEmail('') } }}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -1233,53 +1268,151 @@ export default function WeddingDetailPageFull() {
                     <Send className="w-5 h-5 text-cowc-gold" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-serif text-cowc-dark">Invite Couple to Portal</h2>
+                    <h2 className="text-lg font-serif text-cowc-dark">
+                      {wedding.couple_user_id ? 'Resend Portal Invite' : 'Invite Couple to Portal'}
+                    </h2>
                     <p className="text-xs text-cowc-gray">{wedding.couple_name}</p>
                   </div>
                 </div>
-                <button onClick={() => setShowInviteModal(false)} className="p-2 hover:bg-cowc-cream rounded-full">
+                <button onClick={() => { setShowInviteModal(false); setInvitedPassword(null); setInviteEmail('') }} className="p-2 hover:bg-cowc-cream rounded-full">
                   <X className="w-5 h-5 text-cowc-gray" />
                 </button>
               </div>
-              <div className="p-6 space-y-4">
-                {wedding.couple_invite_sent_at && (
-                  <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                    Invite previously sent on {formatDate(wedding.couple_invite_sent_at, 'MMM d, yyyy')}. Sending again will generate a new link.
+              {invitedPassword ? (
+                /* ── Password Reveal Screen ── */
+                <div className="p-6 space-y-5">
+                  <div className="flex flex-col items-center text-center gap-2 pt-2">
+                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6 text-green-500" />
+                    </div>
+                    <p className="text-sm font-semibold text-cowc-dark">Account created for</p>
+                    <p className="text-xs text-cowc-gray">{inviteEmail}</p>
                   </div>
-                )}
+                  <div className="bg-cowc-cream rounded-2xl p-5 text-center space-y-1">
+                    <p className="text-xs text-cowc-gray uppercase tracking-widest font-semibold">Temporary Password</p>
+                    <p className="font-mono text-3xl font-bold text-cowc-dark tracking-[0.25em] select-all">{invitedPassword}</p>
+                    <p className="text-xs text-cowc-gray pt-1">Share this with {wedding.couple_name} — they can change it after logging in</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(invitedPassword)
+                        toast.success('Password copied!')
+                      }}
+                      className="flex-1 py-3 rounded-xl border-2 border-cowc-sand text-cowc-dark font-semibold hover:bg-cowc-cream transition-all flex items-center justify-center gap-2 text-sm"
+                    >
+                      <Copy className="w-4 h-4" />
+                      Copy
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowInviteModal(false)
+                        setInvitedPassword(null)
+                        setInviteEmail('')
+                      }}
+                      className="flex-1 py-3 rounded-xl bg-cowc-gold text-white font-semibold hover:opacity-90 transition-all text-sm"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* ── Email Entry Screen ── */
+                <div className="p-6 space-y-4">
+                  {wedding.couple_invite_sent_at && (
+                    <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                      Invite previously sent on {formatDate(wedding.couple_invite_sent_at, 'MMM d, yyyy')}. Sending again will reset their password.
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-semibold text-cowc-dark mb-2">
+                      Couple's Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={inviteEmail}
+                      onChange={e => setInviteEmail(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleInviteCouple() }}
+                      placeholder="jessica@example.com"
+                      className="input-premium"
+                      autoFocus
+                    />
+                    <p className="text-xs text-cowc-gray mt-2">
+                      A temporary password will be generated for you to share with them.
+                    </p>
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={() => setShowInviteModal(false)}
+                      className="flex-1 py-3 rounded-xl border-2 border-cowc-sand text-cowc-gray font-semibold hover:bg-cowc-cream transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleInviteCouple}
+                      disabled={inviteSending || !inviteEmail.trim()}
+                      className="flex-1 py-3 rounded-xl bg-cowc-gold text-white font-semibold hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {inviteSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      Create Account
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Revoke Invite Confirmation ──────────────────────────────────────── */}
+      <AnimatePresence>
+        {showRevokeConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            onClick={e => { if (e.target === e.currentTarget) setShowRevokeConfirm(false) }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6"
+            >
+              <div className="flex items-start gap-4 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <X className="w-5 h-5 text-red-500" />
+                </div>
                 <div>
-                  <label className="block text-sm font-semibold text-cowc-dark mb-2">
-                    Couple's Email Address
-                  </label>
-                  <input
-                    type="email"
-                    value={inviteEmail}
-                    onChange={e => setInviteEmail(e.target.value)}
-                    placeholder="jessica@example.com"
-                    className="input-premium"
-                    autoFocus
-                  />
-                  <p className="text-xs text-cowc-gray mt-2">
-                    They'll receive an email with a link to create their account and access their wedding portal.
+                  <h2 className="text-lg font-serif text-cowc-dark">Revoke Couple Access</h2>
+                  <p className="text-sm text-cowc-gray mt-1">
+                    This will delete {wedding.couple_email ? `${wedding.couple_email}'s` : "the couple's"} account and reset all invite data. You can send a fresh invite after.
                   </p>
+                  {wedding.couple_user_id && (
+                    <p className="text-xs text-red-600 mt-2 font-semibold">
+                      ⚠ The couple currently has portal access — revoking will immediately log them out.
+                    </p>
+                  )}
                 </div>
-                <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={() => setShowInviteModal(false)}
-                    className="flex-1 py-3 rounded-xl border-2 border-cowc-sand text-cowc-gray font-semibold hover:bg-cowc-cream transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleInviteCouple}
-                    disabled={inviteSending || !inviteEmail.trim()}
-                    className="flex-1 py-3 rounded-xl bg-cowc-gold text-white font-semibold hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {inviteSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    Send Invite
-                  </button>
-                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowRevokeConfirm(false)}
+                  className="flex-1 py-3 rounded-xl border-2 border-cowc-sand text-cowc-gray font-semibold hover:bg-cowc-cream transition-all"
+                  disabled={inviteRevoking}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRevokeInvite}
+                  disabled={inviteRevoking}
+                  className="flex-1 py-3 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {inviteRevoking ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                  Revoke Access
+                </button>
               </div>
             </motion.div>
           </motion.div>
