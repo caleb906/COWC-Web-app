@@ -321,6 +321,7 @@ function App() {
               <>
                 <Route path="/" element={<CoordinatorDashboard />} />
                 <Route path="/wedding/:id" element={<WeddingDetailPage />} />
+                <Route path="/admin/preview/couple/:id" element={<DevPreview />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </>
             ) : user.role === 'couple' ? (

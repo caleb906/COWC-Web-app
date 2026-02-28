@@ -713,24 +713,25 @@ export default function WeddingDetailPageFull() {
                         <span className="hidden sm:inline">Revoke</span>
                       </button>
                     )}
+                    {/* View couple portal — available to coordinators AND admins */}
+                    {(user.role === 'admin' || user.role === 'coordinator') && (
+                      <button
+                        onClick={() => window.open(`/admin/preview/couple/${id}`, '_blank')}
+                        className="px-4 md:px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 transition-all flex items-center gap-2 font-semibold text-white/80 hover:text-white text-sm md:text-base"
+                        title="View the couple's portal (opens new tab)"
+                      >
+                        <Eye className="w-5 h-5" />
+                        <span className="hidden sm:inline">Couple Portal</span>
+                      </button>
+                    )}
                     {user.role === 'admin' && (
-                      <>
-                        <button
-                          onClick={() => window.open(`/admin/preview/couple/${id}`, '_blank')}
-                          className="px-4 md:px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 transition-all flex items-center gap-2 font-semibold text-white/80 hover:text-white text-sm md:text-base"
-                          title="Preview what this couple sees (opens new tab)"
-                        >
-                          <Eye className="w-5 h-5" />
-                          <span className="hidden sm:inline">Preview as Couple</span>
-                        </button>
-                        <button
-                          onClick={handleDelete}
-                          className="px-4 md:px-6 py-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 transition-all flex items-center gap-2 font-semibold text-red-300 hover:text-red-100 text-sm md:text-base"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                          Delete
-                        </button>
-                      </>
+                      <button
+                        onClick={handleDelete}
+                        className="px-4 md:px-6 py-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 transition-all flex items-center gap-2 font-semibold text-red-300 hover:text-red-100 text-sm md:text-base"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                        Delete
+                      </button>
                     )}
                   </>
                 )}
