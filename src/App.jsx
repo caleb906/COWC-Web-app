@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from './lib/supabase'
@@ -65,12 +65,25 @@ function App() {
   const [devWeddingId, setDevWeddingId] = useState(null)
   const isDev = user?.email === 'test@cowc.dev'
 
+  // Welcome screen: shown when couple lands via invite link with ?setup=PASSWORD
+  const [setupPassword, setSetupPassword] = useState(null)
+  const [copiedSetup, setCopiedSetup] = useState(false)
+
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       if (session) {
         fetchUserProfile(session.user.id)
+        // Check for ?setup= param (invite link landing)
+        const params = new URLSearchParams(window.location.search)
+        const pw = params.get('setup')
+        if (pw) {
+          setSetupPassword(pw)
+          // Remove from URL without reload
+          const clean = window.location.pathname + window.location.hash.replace(/[?&]setup=[^&]+/, '')
+          window.history.replaceState({}, '', clean)
+        }
       } else {
         setLoading(false)
       }
@@ -169,6 +182,56 @@ function App() {
             <ChangePasswordModal user={user} onComplete={handlePasswordChangeComplete} />
           )}
           {user && <IssueFlagger />}
+
+          {/* Welcome overlay — shown when couple lands via invite link */}
+          {setupPassword && user?.role === 'couple' && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden"
+              >
+                {/* Header */}
+                <div className="bg-[#1a1a2e] px-8 py-6 text-center">
+                  <p className="text-[#f5f0e8] font-bold text-xl tracking-widest">COWC</p>
+                  <p className="text-[#a89b85] text-xs tracking-widest uppercase mt-1">Welcome to your portal</p>
+                </div>
+
+                {/* Body */}
+                <div className="px-8 py-7 space-y-5">
+                  <div className="text-center">
+                    <p className="text-[#1a1a2e] font-semibold text-lg">You're all set! 🎉</p>
+                    <p className="text-[#6b6b6b] text-sm mt-1">Save your temporary password below. You can change it anytime in account settings.</p>
+                  </div>
+
+                  {/* Password display */}
+                  <div className="bg-[#f5f0e8] rounded-2xl px-6 py-5 text-center">
+                    <p className="text-xs text-[#a89b85] uppercase tracking-widest font-semibold mb-2">Temporary Password</p>
+                    <p className="font-mono text-3xl font-bold text-[#1a1a2e] tracking-[0.2em] select-all">{setupPassword}</p>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(setupPassword)
+                        setCopiedSetup(true)
+                        setTimeout(() => setCopiedSetup(false), 2000)
+                      }}
+                      className="flex-1 py-3 rounded-xl border-2 border-[#e8e0d0] text-[#1a1a2e] font-semibold text-sm hover:bg-[#f5f0e8] transition-colors"
+                    >
+                      {copiedSetup ? '✓ Copied!' : 'Copy'}
+                    </button>
+                    <button
+                      onClick={() => setSetupPassword(null)}
+                      className="flex-1 py-3 rounded-xl bg-[#c9a96e] text-white font-semibold text-sm hover:bg-[#b8954f] transition-colors"
+                    >
+                      Got it →
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
           <ScrollToTop />
 
           {/* Dev account view overlays */}
