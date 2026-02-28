@@ -66,8 +66,13 @@ function App() {
   const isDev = user?.email === 'test@cowc.dev'
 
   // Welcome screen: shown when couple lands via invite link with ?setup=PASSWORD
+  // Forces them to set their own permanent password before entering the app
   const [setupPassword, setSetupPassword] = useState(null)
-  const [copiedSetup, setCopiedSetup] = useState(false)
+  const [newSetupPw, setNewSetupPw] = useState('')
+  const [confirmSetupPw, setConfirmSetupPw] = useState('')
+  const [setupPwError, setSetupPwError] = useState('')
+  const [setupPwLoading, setSetupPwLoading] = useState(false)
+  const [setupPwDone, setSetupPwDone] = useState(false)
 
   useEffect(() => {
     // Get initial session
@@ -184,6 +189,7 @@ function App() {
           {user && <IssueFlagger />}
 
           {/* Welcome overlay — shown when couple lands via invite link */}
+          {/* Forces couple to set their own permanent password before entering the app */}
           {setupPassword && user?.role === 'couple' && (
             <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
               <motion.div
@@ -199,35 +205,71 @@ function App() {
 
                 {/* Body */}
                 <div className="px-8 py-7 space-y-5">
-                  <div className="text-center">
-                    <p className="text-[#1a1a2e] font-semibold text-lg">You're all set! 🎉</p>
-                    <p className="text-[#6b6b6b] text-sm mt-1">Save your temporary password below. You can change it anytime in account settings.</p>
-                  </div>
+                  {!setupPwDone ? (
+                    <>
+                      <div className="text-center">
+                        <p className="text-[#1a1a2e] font-semibold text-lg">Create your password 🔐</p>
+                        <p className="text-[#6b6b6b] text-sm mt-1">You're logged in! Set a secure password to access your portal going forward.</p>
+                      </div>
 
-                  {/* Password display */}
-                  <div className="bg-[#f5f0e8] rounded-2xl px-6 py-5 text-center">
-                    <p className="text-xs text-[#a89b85] uppercase tracking-widest font-semibold mb-2">Temporary Password</p>
-                    <p className="font-mono text-3xl font-bold text-[#1a1a2e] tracking-[0.2em] select-all">{setupPassword}</p>
-                  </div>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-xs text-[#a89b85] uppercase tracking-widest font-semibold block mb-1">New Password</label>
+                          <input
+                            type="password"
+                            value={newSetupPw}
+                            onChange={e => { setNewSetupPw(e.target.value); setSetupPwError('') }}
+                            placeholder="At least 8 characters"
+                            className="w-full px-4 py-3 rounded-xl border-2 border-[#e8e0d0] text-[#1a1a2e] text-sm focus:outline-none focus:border-[#c9a96e] transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-[#a89b85] uppercase tracking-widest font-semibold block mb-1">Confirm Password</label>
+                          <input
+                            type="password"
+                            value={confirmSetupPw}
+                            onChange={e => { setConfirmSetupPw(e.target.value); setSetupPwError('') }}
+                            placeholder="Re-enter password"
+                            className="w-full px-4 py-3 rounded-xl border-2 border-[#e8e0d0] text-[#1a1a2e] text-sm focus:outline-none focus:border-[#c9a96e] transition-colors"
+                            onKeyDown={async e => { if (e.key === 'Enter') await handleSetupPwSubmit() }}
+                          />
+                        </div>
+                        {setupPwError && (
+                          <p className="text-red-500 text-xs text-center">{setupPwError}</p>
+                        )}
+                      </div>
 
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(setupPassword)
-                        setCopiedSetup(true)
-                        setTimeout(() => setCopiedSetup(false), 2000)
-                      }}
-                      className="flex-1 py-3 rounded-xl border-2 border-[#e8e0d0] text-[#1a1a2e] font-semibold text-sm hover:bg-[#f5f0e8] transition-colors"
-                    >
-                      {copiedSetup ? '✓ Copied!' : 'Copy'}
-                    </button>
-                    <button
-                      onClick={() => setSetupPassword(null)}
-                      className="flex-1 py-3 rounded-xl bg-[#c9a96e] text-white font-semibold text-sm hover:bg-[#b8954f] transition-colors"
-                    >
-                      Got it →
-                    </button>
-                  </div>
+                      <button
+                        onClick={async () => {
+                          if (newSetupPw.length < 8) { setSetupPwError('Password must be at least 8 characters.'); return }
+                          if (newSetupPw !== confirmSetupPw) { setSetupPwError('Passwords don\'t match.'); return }
+                          setSetupPwLoading(true)
+                          const { error } = await supabase.auth.updateUser({ password: newSetupPw })
+                          setSetupPwLoading(false)
+                          if (error) { setSetupPwError(error.message); return }
+                          setSetupPwDone(true)
+                        }}
+                        disabled={setupPwLoading}
+                        className="w-full py-3 rounded-xl bg-[#c9a96e] text-white font-semibold text-sm hover:bg-[#b8954f] transition-colors disabled:opacity-60"
+                      >
+                        {setupPwLoading ? 'Setting password…' : 'Set Password →'}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-center py-4">
+                        <p className="text-4xl mb-3">🎉</p>
+                        <p className="text-[#1a1a2e] font-semibold text-lg">You're all set!</p>
+                        <p className="text-[#6b6b6b] text-sm mt-1">Your password has been saved. Welcome to your wedding portal.</p>
+                      </div>
+                      <button
+                        onClick={() => { setSetupPassword(null); setSetupPwDone(false); setNewSetupPw(''); setConfirmSetupPw('') }}
+                        className="w-full py-3 rounded-xl bg-[#c9a96e] text-white font-semibold text-sm hover:bg-[#b8954f] transition-colors"
+                      >
+                        Enter my portal →
+                      </button>
+                    </>
+                  )}
                 </div>
               </motion.div>
             </div>
