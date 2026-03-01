@@ -795,63 +795,109 @@ export const notificationsAPI = {
 }
 
 // =============================================
-// HELPER: Log change and notify
+// HELPER: Log change and notify (with batching)
 // =============================================
+
+/**
+ * Notification batch buffer.
+ * Key: `${weddingId}::${changedByUserId}`
+ * Value: { timer, changes: changeLog[] }
+ *
+ * When multiple changes arrive within BATCH_WINDOW ms, they are
+ * grouped into a single notification so recipients get one clean
+ * summary instead of a flood of individual pings.
+ */
+const _notifyBuffer = new Map()
+const BATCH_WINDOW = 30_000 // 30 s — catches bulk coordinator edits / AI imports
+
 export async function logChangeAndNotify(changeLog) {
   try {
+    // Always write the audit log immediately
     await changeLogsAPI.create(changeLog)
 
-    // Create in-app notifications for other wedding participants
-    if (changeLog.wedding_id && changeLog.changed_by_user_id) {
-      await _dispatchNotifications(changeLog)
-    }
+    if (!changeLog.wedding_id || !changeLog.changed_by_user_id) return
+
+    // Buffer the notification — debounce per (wedding, actor)
+    const key = `${changeLog.wedding_id}::${changeLog.changed_by_user_id}`
+    const entry = _notifyBuffer.get(key) || { changes: [] }
+
+    // Cancel the pending flush so we can extend the window
+    if (entry.timer) clearTimeout(entry.timer)
+
+    entry.changes.push(changeLog)
+
+    entry.timer = setTimeout(() => {
+      _notifyBuffer.delete(key)
+      _flushNotifications(changeLog.wedding_id, changeLog.changed_by_user_id, entry.changes)
+    }, BATCH_WINDOW)
+
+    _notifyBuffer.set(key, entry)
   } catch (error) {
     console.error('Error logging change:', error)
   }
 }
 
-async function _dispatchNotifications(changeLog) {
+/**
+ * Collapse buffered changes into a single, human-readable notification.
+ */
+async function _flushNotifications(weddingId, changedByUserId, changes) {
   try {
-    // Get the wedding to find coordinators + couple
     const { data: wedding, error } = await supabase
       .from('weddings')
-      .select(`
-        couple_user_id,
-        couple_name,
-        coordinator_assignments(coordinator_id)
-      `)
-      .eq('id', changeLog.wedding_id)
+      .select('couple_user_id, couple_name, coordinator_assignments(coordinator_id)')
+      .eq('id', weddingId)
       .single()
 
     if (error || !wedding) return
 
-    // Collect all participant user IDs except the person who made the change
     const participantIds = new Set()
-
-    if (wedding.couple_user_id) {
-      participantIds.add(wedding.couple_user_id)
-    }
-    wedding.coordinator_assignments?.forEach((a) => {
-      participantIds.add(a.coordinator_id)
-    })
-    participantIds.delete(changeLog.changed_by_user_id) // don't notify yourself
+    if (wedding.couple_user_id) participantIds.add(wedding.couple_user_id)
+    wedding.coordinator_assignments?.forEach(a => participantIds.add(a.coordinator_id))
+    participantIds.delete(changedByUserId) // don't notify yourself
 
     if (participantIds.size === 0) return
 
-    // Insert one notification per participant
-    const rows = Array.from(participantIds).map((uid) => ({
+    // Build a concise summary message
+    const message = _buildSummary(wedding.couple_name, changes)
+    const type = changes.length === 1 ? (changes[0].change_type || 'info') : 'bulk_update'
+
+    const rows = Array.from(participantIds).map(uid => ({
       user_id: uid,
-      wedding_id: changeLog.wedding_id,
-      message: `${wedding.couple_name}: ${changeLog.description}`,
-      type: changeLog.change_type || 'info',
+      wedding_id: weddingId,
+      message,
+      type,
       read: false,
     }))
 
     await supabase.from('notifications').insert(rows)
   } catch (err) {
-    // Non-fatal — just log
     console.warn('Could not dispatch notifications:', err.message)
   }
+}
+
+/**
+ * Turn an array of changes into one readable sentence.
+ *
+ * 1 change  → "{couple}: Task completed"
+ * 2–3       → "{couple}: Task completed, Vendor added, Timeline updated"
+ * 4+        → "{couple}: 6 updates — Task completed, Vendor added, Timeline updated, and 3 more"
+ */
+function _buildSummary(coupleName, changes) {
+  if (changes.length === 1) {
+    return `${coupleName}: ${changes[0].description}`
+  }
+
+  // Deduplicate near-identical descriptions (e.g. 10 timeline items added)
+  const unique = [...new Map(changes.map(c => [c.change_type, c])).values()]
+
+  const MAX_INLINE = 3
+  const shown = unique.slice(0, MAX_INLINE).map(c => c.description)
+  const rest  = changes.length - shown.length
+
+  const list = shown.join('; ')
+  const tail = rest > 0 ? `; and ${rest} more` : ''
+
+  return `${coupleName}: ${changes.length} updates — ${list}${tail}`
 }
 
 // =============================================
