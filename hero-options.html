@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Couple Hero — Layout Options</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          'cowc-dark':  '#2d3748',
+          'cowc-gold':  '#d4a574',
+          'cowc-cream': '#faf9f7',
+          'cowc-sand':  '#e8dfd6',
+          'cowc-gray':  '#718096',
+        },
+        fontFamily: {
+          serif: ['Cormorant Garamond', 'serif'],
+          sans:  ['Inter', 'sans-serif'],
+        }
+      }
+    }
+  }
+</script>
+<style>
+  body { font-family: 'Inter', sans-serif; background: #f1ede8; }
+  .label { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #718096; }
+</style>
+</head>
+<body class="py-12 px-4">
+
+<div class="max-w-sm mx-auto space-y-16">
+
+  <!-- ───────────────────────────────────────── -->
+  <!-- OPTION A — COUNTDOWN CENTREPIECE          -->
+  <!-- Current style, elevated                   -->
+  <!-- ───────────────────────────────────────── -->
+  <div>
+    <p class="label mb-4 text-center">Option A — Countdown Centrepiece (current feel, refined)</p>
+    <div class="rounded-3xl overflow-hidden shadow-xl">
+
+      <!-- Hero -->
+      <div class="relative text-white overflow-hidden" style="background: linear-gradient(135deg, #c4956a 0%, #b07d52 60%, #9a6840 100%);">
+        <div class="absolute inset-0" style="background: radial-gradient(ellipse at 75% 10%, rgba(255,255,255,0.18) 0%, transparent 55%)"></div>
+        <div class="absolute bottom-0 left-0 right-0 h-24" style="background: linear-gradient(to top, rgba(0,0,0,0.12), transparent)"></div>
+
+        <div class="relative z-10 px-6 pt-10 pb-10 text-center">
+          <!-- Tiny eyebrow -->
+          <p class="text-white/50 text-[10px] uppercase tracking-[0.25em] mb-5">Counting down</p>
+
+          <!-- Big number -->
+          <div class="flex items-baseline justify-center gap-2 mb-1">
+            <span class="font-serif text-[96px] font-light leading-none text-white">47</span>
+          </div>
+          <p class="text-white/60 text-xs uppercase tracking-widest mb-7">days to go</p>
+
+          <!-- Couple name — serif, large -->
+          <h1 class="font-serif text-3xl font-light tracking-widest text-white mb-2">
+            Sarah &amp; James
+          </h1>
+          <p class="text-white/50 text-xs">June 14, 2026 · The Grand Hall</p>
+
+          <!-- Progress bar -->
+          <div class="mt-7 mx-auto max-w-[180px]">
+            <div class="h-[2px] rounded-full bg-white/20 overflow-hidden">
+              <div class="h-full rounded-full bg-white/70 w-[62%]"></div>
+            </div>
+            <p class="text-white/40 text-[10px] mt-1.5 tracking-wide">10 of 16 tasks complete</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Peek of content below -->
+      <div class="bg-cowc-cream px-4 pt-5 pb-6 space-y-3">
+        <div class="bg-cowc-dark rounded-2xl p-5 text-white">
+          <p class="text-white/40 text-[10px] uppercase tracking-wider mb-1">Due Apr 20</p>
+          <p class="font-serif text-xl font-light">Book florist consultation</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-white rounded-xl p-4"><p class="font-serif text-sm text-cowc-dark">Timeline</p><p class="text-[10px] text-cowc-gray mt-0.5">Day-of schedule</p></div>
+          <div class="bg-white rounded-xl p-4"><p class="font-serif text-sm text-cowc-dark">Vendors</p><p class="text-[10px] text-cowc-gray mt-0.5">Your vendor team</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────────────────────────────────── -->
+  <!-- OPTION B — SPLIT CARD HEADER              -->
+  <!-- Dark card, name on left, countdown right  -->
+  <!-- ───────────────────────────────────────── -->
+  <div>
+    <p class="label mb-4 text-center">Option B — Dark Split Header</p>
+    <div class="rounded-3xl overflow-hidden shadow-xl">
+
+      <!-- Hero — dark, editorial -->
+      <div class="bg-cowc-dark relative overflow-hidden">
+        <div class="absolute inset-0" style="background: radial-gradient(ellipse at 90% 20%, rgba(212,165,116,0.15) 0%, transparent 60%)"></div>
+
+        <!-- Top bar -->
+        <div class="relative z-10 flex items-center justify-between px-5 pt-8 pb-0">
+          <p class="text-white/30 text-[10px] uppercase tracking-[0.2em]">Your wedding</p>
+          <div class="flex gap-2">
+            <div class="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center">
+              <svg class="w-3.5 h-3.5 text-white/60" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            </div>
+            <div class="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center">
+              <svg class="w-3.5 h-3.5 text-white/60" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Name + countdown split -->
+        <div class="relative z-10 flex items-end justify-between px-5 pt-5 pb-8">
+          <div class="flex-1 pr-4">
+            <h1 class="font-serif text-[34px] font-light text-white leading-none mb-2">
+              Sarah<br>&amp; James
+            </h1>
+            <p class="text-white/40 text-xs">June 14, 2026</p>
+            <p class="text-white/30 text-xs mt-0.5">The Grand Hall</p>
+          </div>
+          <div class="text-right flex-shrink-0">
+            <p class="font-serif text-[72px] font-light leading-none text-cowc-gold">47</p>
+            <p class="text-white/40 text-xs uppercase tracking-widest -mt-1">days</p>
+          </div>
+        </div>
+
+        <!-- Progress strip -->
+        <div class="relative z-10 flex items-center gap-3 px-5 pb-6">
+          <div class="flex-1 h-[2px] rounded-full bg-white/15 overflow-hidden">
+            <div class="h-full rounded-full bg-cowc-gold/60 w-[62%]"></div>
+          </div>
+          <p class="text-white/30 text-[10px] flex-shrink-0">10 / 16 tasks</p>
+        </div>
+      </div>
+
+      <!-- Peek of content below -->
+      <div class="bg-cowc-cream px-4 pt-5 pb-6 space-y-3">
+        <div class="bg-cowc-dark rounded-2xl p-5 text-white">
+          <p class="text-white/40 text-[10px] uppercase tracking-wider mb-1">Due Apr 20</p>
+          <p class="font-serif text-xl font-light">Book florist consultation</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-white rounded-xl p-4"><p class="font-serif text-sm text-cowc-dark">Timeline</p><p class="text-[10px] text-cowc-gray mt-0.5">Day-of schedule</p></div>
+          <div class="bg-white rounded-xl p-4"><p class="font-serif text-sm text-cowc-dark">Vendors</p><p class="text-[10px] text-cowc-gray mt-0.5">Your vendor team</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────────────────────────────────── -->
+  <!-- OPTION C — MINIMAL EDITORIAL              -->
+  <!-- No gradient, clean cream, accent stripe   -->
+  <!-- ───────────────────────────────────────── -->
+  <div>
+    <p class="label mb-4 text-center">Option C — Minimal / Editorial</p>
+    <div class="rounded-3xl overflow-hidden shadow-xl">
+
+      <!-- Hero — cream/light, no gradient -->
+      <div class="bg-cowc-cream">
+        <!-- Thin gold accent stripe at very top -->
+        <div class="h-1 w-full" style="background: linear-gradient(90deg, #d4a574, #c4956a)"></div>
+
+        <!-- Top bar -->
+        <div class="flex items-center justify-between px-5 pt-5 pb-0">
+          <p class="text-cowc-gray text-[10px] uppercase tracking-[0.2em]">Your wedding</p>
+          <div class="flex gap-1.5">
+            <div class="w-7 h-7 rounded-full bg-cowc-sand flex items-center justify-center">
+              <svg class="w-3.5 h-3.5 text-cowc-gray" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Couple name — large, dominant -->
+        <div class="px-5 pt-5 pb-2">
+          <h1 class="font-serif text-[44px] font-light text-cowc-dark leading-none">
+            Sarah<br><span class="text-cowc-gold">&amp;</span> James
+          </h1>
+        </div>
+
+        <!-- Date + countdown row -->
+        <div class="flex items-center justify-between px-5 pb-6">
+          <div>
+            <p class="text-sm text-cowc-gray">June 14, 2026</p>
+            <p class="text-xs text-cowc-gray/60 mt-0.5">The Grand Hall</p>
+          </div>
+          <div class="text-right">
+            <p class="font-serif text-5xl font-light text-cowc-dark leading-none">47</p>
+            <p class="text-cowc-gray text-[10px] uppercase tracking-widest mt-0.5">days to go</p>
+          </div>
+        </div>
+
+        <!-- Progress bar — thin, at base -->
+        <div class="px-5 pb-6">
+          <div class="h-[2px] rounded-full bg-cowc-sand overflow-hidden">
+            <div class="h-full rounded-full w-[62%]" style="background: #d4a574"></div>
+          </div>
+          <p class="text-cowc-gray/50 text-[10px] mt-1.5">10 of 16 tasks complete</p>
+        </div>
+      </div>
+
+      <!-- Peek of content below -->
+      <div class="bg-cowc-cream px-4 pt-1 pb-6 space-y-3">
+        <div class="bg-cowc-dark rounded-2xl p-5 text-white">
+          <p class="text-white/40 text-[10px] uppercase tracking-wider mb-1">Due Apr 20</p>
+          <p class="font-serif text-xl font-light">Book florist consultation</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-white rounded-xl p-4"><p class="font-serif text-sm text-cowc-dark">Timeline</p><p class="text-[10px] text-cowc-gray mt-0.5">Day-of schedule</p></div>
+          <div class="bg-white rounded-xl p-4"><p class="font-serif text-sm text-cowc-dark">Vendors</p><p class="text-[10px] text-cowc-gray mt-0.5">Your vendor team</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
