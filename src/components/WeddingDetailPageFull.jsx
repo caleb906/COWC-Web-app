@@ -72,6 +72,7 @@ export default function WeddingDetailPageFull() {
   const [aiTimelineLoading, setAITimelineLoading] = useState(false)
   const [aiTimelineError, setAITimelineError] = useState('')
   const [clearingTimeline, setClearingTimeline] = useState(false)
+  const [reClassifying, setReClassifying] = useState(false)
   const [showFABTray, setShowFABTray] = useState(false)
 
   // Edit states for items
@@ -469,6 +470,37 @@ export default function WeddingDetailPageFull() {
     }
   }
 
+  // Re-classify existing timeline items via AI
+  const handleReClassifyTimeline = async () => {
+    if (!localTimeline.length) return
+    setReClassifying(true)
+    try {
+      const items = localTimeline.map(i => ({ id: i.id, title: i.title, description: i.description || '' }))
+      const { data, error } = await supabase.functions.invoke('classify-timeline', { body: { items } })
+      if (error) throw error
+      if (!data?.classifications?.length) throw new Error('No classifications returned')
+
+      // Bulk update each item's timeline_type
+      await Promise.all(
+        data.classifications.map(c => timelineAPI.update(c.id, { timeline_type: c.timeline_type }))
+      )
+
+      // Sync local state
+      setLocalTimeline(prev =>
+        prev.map(item => {
+          const match = data.classifications.find(c => c.id === item.id)
+          return match ? { ...item, timeline_type: match.timeline_type } : item
+        })
+      )
+      toast.success('Timeline re-classified!')
+    } catch (err) {
+      console.error('Re-classify error:', err)
+      toast.error(err.message || 'Re-classification failed')
+    } finally {
+      setReClassifying(false)
+    }
+  }
+
   const handleTimelineReorder = async (itemId, direction) => {
     const idx = localTimeline.findIndex(i => i.id === itemId)
     if (idx === -1) return
@@ -509,6 +541,7 @@ export default function WeddingDetailPageFull() {
           description: item.description || '',
           duration_minutes: item.duration_minutes ?? 30,
           sort_order: item.sort_order ?? 0,
+          timeline_type: item.timeline_type || 'wedding',
         })
         created.push(newItem)
       }
@@ -1263,6 +1296,17 @@ export default function WeddingDetailPageFull() {
                     <Sparkles className="w-5 h-5" />
                     AI Import
                   </button>
+                  {localTimeline.length > 0 && (
+                    <button
+                      onClick={handleReClassifyTimeline}
+                      disabled={reClassifying}
+                      className="py-4 px-4 rounded-xl border-2 border-dashed border-indigo-300 text-indigo-500 hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 font-semibold disabled:opacity-50"
+                      title="Re-classify all events as Wedding or Vendor using AI"
+                    >
+                      {reClassifying ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                      <span className="hidden sm:inline">Re-classify</span>
+                    </button>
+                  )}
                   {localTimeline.length > 0 && (
                     <button
                       onClick={handleClearAllTimeline}
