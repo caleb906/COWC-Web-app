@@ -367,9 +367,10 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
         <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full blur-3xl opacity-20 pointer-events-none" style={{ background: 'white' }} />
         <div className="absolute -bottom-16 -left-16 w-72 h-72 rounded-full blur-3xl opacity-10 pointer-events-none" style={{ background: 'white' }} />
 
-        <div className="relative z-10 max-w-lg mx-auto px-6 pt-8 pb-6 sm:pt-10 sm:pb-10">
+        {/* Identity only — nav + couple name */}
+        <div className="relative z-10 max-w-lg mx-auto px-6 pt-8 pb-16 sm:pt-10 sm:pb-20">
           {/* Top nav */}
-          <div className="flex items-center justify-between mb-6 sm:mb-10">
+          <div className="flex items-center justify-between mb-5">
             <p className="text-white/45 text-xs uppercase tracking-[0.18em] font-medium">
               Welcome back, {user?.full_name?.split(' ')[0]}
             </p>
@@ -403,80 +404,81 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
             </div>
           </div>
 
-          {/* Hero center — single cohesive unit */}
-          <div className="text-center mb-5 sm:mb-8">
-            {/* Couple identity */}
-            <p className="text-white/40 text-[10px] uppercase tracking-[0.25em] mb-2">Your Wedding</p>
-            <h1 className="text-4xl sm:text-5xl font-serif font-light tracking-wide leading-tight mb-3">
+          {/* Couple name centered */}
+          <div className="text-center">
+            <p className="text-white/40 text-[10px] uppercase tracking-[0.25em] mb-1.5">Your Wedding</p>
+            <h1 className="text-3xl sm:text-5xl font-serif font-light tracking-wide leading-tight">
               {wedding.couple_name}
             </h1>
-
-            {/* Thin divider */}
-            <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="flex items-center justify-center gap-3 mt-3">
               <div className="h-px w-10 bg-white/20" />
               <Heart className="w-2.5 h-2.5 text-white/35 fill-current" />
               <div className="h-px w-10 bg-white/20" />
             </div>
-
-            {/* Countdown — number + label as one typographic unit */}
-            <div className="flex items-baseline justify-center gap-3 mb-3">
-              <span className="text-[5.5rem] sm:text-[7rem] leading-none font-serif font-extralight tracking-tight">
-                {days < 0 ? '🎉' : days === 0 ? '🎊' : days}
-              </span>
-              {days > 0 && (
-                <span className="text-white/55 text-base font-light leading-snug text-left" style={{ maxWidth: '4.5rem' }}>
-                  {`day${days !== 1 ? 's' : ''} until your wedding`}
-                </span>
-              )}
-              {days <= 0 && (
-                <span className="text-white/65 text-base font-light tracking-wide">
-                  {days < 0 ? 'Congratulations!' : "It's your wedding day!"}
-                </span>
-              )}
-            </div>
-
-            {/* Date + venue as a frosted pill */}
-            <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-white/50 text-[11px] uppercase tracking-[0.12em]"
-              style={{ background: 'rgba(255,255,255,0.09)' }}>
-              <Calendar className="w-3 h-3 flex-shrink-0" />
-              <span>{formatDate(wedding.wedding_date, 'MMM d, yyyy')}</span>
-              {wedding.venue_name && (
-                <>
-                  <span className="opacity-40">·</span>
-                  <MapPin className="w-3 h-3 flex-shrink-0" />
-                  <span className="max-w-[120px] truncate">{wedding.venue_name}</span>
-                </>
-              )}
-            </div>
           </div>
-
-          {/* Task progress strip */}
-          {totalCount > 0 && (
-            <div className="flex items-center gap-4 rounded-xl px-5 py-3.5 border border-white/15"
-              style={{ background: 'rgba(255,255,255,0.07)' }}>
-              <CheckCircle2 className="w-5 h-5 text-white/60 flex-shrink-0" />
-              <div className="flex-1">
-                <div className="flex justify-between text-xs text-white/60 mb-1.5">
-                  <span>Tasks complete</span>
-                  <span>{completedCount} / {totalCount}</span>
-                </div>
-                <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progress}%` }}
-                    transition={{ delay: 0.4, duration: 0.7 }}
-                    className="h-full rounded-full bg-white"
-                  />
-                </div>
-              </div>
-              <span className="text-white font-semibold text-sm min-w-[36px] text-right">{Math.round(progress)}%</span>
-            </div>
-          )}
         </div>
       </motion.div>
 
       {/* ── Tab Content ─────────────────────────────────────────── */}
-      <div className="max-w-lg mx-auto px-4 pt-5 space-y-4">
+      <div className="max-w-lg mx-auto px-4 -mt-10 relative z-20 space-y-3">
+
+        {/* Countdown card — overlaps hero */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-white rounded-2xl shadow-lg overflow-hidden"
+        >
+          <div className="flex items-center gap-4 px-5 py-4">
+            {/* Big number */}
+            <div className="flex-shrink-0 w-20 text-right">
+              <span className="text-5xl sm:text-6xl font-serif font-light leading-none" style={{ color: accent }}>
+                {days < 0 ? '🎉' : days === 0 ? '🎊' : days}
+              </span>
+            </div>
+            <div className="w-px h-12 bg-gray-100 flex-shrink-0" />
+            {/* Label + meta */}
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-cowc-dark text-base leading-tight mb-1">
+                {days < 0 ? 'Congratulations!' : days === 0 ? "It's your wedding day!" : `day${days !== 1 ? 's' : ''} until your wedding`}
+              </p>
+              <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs text-cowc-gray">
+                <div className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3 flex-shrink-0" style={{ color: accent }} />
+                  <span>{formatDate(wedding.wedding_date, 'MMM d, yyyy')}</span>
+                </div>
+                {wedding.venue_name && (
+                  <>
+                    <span className="text-cowc-light-gray">·</span>
+                    <div className="flex items-center gap-1 min-w-0">
+                      <MapPin className="w-3 h-3 flex-shrink-0" style={{ color: accent }} />
+                      <span className="truncate">{wedding.venue_name}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+          {/* Progress bar integrated into card bottom */}
+          {totalCount > 0 && (
+            <div className="border-t border-gray-50 px-5 py-3 flex items-center gap-3">
+              <div className="flex-1">
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: primaryAlpha(theme.primary, 0.12) }}>
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progress}%` }}
+                    transition={{ delay: 0.4, duration: 0.7 }}
+                    className="h-full rounded-full"
+                    style={{ background: accent }}
+                  />
+                </div>
+              </div>
+              <span className="text-xs font-semibold flex-shrink-0" style={{ color: accent }}>
+                {completedCount}/{totalCount} tasks
+              </span>
+            </div>
+          )}
+        </motion.div>
 
         {/* ── HOME TAB ─────────────────────────────────────── */}
         {activeTab === 'home' && (<>
