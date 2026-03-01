@@ -367,20 +367,27 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
         <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full blur-3xl opacity-20 pointer-events-none" style={{ background: 'white' }} />
         <div className="absolute -bottom-16 -left-16 w-72 h-72 rounded-full blur-3xl opacity-10 pointer-events-none" style={{ background: 'white' }} />
 
-        {/* Identity only — nav + couple name */}
-        <div className="relative z-10 max-w-lg mx-auto px-6 pt-8 pb-16 sm:pt-10 sm:pb-20">
-          {/* Top nav */}
-          <div className="flex items-center justify-between mb-5">
-            <p className="text-white/45 text-xs uppercase tracking-[0.18em] font-medium">
-              Welcome back, {user?.full_name?.split(' ')[0]}
-            </p>
-            <div className="flex items-center gap-2">
+        {/* Single nav bar — couple name centred, icons right */}
+        <div className="relative z-10 max-w-lg mx-auto px-4 pt-3 pb-7">
+          <div className="flex items-center gap-2">
+
+            {/* Left slot — notification bell or preview badge */}
+            <div className="flex-shrink-0">
               {!isPreview && <NotificationBell iconColor="white" />}
               {isPreview && (
-                <div className="px-3 py-1.5 rounded-full bg-white/10 text-white/70 text-xs font-semibold tracking-wide">
+                <div className="px-2 py-1 rounded-full bg-white/10 text-white/70 text-[10px] font-semibold tracking-wide">
                   Preview
                 </div>
               )}
+            </div>
+
+            {/* Centre — couple name */}
+            <h1 className="flex-1 text-center text-xl font-serif font-light tracking-widest text-white truncate">
+              {wedding.couple_name}
+            </h1>
+
+            {/* Right — settings + signout */}
+            <div className="flex items-center gap-1 flex-shrink-0">
               <button
                 onClick={() => {
                   setNewEmail(user?.email || '')
@@ -402,25 +409,13 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
-          </div>
 
-          {/* Couple name centered */}
-          <div className="text-center">
-            <p className="text-white/40 text-[10px] uppercase tracking-[0.25em] mb-1.5">Your Wedding</p>
-            <h1 className="text-3xl sm:text-5xl font-serif font-light tracking-wide leading-tight">
-              {wedding.couple_name}
-            </h1>
-            <div className="flex items-center justify-center gap-3 mt-3">
-              <div className="h-px w-10 bg-white/20" />
-              <Heart className="w-2.5 h-2.5 text-white/35 fill-current" />
-              <div className="h-px w-10 bg-white/20" />
-            </div>
           </div>
         </div>
       </motion.div>
 
       {/* ── Tab Content ─────────────────────────────────────────── */}
-      <div className="max-w-lg mx-auto px-4 -mt-10 relative z-20 space-y-3">
+      <div className="max-w-lg mx-auto px-4 -mt-5 relative z-20 space-y-3">
 
         {/* Countdown card — overlaps hero */}
         <motion.div
@@ -429,17 +424,17 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
           transition={{ delay: 0.15 }}
           className="bg-white rounded-2xl shadow-lg overflow-hidden"
         >
-          <div className="flex items-center gap-4 px-5 py-4">
+          <div className="flex items-center gap-3 px-4 py-3">
             {/* Big number */}
-            <div className="flex-shrink-0 w-20 text-right">
-              <span className="text-5xl sm:text-6xl font-serif font-light leading-none" style={{ color: accent }}>
+            <div className="flex-shrink-0 w-16 text-right">
+              <span className="text-4xl font-serif font-light leading-none" style={{ color: accent }}>
                 {days < 0 ? '🎉' : days === 0 ? '🎊' : days}
               </span>
             </div>
-            <div className="w-px h-12 bg-gray-100 flex-shrink-0" />
+            <div className="w-px h-10 bg-gray-100 flex-shrink-0" />
             {/* Label + meta */}
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-cowc-dark text-base leading-tight mb-1">
+              <p className="font-medium text-cowc-dark text-sm leading-tight mb-0.5">
                 {days < 0 ? 'Congratulations!' : days === 0 ? "It's your wedding day!" : `day${days !== 1 ? 's' : ''} until your wedding`}
               </p>
               <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs text-cowc-gray">
@@ -461,7 +456,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
           </div>
           {/* Progress bar integrated into card bottom */}
           {totalCount > 0 && (
-            <div className="border-t border-gray-50 px-5 py-3 flex items-center gap-3">
+            <div className="border-t border-gray-50 px-4 py-2.5 flex items-center gap-3">
               <div className="flex-1">
                 <div className="h-1.5 rounded-full overflow-hidden" style={{ background: primaryAlpha(theme.primary, 0.12) }}>
                   <motion.div
