@@ -474,6 +474,94 @@ export const vendorsAPI = {
 // =============================================
 // TIMELINE API
 // =============================================
+// =============================================
+// COUPLE VENDORS API
+// =============================================
+function transformCoupleVendor(d) {
+  if (!d) return null
+  return {
+    id: d.id,
+    wedding_id: d.wedding_id,
+    vendor_id: d.vendor_id || null,
+    name: d.name,
+    category: d.category,
+    phone: d.phone || '',
+    email: d.email || '',
+    notes: d.notes || '',
+    is_confirmed: d.is_confirmed || false,
+    contract_url: d.contract_url || null,
+    contract_filename: d.contract_filename || null,
+    created_at: d.created_at,
+    updated_at: d.updated_at,
+  }
+}
+
+export const coupleVendorsAPI = {
+  async getByWedding(weddingId) {
+    const { data, error } = await supabase
+      .from('couple_vendors')
+      .select('*')
+      .eq('wedding_id', weddingId)
+      .order('created_at')
+    if (error) throw error
+    return data.map(transformCoupleVendor)
+  },
+
+  async create(v) {
+    const { data, error } = await supabase
+      .from('couple_vendors')
+      .insert({
+        wedding_id: v.wedding_id,
+        vendor_id: v.vendor_id || null,
+        name: v.name,
+        category: v.category || 'other',
+        phone: v.phone || '',
+        email: v.email || '',
+        notes: v.notes || '',
+        is_confirmed: v.is_confirmed || false,
+        contract_url: v.contract_url || null,
+        contract_filename: v.contract_filename || null,
+      })
+      .select()
+      .single()
+    if (error) throw error
+    return transformCoupleVendor(data)
+  },
+
+  async update(id, updates) {
+    const { data, error } = await supabase
+      .from('couple_vendors')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return transformCoupleVendor(data)
+  },
+
+  async delete(id) {
+    const { error } = await supabase
+      .from('couple_vendors')
+      .delete()
+      .eq('id', id)
+    if (error) throw error
+    return true
+  },
+
+  async uploadContract(file, weddingId) {
+    const ext = file.name.split('.').pop()
+    const path = `${weddingId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+    const { error: uploadError } = await supabase.storage
+      .from('contracts')
+      .upload(path, file, { cacheControl: '3600', upsert: false })
+    if (uploadError) throw uploadError
+    const { data: { publicUrl } } = supabase.storage
+      .from('contracts')
+      .getPublicUrl(path)
+    return { url: publicUrl, filename: file.name }
+  },
+}
+
 export const timelineAPI = {
   async getByWedding(weddingId) {
     const { data, error } = await supabase

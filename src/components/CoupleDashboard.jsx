@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Calendar, MapPin, CheckCircle2, Circle, Info, List, LogOut, ChevronRight, ExternalLink, X, Users, ShoppingBag, Palette, Package, Camera, Video, Flower2, Music2, UtensilsCrossed, Cake, Sparkles, BookOpen, Building2, Car, Settings, Loader2, Eye, EyeOff } from 'lucide-react'
+import { Heart, Calendar, MapPin, CheckCircle2, Circle, Info, List, LogOut, ChevronRight, ExternalLink, X, Users, ShoppingBag, Palette, Package, Camera, Video, Flower2, Music2, UtensilsCrossed, Cake, Sparkles, BookOpen, Building2, Car, Settings, Loader2, Eye, EyeOff, Plus, Trash2, Upload, FileText, Search, Check, Phone, Mail, ChevronDown, ChevronUp } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 import { useAuthStore } from '../stores/appStore'
 import { weddingsAPI, tasksAPI, vendorsAPI, logChangeAndNotify } from '../services/unifiedAPI'
+import { coupleVendorsAPI, vendorsAPI as supaVendorsAPI } from '../services/supabaseAPI'
 import { useWeddingTheme } from '../contexts/WeddingThemeContext'
 import { formatDate, daysUntil, isPastDue } from '../utils/dates'
 import { primaryGradient, primaryAccent, primaryAlpha, primaryPageBg } from '../utils/colorUtils'
@@ -57,6 +58,18 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
   const [customVendorName, setCustomVendorName] = useState('')
   const [customVendorCategory, setCustomVendorCategory] = useState('')
 
+  // My Vendors (couple-owned vendor list)
+  const [coupleVendors, setCoupleVendors] = useState([])
+  const [coupleVendorsLoading, setCoupleVendorsLoading] = useState(false)
+  const [showAddCoupleVendor, setShowAddCoupleVendor] = useState(false)
+  const [cvSearch, setCvSearch] = useState('')
+  const [cvSearchResults, setCvSearchResults] = useState([])
+  const [cvSearching, setCvSearching] = useState(false)
+  const [cvForm, setCvForm] = useState({ name: '', category: '', phone: '', email: '', notes: '', vendor_id: null })
+  const [cvSaving, setCvSaving] = useState(false)
+  const [cvUploadingId, setCvUploadingId] = useState(null)
+  const [cvExpandedId, setCvExpandedId] = useState(null)
+
   useEffect(() => {
     loadData()
   }, [user, previewWeddingId])
@@ -90,6 +103,11 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
       ])
       setTasks(tasksData)
       setMyReservations(resData || [])
+      // Load couple's own vendors
+      if (!isPreview) {
+        const cvData = await coupleVendorsAPI.getByWedding(weddingData.id)
+        setCoupleVendors(cvData)
+      }
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -207,6 +225,65 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
     } finally {
       setSubmittingVendor(false)
     }
+  }
+
+  // ── My Vendors handlers ──────────────────────────────────────────────────────
+  const handleCvSearch = async (q) => {
+    setCvSearch(q)
+    if (q.length < 2) { setCvSearchResults([]); return }
+    setCvSearching(true)
+    try {
+      const results = await supaVendorsAPI.search(q)
+      setCvSearchResults(results)
+    } catch { setCvSearchResults([]) }
+    finally { setCvSearching(false) }
+  }
+
+  const handleCvSelectExisting = (v) => {
+    setCvForm({ name: v.name, category: v.category, phone: v.phone || '', email: v.contact_email || '', notes: '', vendor_id: v.id })
+    setCvSearch('')
+    setCvSearchResults([])
+  }
+
+  const handleCvSave = async () => {
+    if (!cvForm.name.trim() || !cvForm.category || !wedding) return
+    setCvSaving(true)
+    try {
+      const created = await coupleVendorsAPI.create({ wedding_id: wedding.id, ...cvForm, name: cvForm.name.trim() })
+      setCoupleVendors(prev => [...prev, created])
+      setCvForm({ name: '', category: '', phone: '', email: '', notes: '', vendor_id: null })
+      setShowAddCoupleVendor(false)
+      toast.success('Vendor added!')
+    } catch (err) { toast.error(err.message || 'Failed to add vendor') }
+    finally { setCvSaving(false) }
+  }
+
+  const handleCvToggleConfirmed = async (v) => {
+    try {
+      const updated = await coupleVendorsAPI.update(v.id, { is_confirmed: !v.is_confirmed })
+      setCoupleVendors(prev => prev.map(x => x.id === v.id ? updated : x))
+    } catch { toast.error('Failed to update') }
+  }
+
+  const handleCvUploadContract = async (v, file) => {
+    if (!file) return
+    setCvUploadingId(v.id)
+    try {
+      const { url, filename } = await coupleVendorsAPI.uploadContract(file, wedding.id)
+      const updated = await coupleVendorsAPI.update(v.id, { contract_url: url, contract_filename: filename })
+      setCoupleVendors(prev => prev.map(x => x.id === v.id ? updated : x))
+      toast.success('Contract uploaded!')
+    } catch (err) { toast.error(err.message || 'Upload failed') }
+    finally { setCvUploadingId(null) }
+  }
+
+  const handleCvDelete = async (id) => {
+    if (!window.confirm('Remove this vendor from your list?')) return
+    try {
+      await coupleVendorsAPI.delete(id)
+      setCoupleVendors(prev => prev.filter(x => x.id !== id))
+      toast.success('Vendor removed')
+    } catch { toast.error('Failed to remove vendor') }
   }
 
   const handleSignOut = async () => {
@@ -932,6 +1009,225 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
             </div>
           )}
         </motion.div>
+
+        {/* ── My Vendors ────────────────────────────────────────────────────── */}
+        {!isPreview && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.34 }}
+          >
+            <div className="flex items-center justify-between mb-2 px-1">
+              <h2 className="text-base font-semibold text-cowc-dark">My Vendors</h2>
+              <button
+                onClick={() => setShowAddCoupleVendor(v => !v)}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl transition-all active:scale-95"
+                style={{ background: primaryAlpha(theme.primary, 0.12), color: accent }}
+              >
+                <Plus className="w-3.5 h-3.5" /> Add
+              </button>
+            </div>
+
+            {/* Add form */}
+            <AnimatePresence>
+              {showAddCoupleVendor && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden mb-3"
+                >
+                  <div className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
+                    <p className="text-sm font-semibold text-cowc-dark">Add a vendor</p>
+
+                    {/* Search existing */}
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-cowc-gray" />
+                      <input
+                        type="text"
+                        value={cvSearch}
+                        onChange={e => handleCvSearch(e.target.value)}
+                        placeholder="Search existing vendors…"
+                        className="w-full pl-8 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none text-cowc-dark"
+                      />
+                      {cvSearching && <Loader2 className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-cowc-gray animate-spin" />}
+                    </div>
+                    {cvSearchResults.length > 0 && (
+                      <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-50">
+                        {cvSearchResults.map(r => (
+                          <button key={r.id}
+                            onClick={() => handleCvSelectExisting(r)}
+                            className="w-full text-left px-3 py-2.5 hover:bg-cowc-cream transition-colors"
+                          >
+                            <p className="text-sm font-semibold text-cowc-dark">{r.name}</p>
+                            <p className="text-xs text-cowc-gray capitalize">{r.category?.replace('_', ' ')}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="border-t border-gray-100 pt-3 space-y-2">
+                      <p className="text-xs text-cowc-gray font-medium">Or add manually:</p>
+                      <input
+                        type="text"
+                        value={cvForm.name}
+                        onChange={e => setCvForm(f => ({ ...f, name: e.target.value, vendor_id: null }))}
+                        placeholder="Vendor name *"
+                        className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none text-cowc-dark"
+                      />
+                      <select
+                        value={cvForm.category}
+                        onChange={e => setCvForm(f => ({ ...f, category: e.target.value }))}
+                        className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none text-cowc-dark bg-white"
+                      >
+                        <option value="">Category *</option>
+                        <option value="photographer">Photographer</option>
+                        <option value="videographer">Videographer</option>
+                        <option value="florist">Florist</option>
+                        <option value="dj">DJ</option>
+                        <option value="band">Live Band</option>
+                        <option value="caterer">Catering</option>
+                        <option value="baker">Wedding Cake</option>
+                        <option value="hair_makeup">Hair & Makeup</option>
+                        <option value="officiant">Officiant</option>
+                        <option value="venue">Venue</option>
+                        <option value="transportation">Transportation</option>
+                        <option value="planner">Planner</option>
+                        <option value="rentals">Rentals</option>
+                        <option value="stationery">Stationery</option>
+                        <option value="bar">Bar Service</option>
+                        <option value="other">Other</option>
+                      </select>
+                      <input type="tel" value={cvForm.phone} onChange={e => setCvForm(f => ({ ...f, phone: e.target.value }))}
+                        placeholder="Phone" className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none text-cowc-dark" />
+                      <input type="email" value={cvForm.email} onChange={e => setCvForm(f => ({ ...f, email: e.target.value }))}
+                        placeholder="Email" className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none text-cowc-dark" />
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={handleCvSave}
+                        disabled={!cvForm.name.trim() || !cvForm.category || cvSaving}
+                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all active:scale-95 disabled:opacity-50"
+                        style={{ background: accent }}
+                      >
+                        {cvSaving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Add Vendor'}
+                      </button>
+                      <button
+                        onClick={() => { setShowAddCoupleVendor(false); setCvForm({ name: '', category: '', phone: '', email: '', notes: '', vendor_id: null }); setCvSearch(''); setCvSearchResults([]) }}
+                        className="px-4 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 text-cowc-dark hover:bg-gray-200 transition-all"
+                      >Cancel</button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Vendor list */}
+            {coupleVendors.length > 0 ? (
+              <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
+                {coupleVendors.map(v => (
+                  <div key={v.id}>
+                    <div
+                      className="flex items-center gap-3 px-4 py-3.5 cursor-pointer"
+                      onClick={() => setCvExpandedId(id => id === v.id ? null : v.id)}
+                    >
+                      {/* Confirmed toggle */}
+                      <button
+                        onClick={e => { e.stopPropagation(); handleCvToggleConfirmed(v) }}
+                        className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-all"
+                        style={{ background: v.is_confirmed ? accent : '#f3f4f6' }}
+                        title={v.is_confirmed ? 'Confirmed' : 'Mark as confirmed'}
+                      >
+                        <Check className="w-3.5 h-3.5" style={{ color: v.is_confirmed ? '#fff' : '#9ca3af' }} />
+                      </button>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-cowc-dark truncate">{v.name}</p>
+                        <p className="text-xs text-cowc-gray capitalize">{v.category?.replace('_', ' ')}</p>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {v.contract_url && (
+                          <a href={v.contract_url} target="_blank" rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="p-1.5 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 transition-colors"
+                            title="View contract">
+                            <FileText className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${v.is_confirmed ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {v.is_confirmed ? '✓ Confirmed' : 'Pending'}
+                        </span>
+                        {cvExpandedId === v.id
+                          ? <ChevronUp className="w-3.5 h-3.5 text-cowc-gray" />
+                          : <ChevronDown className="w-3.5 h-3.5 text-cowc-gray" />}
+                      </div>
+                    </div>
+
+                    {/* Expanded detail */}
+                    <AnimatePresence>
+                      {cvExpandedId === v.id && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="px-4 pb-4 space-y-3 bg-gray-50/60 border-t border-gray-100">
+                            {(v.phone || v.email) && (
+                              <div className="pt-3 space-y-1">
+                                {v.phone && (
+                                  <a href={`tel:${v.phone}`} className="flex items-center gap-2 text-sm text-cowc-dark hover:underline">
+                                    <Phone className="w-3.5 h-3.5 text-cowc-gray" /> {v.phone}
+                                  </a>
+                                )}
+                                {v.email && (
+                                  <a href={`mailto:${v.email}`} className="flex items-center gap-2 text-sm text-cowc-dark hover:underline">
+                                    <Mail className="w-3.5 h-3.5 text-cowc-gray" /> {v.email}
+                                  </a>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Contract upload */}
+                            <div className="flex items-center gap-2">
+                              <label className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl cursor-pointer transition-all ${cvUploadingId === v.id ? 'opacity-50 pointer-events-none' : 'hover:opacity-80'}`}
+                                style={{ background: primaryAlpha(theme.primary, 0.12), color: accent }}>
+                                {cvUploadingId === v.id
+                                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…</>
+                                  : <><Upload className="w-3.5 h-3.5" /> {v.contract_url ? 'Replace Contract' : 'Upload Contract'}</>
+                                }
+                                <input type="file" accept=".pdf,.doc,.docx,.png,.jpg" className="hidden"
+                                  onChange={e => handleCvUploadContract(v, e.target.files?.[0])} />
+                              </label>
+                              {v.contract_url && (
+                                <a href={v.contract_url} target="_blank" rel="noopener noreferrer"
+                                  className="text-xs text-blue-500 underline truncate max-w-[120px]">
+                                  {v.contract_filename || 'View contract'}
+                                </a>
+                              )}
+                            </div>
+
+                            {/* Remove */}
+                            <button onClick={() => handleCvDelete(v.id)}
+                              className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-600 transition-colors">
+                              <Trash2 className="w-3.5 h-3.5" /> Remove vendor
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-cowc-gray text-center py-6 bg-white rounded-2xl shadow-sm">
+                No vendors added yet — tap Add to get started.
+              </p>
+            )}
+          </motion.div>
+        )}
 
         {/* Inspiration photos */}
         {wedding.theme?.inspiration_photos?.length > 0 && (

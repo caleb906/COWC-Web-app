@@ -14,6 +14,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../stores/appStore'
 import { useWeddingTheme } from '../contexts/WeddingThemeContext'
 import { weddingsAPI, tasksAPI, vendorsAPI, timelineAPI } from '../services/unifiedAPI'
+import { coupleVendorsAPI } from '../services/supabaseAPI'
 import { supabase } from '../lib/supabase'
 import { useToast } from './Toast'
 import { formatDate, daysUntil, isPastDue } from '../utils/dates'
@@ -61,6 +62,7 @@ export default function WeddingDetailPageFull() {
   const [editedWedding, setEditedWedding] = useState(null)
   const [lookingUpAddress, setLookingUpAddress] = useState(false)
   const [localTimeline, setLocalTimeline] = useState([])
+  const [coupleVendors, setCoupleVendors] = useState([])
 
   // Modal states
   const [showAddTask, setShowAddTask] = useState(false)
@@ -137,12 +139,18 @@ export default function WeddingDetailPageFull() {
       
       setWedding(weddingData)
       setEditedWedding(weddingData)
-      
+
       // Apply wedding theme for all roles (drives header gradient)
       const finalData = weddingData
       if (finalData?.theme) {
         setWeddingTheme(finalData.theme)
       }
+
+      // Load couple's own vendor list (visible to coordinators/admins)
+      try {
+        const cv = await coupleVendorsAPI.getByWedding(id)
+        setCoupleVendors(cv)
+      } catch { /* non-critical */ }
     } catch (error) {
       console.error('Error loading wedding:', error)
       console.log
@@ -1273,6 +1281,43 @@ export default function WeddingDetailPageFull() {
                     <p className="text-xl text-cowc-gray mb-2">No vendors yet</p>
                   </div>
                 )
+              )}
+
+              {/* ── Couple's Own Vendors ──────────────────────────────────────── */}
+              {coupleVendors.length > 0 && (
+                <div className="mt-2">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Heart className="w-4 h-4 text-cowc-gold" />
+                    <p className="text-sm font-semibold text-cowc-dark">Couple's Vendor List</p>
+                    <span className="text-xs bg-cowc-gold/10 text-cowc-gold px-2 py-0.5 rounded-full font-semibold">{coupleVendors.length}</span>
+                  </div>
+                  <div className="card-premium divide-y divide-cowc-sand/30">
+                    {coupleVendors.map(v => (
+                      <div key={v.id} className="flex items-center gap-3 px-4 py-3.5">
+                        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${v.is_confirmed ? 'bg-green-400' : 'bg-gray-300'}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-cowc-dark truncate">{v.name}</p>
+                          <p className="text-xs text-cowc-gray capitalize">{v.category?.replace('_', ' ')}
+                            {v.phone ? <span className="ml-2 text-cowc-gray">· {v.phone}</span> : null}
+                            {v.email ? <span className="ml-2 text-cowc-gray">· {v.email}</span> : null}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {v.contract_url && (
+                            <a href={v.contract_url} target="_blank" rel="noopener noreferrer"
+                              className="p-1.5 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 transition-colors"
+                              title={v.contract_filename || 'View contract'}>
+                              <ClipboardList className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${v.is_confirmed ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {v.is_confirmed ? '✓ Confirmed' : 'Pending'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}
