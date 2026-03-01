@@ -505,6 +505,104 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
             )
           })()}
 
+          {/* ── Timeline Snapshot ── */}
+          {(() => {
+            const items = [...(wedding.timeline_items || [])].sort((a, b) => {
+              if (a.time && b.time) return a.time.localeCompare(b.time)
+              return (a.sort_order ?? 0) - (b.sort_order ?? 0)
+            }).filter(i => i.timeline_type !== 'vendor').slice(0, 4)
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.24 }}
+                className="bg-white rounded-2xl shadow-sm overflow-hidden"
+              >
+                <div className="px-5 pt-4 pb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" style={{ color: accent }} />
+                    <p className="text-xs uppercase tracking-widest font-semibold text-cowc-gray">Timeline</p>
+                  </div>
+                  <button onClick={() => setActiveTab('timeline')}
+                    className="text-xs font-semibold flex items-center gap-0.5" style={{ color: accent }}>
+                    Full timeline <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                {items.length === 0 ? (
+                  <div className="px-5 pb-5 text-center">
+                    <p className="text-xs text-gray-400">Your day-of timeline will appear here once it's built.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-50">
+                    {items.map(item => (
+                      <div key={item.id} className="flex items-center gap-4 px-5 py-3">
+                        <span className="text-sm font-bold text-cowc-dark w-12 text-right flex-shrink-0">{item.time || '—'}</span>
+                        <p className="text-sm text-cowc-dark font-medium truncate">{item.title}</p>
+                      </div>
+                    ))}
+                    {(wedding.timeline_items || []).filter(i => i.timeline_type !== 'vendor').length > 4 && (
+                      <button onClick={() => setActiveTab('timeline')}
+                        className="w-full px-5 py-3 text-xs font-semibold text-left" style={{ color: accent }}>
+                        +{(wedding.timeline_items || []).filter(i => i.timeline_type !== 'vendor').length - 4} more items…
+                      </button>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            )
+          })()}
+
+          {/* ── Vendor Team Snapshot ── */}
+          {(() => {
+            const filledSlots = VENDOR_SLOTS.filter(slot =>
+              wedding.vendors?.find(v => slot.covers.includes(v.category))
+            ).slice(0, 5)
+            if (filledSlots.length === 0) return null
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.26 }}
+                className="bg-white rounded-2xl shadow-sm overflow-hidden"
+              >
+                <div className="px-5 pt-4 pb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4" style={{ color: accent }} />
+                    <p className="text-xs uppercase tracking-widest font-semibold text-cowc-gray">Your Team</p>
+                  </div>
+                  <button onClick={() => setActiveTab('vendors')}
+                    className="text-xs font-semibold flex items-center gap-0.5" style={{ color: accent }}>
+                    Full team <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {filledSlots.map(slot => {
+                    const vendor = wedding.vendors.find(v => slot.covers.includes(v.category))
+                    const Icon = slot.icon
+                    return (
+                      <div key={slot.category} className="flex items-center gap-3 px-5 py-3">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ background: softRing }}>
+                          <Icon className="w-3.5 h-3.5" style={{ color: accent }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-cowc-dark truncate">{vendor.name}</p>
+                          <p className="text-xs text-cowc-gray">{slot.label}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {VENDOR_SLOTS.filter(s => wedding.vendors?.find(v => s.covers.includes(v.category))).length > 5 && (
+                    <button onClick={() => setActiveTab('vendors')}
+                      className="w-full px-5 py-3 text-xs font-semibold text-left" style={{ color: accent }}>
+                      +{VENDOR_SLOTS.filter(s => wedding.vendors?.find(v => s.covers.includes(v.category))).length - 5} more…
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            )
+          })()}
+
           {/* Your Rentals */}
           {myReservations.length > 0 && (
             <motion.div

@@ -2559,11 +2559,11 @@ function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
           </h3>
           {canEdit ? (
             <span className="text-xs text-cowc-gray flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3 text-yellow-400" /> = gradient · drag to reorder · {colorList.length} colors
+              <Sparkles className="w-3 h-3 text-yellow-400" /> = influence color · drag to reorder · {colorList.length} colors
             </span>
           ) : (
             <span className="text-xs text-cowc-gray flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3 text-yellow-400" /> gradient source
+              <Sparkles className="w-3 h-3 text-yellow-400" /> influence color
             </span>
           )}
         </div>
@@ -2596,26 +2596,27 @@ function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
                           ...drag.draggableProps.style,
                         }}
                       >
-                        {/* Gradient source picker — top left */}
-                        <div
-                          onClick={(e) => { e.stopPropagation(); if (canEdit) setGradientColorId(color.id) }}
-                          className={`absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center transition-all z-10 ${
-                            gradientColorId === color.id
-                              ? 'opacity-100 bg-white/30'
-                              : canEdit
-                                ? 'opacity-0 group-hover:opacity-100 cursor-pointer bg-black/20 hover:bg-black/50'
-                                : 'hidden'
-                          }`}
-                          title={gradientColorId === color.id ? 'Gradient source' : 'Use as gradient base'}
-                        >
-                          <Sparkles className={`w-3.5 h-3.5 ${gradientColorId === color.id ? 'text-yellow-300' : 'text-white/70'}`} />
-                        </div>
+                        {/* Influence color (gradient source) — always visible, full opacity when active */}
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setGradientColorId(color.id) }}
+                            className={`absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center transition-all z-20 ${
+                              gradientColorId === color.id
+                                ? 'opacity-100 bg-white/30 ring-2 ring-white/60'
+                                : 'opacity-40 hover:opacity-100 cursor-pointer bg-black/20 hover:bg-black/50'
+                            }`}
+                            title={gradientColorId === color.id ? 'Influence color (active)' : 'Set as influence color'}
+                          >
+                            <Sparkles className={`w-3.5 h-3.5 ${gradientColorId === color.id ? 'text-yellow-300' : 'text-white/70'}`} />
+                          </button>
+                        )}
 
                         {/* Drag handle — top centre, visible on hover */}
                         {canEdit && (
                           <div
                             {...drag.dragHandleProps}
-                            className="absolute top-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity z-10 p-1"
+                            className="absolute top-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity z-20 p-1"
                           >
                             <GripVertical className="w-4 h-4 drop-shadow" style={{ color: 'rgba(255,255,255,0.85)' }} />
                           </div>
@@ -2624,26 +2625,28 @@ function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
                         {/* Delete button — top right, visible on hover (only if >2 colors) */}
                         {canEdit && colorList.length > 2 && (
                           <button
-                            onClick={() => handleRemoveColor(color.id)}
-                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 w-6 h-6 rounded-full bg-black/30 flex items-center justify-center hover:bg-black/60 transition-all z-10"
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleRemoveColor(color.id) }}
+                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 w-6 h-6 rounded-full bg-black/30 flex items-center justify-center hover:bg-black/60 transition-all z-20"
                           >
                             <X className="w-3 h-3 text-white" />
                           </button>
                         )}
 
-                        {/* Hidden color input overlaid on entire swatch */}
-                        {canEdit && (
-                          <input
-                            type="color"
-                            value={color.hex}
-                            onChange={(e) => handleColorChange(color.id, e.target.value)}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-0"
-                            title={`Pick ${color.label} color`}
-                          />
-                        )}
-
-                        {/* Bottom label + hex — always visible */}
-                        <div className="absolute bottom-0 left-0 right-0 px-2 py-3 bg-gradient-to-t from-black/40 to-transparent flex flex-col items-center gap-1">
+                        {/* Bottom label + color picker — label wraps input so clicking label opens native color picker */}
+                        <label
+                          className="absolute bottom-0 left-0 right-0 px-2 py-3 bg-gradient-to-t from-black/40 to-transparent flex flex-col items-center gap-1 z-10"
+                          style={{ cursor: canEdit ? 'pointer' : 'default' }}
+                          title={canEdit ? `Click to change ${color.label} color` : undefined}
+                        >
+                          {canEdit && (
+                            <input
+                              type="color"
+                              value={color.hex}
+                              onChange={(e) => handleColorChange(color.id, e.target.value)}
+                              className="sr-only"
+                            />
+                          )}
                           <p className="text-white text-xs font-semibold drop-shadow truncate w-full text-center">
                             {color.label}
                           </p>
@@ -2662,7 +2665,7 @@ function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
                           ) : (
                             <p className="text-white/80 text-xs font-mono drop-shadow">{color.hex.toUpperCase()}</p>
                           )}
-                        </div>
+                        </label>
                       </div>
                     )}
                   </Draggable>
@@ -2684,32 +2687,6 @@ function StyleTab({ wedding, canEdit, onSaved, setWeddingTheme }) {
             )}
           </Droppable>
         </DragDropContext>
-      </div>
-
-      {/* Vibe / Style */}
-      <div className="card-premium p-6 md:p-8">
-        <h3 className="text-xl md:text-2xl font-serif text-cowc-dark mb-6">Wedding Vibe</h3>
-        {canEdit ? (
-          <div className="flex flex-wrap gap-3">
-            {VIBE_OPTIONS.map(v => (
-              <button
-                key={v}
-                onClick={() => setVibe(v)}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all ${
-                  vibe === v
-                    ? 'border-cowc-gold bg-cowc-gold text-white'
-                    : 'border-cowc-sand text-cowc-gray hover:border-cowc-gold/50'
-                }`}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <span className="px-4 py-2 rounded-xl bg-cowc-cream text-cowc-dark font-semibold">
-            {vibe || 'Not set'}
-          </span>
-        )}
       </div>
 
       {/* Pinterest Boards */}
