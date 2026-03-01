@@ -4,7 +4,7 @@ import {
   Calendar, LogOut, Heart, ChevronRight, CheckCircle2,
   Circle, Clock, Home, ListChecks, AlertCircle,
   RefreshCw, Zap, Radio,
-  ArrowRight, NotebookPen,
+  ArrowRight, PenSquare,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/appStore'
 import { weddingsAPI, tasksAPI } from '../services/unifiedAPI'
@@ -756,7 +756,7 @@ export default function CoordinatorDashboard() {
         className="fixed bottom-24 right-5 w-14 h-14 bg-cowc-gold text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cowc-gold/90 active:scale-95 transition-all z-30"
         title="Quick Note"
       >
-        <NotebookPen className="w-6 h-6" />
+        <PenSquare className="w-6 h-6" />
       </motion.button>
 
       {/* ── NoteSheet ──────────────────────────────────────────────────────── */}

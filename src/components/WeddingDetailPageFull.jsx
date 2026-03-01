@@ -8,7 +8,7 @@ import {
   CheckCircle2, Circle, AlertCircle, DollarSign, Edit2,
   Palette, ExternalLink, Link, Sparkles, Loader2, RefreshCw,
   Eye, ClipboardList, ShoppingBag, ListMusic, UserPlus, ChevronDown, ChevronUp, GripVertical,
-  Send, Package, Tag, Check, Copy, Settings, ArrowUp, ArrowDown, NotebookPen
+  Send, Package, Tag, Check, Copy, Settings, ArrowUp, ArrowDown, PenSquare
 } from 'lucide-react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../stores/appStore'
@@ -2097,7 +2097,7 @@ export default function WeddingDetailPageFull() {
                 className="fixed bottom-24 right-5 z-50 flex flex-col items-end gap-2"
               >
                 {[
-                  { icon: NotebookPen,   label: 'Quick Note',        action: () => setShowNoteSheet(true) },
+                  { icon: PenSquare,   label: 'Quick Note',        action: () => setShowNoteSheet(true) },
                   { icon: ClipboardList, label: 'Add Task',         action: () => { setActiveTab('tasks');    setShowAddTask(true) } },
                   { icon: ShoppingBag,   label: 'Add Vendor',       action: () => { setActiveTab('vendors');  setShowAddVendor(true) } },
                   { icon: ListMusic,     label: 'Add Timeline Item', action: () => { setActiveTab('timeline'); setShowAddTimeline(true) } },
