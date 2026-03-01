@@ -5,6 +5,7 @@ import {
   LogOut, Settings, Grid, List, Search, X,
   UserPlus, ClipboardList, ChevronDown, ChevronRight, Archive,
   RotateCcw, CheckCircle, ShoppingBag, Package, StickyNote, Building2,
+  Minus,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/appStore'
 import { weddingsAPI, vendorsAPI } from '../services/unifiedAPI'
@@ -109,17 +110,16 @@ function StatusPill({ wedding, onStatusChange }) {
 }
 
 // ─── Coordinator assignment pill ────────────────────────────────────────────
-function CoordinatorPill({ wedding, coordinators, onAssign }) {
+function CoordinatorPill({ wedding, coordinators, onAssign, onCountChange }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
-  const allAssigned   = wedding.coordinators || []
-  const accepted      = allAssigned.filter(c => c.status !== 'declined')
-  const pending       = allAssigned.filter(c => c.status === 'pending')
-  const leadAssignment = allAssigned.find(c => c.is_lead && c.status === 'accepted')
-  const leadName      = leadAssignment?.coordinator?.full_name?.split(' ')[0] || null
-  const needed        = wedding.coordinator_count || null
-  const acceptedCount = accepted.length
+  const allAssigned    = wedding.coordinators || []
+  const assigned       = allAssigned.filter(c => c.status !== 'declined')
+  const leadAssignment = assigned.find(c => c.is_lead)
+  const leadName       = leadAssignment?.coordinator?.full_name?.split(' ')[0] || null
+  const needed         = wedding.coordinator_count ?? null
+  const assignedCount  = assigned.length
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
@@ -133,20 +133,24 @@ function CoordinatorPill({ wedding, coordinators, onAssign }) {
     onAssign(wedding, coord)
   }
 
-  // Pill colour: red if understaffed, gold if pending, green if staffed, gray if empty
-  const pillStyle = acceptedCount === 0
-    ? 'bg-gray-100 text-gray-500'
-    : needed && acceptedCount < needed
-      ? 'bg-red-50 text-red-600'
-      : pending.length > 0
-        ? 'bg-amber-50 text-amber-700'
-        : 'bg-green-50 text-green-700'
+  const handleCount = (e, delta) => {
+    e.stopPropagation()
+    const next = Math.max(0, (needed || 0) + delta)
+    onCountChange(wedding.id, next === 0 ? null : next)
+  }
 
-  const label = acceptedCount === 0
+  // Pill colour: green if fully staffed, red if understaffed, gray if empty
+  const pillStyle = assignedCount === 0
+    ? 'bg-gray-100 text-gray-500'
+    : needed && assignedCount < needed
+      ? 'bg-red-50 text-red-600'
+      : 'bg-green-50 text-green-700'
+
+  const label = assignedCount === 0
     ? 'Assign'
     : needed
-      ? `${leadName || accepted[0]?.coordinator?.full_name?.split(' ')[0]} ${acceptedCount}/${needed}`
-      : `${leadName || accepted[0]?.coordinator?.full_name?.split(' ')[0]}${acceptedCount > 1 ? ` +${acceptedCount - 1}` : ''}`
+      ? `${leadName || assigned[0]?.coordinator?.full_name?.split(' ')[0]} ${assignedCount}/${needed}`
+      : `${leadName || assigned[0]?.coordinator?.full_name?.split(' ')[0]}${assignedCount > 1 ? ` +${assignedCount - 1}` : ''}`
 
   return (
     <div className="relative" ref={ref}>
@@ -155,10 +159,7 @@ function CoordinatorPill({ wedding, coordinators, onAssign }) {
         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all hover:opacity-80 ${pillStyle}`}
       >
         <Users className="w-3 h-3 flex-shrink-0" />
-        <span className="truncate max-w-[100px]">{label}</span>
-        {pending.length > 0 && (
-          <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-amber-500" title={`${pending.length} pending`} />
-        )}
+        <span className="truncate max-w-[110px]">{label}</span>
         <ChevronDown className={`w-3 h-3 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       <AnimatePresence>
@@ -168,36 +169,54 @@ function CoordinatorPill({ wedding, coordinators, onAssign }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.95 }}
             transition={{ duration: 0.12 }}
-            className="absolute left-0 top-8 w-52 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-[200]"
+            className="absolute left-0 top-8 w-56 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-[200]"
           >
-            <div className="px-3 pt-2 pb-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                {needed ? `${acceptedCount} of ${needed} needed` : `${acceptedCount} assigned`}
-              </p>
+            {/* Coordinators needed counter */}
+            <div className="px-3 pt-2.5 pb-2 border-b border-gray-100">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Coordinators Needed</p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => handleCount(e, -1)}
+                  className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
+                >
+                  <Minus className="w-3 h-3 text-gray-500" />
+                </button>
+                <span className="text-sm font-bold text-cowc-dark w-6 text-center">
+                  {needed ?? '—'}
+                </span>
+                <button
+                  onClick={(e) => handleCount(e, +1)}
+                  className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
+                >
+                  <Plus className="w-3 h-3 text-gray-500" />
+                </button>
+                <span className="text-[10px] text-gray-400 ml-1">
+                  {assignedCount} assigned
+                </span>
+              </div>
             </div>
+
+            {/* Coordinator list */}
             {coordinators.length === 0 && (
               <p className="text-xs text-gray-400 px-3 py-3">No coordinators found</p>
             )}
             {coordinators.map(coord => {
-              const assignment = allAssigned.find(c => c.coordinator?.id === coord.id)
+              const assignment = assigned.find(c => c.coordinator?.id === coord.id)
               const isLead     = assignment?.is_lead
-              const isPending  = assignment?.status === 'pending'
-              const isAccepted = assignment?.status === 'accepted'
-              const isAssigned = !!assignment && assignment.status !== 'declined'
+              const isAssigned = !!assignment
               return (
                 <button
                   key={coord.id}
                   onClick={(e) => handlePick(e, coord)}
-                  className={`w-full text-left px-3 py-2 text-xs font-semibold flex items-center gap-2 hover:bg-gray-50 transition-colors ${isAssigned ? 'bg-gray-50/50' : ''}`}
+                  className={`w-full text-left px-3 py-2 text-xs font-semibold flex items-center gap-2 hover:bg-gray-50 transition-colors ${isAssigned ? 'bg-green-50/40' : ''}`}
                 >
                   <span className="truncate flex-1">{coord.full_name}</span>
-                  {isLead && isAccepted && <span className="flex-shrink-0 text-[9px] font-bold text-cowc-gold uppercase">Lead</span>}
-                  {isPending && <span className="flex-shrink-0 text-[9px] font-bold text-amber-500 uppercase">Pending</span>}
-                  {isAssigned && !isLead && isAccepted && <CheckCircle className="w-3 h-3 flex-shrink-0 text-green-500" />}
+                  {isLead && <span className="flex-shrink-0 text-[9px] font-bold text-cowc-gold uppercase">Lead</span>}
+                  {isAssigned && !isLead && <CheckCircle className="w-3 h-3 flex-shrink-0 text-green-500" />}
                 </button>
               )
             })}
-            {acceptedCount > 0 && (
+            {assignedCount > 0 && (
               <>
                 <div className="border-t border-gray-100" />
                 <button
@@ -218,7 +237,7 @@ function CoordinatorPill({ wedding, coordinators, onAssign }) {
 // ─── Shared card sub-components ─────────────────────────────────────────────
 
 // Featured (first in group) — dark, prominent
-function WeddingFeaturedCard({ wedding, i, navigate, handleStatusChange, coordinators, onAssign }) {
+function WeddingFeaturedCard({ wedding, i, navigate, handleStatusChange, coordinators, onAssign, onCountChange }) {
   const days = daysUntil(wedding.wedding_date)
   const isUrgent = days >= 0 && days <= 30
 
@@ -256,7 +275,7 @@ function WeddingFeaturedCard({ wedding, i, navigate, handleStatusChange, coordin
           </div>
           <div onClick={e => e.stopPropagation()}>
             <p className="text-white/40 text-xs uppercase tracking-wider mb-1">Coordinator</p>
-            <CoordinatorPill wedding={wedding} coordinators={coordinators} onAssign={onAssign} />
+            <CoordinatorPill wedding={wedding} coordinators={coordinators} onAssign={onAssign} onCountChange={onCountChange} />
           </div>
           <div>
             <p className="text-white/40 text-xs uppercase tracking-wider">Tasks</p>
@@ -316,7 +335,7 @@ function WeddingGridCard({ wedding, i, navigate, handleStatusChange }) {
   )
 }
 
-function WeddingListRow({ wedding, navigate, handleStatusChange, coordinators, onAssign }) {
+function WeddingListRow({ wedding, navigate, handleStatusChange, coordinators, onAssign, onCountChange }) {
   const days = daysUntil(wedding.wedding_date)
   const isUrgent = days >= 0 && days <= 30
   return (
@@ -345,7 +364,7 @@ function WeddingListRow({ wedding, navigate, handleStatusChange, coordinators, o
         </p>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
-        <CoordinatorPill wedding={wedding} coordinators={coordinators} onAssign={onAssign} />
+        <CoordinatorPill wedding={wedding} coordinators={coordinators} onAssign={onAssign} onCountChange={onCountChange} />
         <StatusPill wedding={wedding} onStatusChange={handleStatusChange} />
       </div>
       <ChevronRight className="w-4 h-4 text-cowc-light-gray flex-shrink-0" />
@@ -468,10 +487,11 @@ export default function AdminDashboard() {
   // coord = coordinator profile object, null = remove all assignments
   const handleAssignCoordinator = async (wedding, coord) => {
     try {
-      const currentAssignments = wedding.coordinators || []
+      const currentAssignments = (wedding.coordinators || []).filter(c => c.status !== 'declined')
+
       if (coord === null) {
         // Remove all coordinator assignments
-        await Promise.all(currentAssignments.map(c =>
+        await Promise.all((wedding.coordinators || []).map(c =>
           coordinatorAssignmentsAPI.unassign(wedding.id, c.coordinator?.id || c.coordinator_id)
         ))
         setWeddings(prev => prev.map(w => w.id === wedding.id
@@ -481,18 +501,12 @@ export default function AdminDashboard() {
         toast.success('All coordinators removed')
         return
       }
+
       const existing = currentAssignments.find(c => c.coordinator?.id === coord.id)
+
       if (existing) {
-        if (existing.status === 'pending') {
-          // Pending — clicking again cancels the request
-          await coordinatorAssignmentsAPI.unassign(wedding.id, coord.id)
-          setWeddings(prev => prev.map(w => w.id === wedding.id
-            ? { ...w, coordinators: w.coordinators.filter(c => c.coordinator?.id !== coord.id) }
-            : w
-          ))
-          toast.success(`Request to ${coord.full_name} cancelled`)
-        } else if (existing.is_lead) {
-          // Lead — clicking again removes them
+        if (existing.is_lead) {
+          // Lead — clicking removes them
           await coordinatorAssignmentsAPI.unassign(wedding.id, coord.id)
           const updated = await weddingsAPI.getById(wedding.id)
           setWeddings(prev => prev.map(w => w.id === wedding.id
@@ -501,7 +515,7 @@ export default function AdminDashboard() {
           ))
           toast.success(`${coord.full_name} removed`)
         } else {
-          // Accepted non-lead — promote to lead
+          // Assigned non-lead — clicking promotes to lead
           await coordinatorAssignmentsAPI.setLead(wedding.id, coord.id)
           const updated = await weddingsAPI.getById(wedding.id)
           setWeddings(prev => prev.map(w => w.id === wedding.id
@@ -511,18 +525,30 @@ export default function AdminDashboard() {
           toast.success(`${coord.full_name} set as lead`)
         }
       } else {
-        // New assignment — send request (pending), mark as lead if first one
-        const isFirst = currentAssignments.filter(c => c.status !== 'declined').length === 0
-        await coordinatorAssignmentsAPI.assign(wedding.id, coord.id, isFirst, 'pending')
+        // New assignment — assign directly (accepted), first one auto-becomes lead
+        const isFirst = currentAssignments.length === 0
+        await coordinatorAssignmentsAPI.assign(wedding.id, coord.id, isFirst, 'accepted')
         const updated = await weddingsAPI.getById(wedding.id)
         setWeddings(prev => prev.map(w => w.id === wedding.id
           ? { ...w, coordinators: updated.coordinators || [] }
           : w
         ))
-        toast.success(`Request sent to ${coord.full_name}`)
+        toast.success(isFirst ? `${coord.full_name} assigned as lead` : `${coord.full_name} added`)
       }
     } catch {
       toast.error('Failed to update coordinator')
+    }
+  }
+
+  const handleCountChange = async (weddingId, count) => {
+    try {
+      await weddingsAPI.update(weddingId, { coordinator_count: count })
+      setWeddings(prev => prev.map(w => w.id === weddingId
+        ? { ...w, coordinator_count: count }
+        : w
+      ))
+    } catch {
+      toast.error('Failed to update coordinator count')
     }
   }
 
@@ -824,7 +850,7 @@ export default function AdminDashboard() {
                     {view === 'grid' ? (
                       <div>
                         {/* First wedding: featured dark card */}
-                        <WeddingFeaturedCard key={group.weddings[0].id} wedding={group.weddings[0]} i={0} navigate={navigate} handleStatusChange={handleStatusChange} coordinators={allCoordinators} onAssign={handleAssignCoordinator} />
+                        <WeddingFeaturedCard key={group.weddings[0].id} wedding={group.weddings[0]} i={0} navigate={navigate} handleStatusChange={handleStatusChange} coordinators={allCoordinators} onAssign={handleAssignCoordinator} onCountChange={handleCountChange} />
                         {/* Rest: 2-col minimal cards */}
                         {group.weddings.length > 1 && (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -836,7 +862,7 @@ export default function AdminDashboard() {
                       </div>
                     ) : (
                       <div className="bg-white rounded-2xl shadow-sm overflow-visible divide-y divide-gray-50">
-                        {group.weddings.map(wedding => <WeddingListRow key={wedding.id} wedding={wedding} navigate={navigate} handleStatusChange={handleStatusChange} coordinators={allCoordinators} onAssign={handleAssignCoordinator} />)}
+                        {group.weddings.map(wedding => <WeddingListRow key={wedding.id} wedding={wedding} navigate={navigate} handleStatusChange={handleStatusChange} coordinators={allCoordinators} onAssign={handleAssignCoordinator} onCountChange={handleCountChange} />)}
                       </div>
                     )}
                   </div>
@@ -846,7 +872,7 @@ export default function AdminDashboard() {
           ) : view === 'grid' ? (
             /* ── Flat grid (single-status filter) — Option C: first featured, rest 2-col ── */
             <div>
-              <WeddingFeaturedCard wedding={activeWeddings[0]} i={0} navigate={navigate} handleStatusChange={handleStatusChange} coordinators={allCoordinators} onAssign={handleAssignCoordinator} />
+              <WeddingFeaturedCard wedding={activeWeddings[0]} i={0} navigate={navigate} handleStatusChange={handleStatusChange} coordinators={allCoordinators} onAssign={handleAssignCoordinator} onCountChange={handleCountChange} />
               {activeWeddings.length > 1 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {activeWeddings.slice(1).map((wedding, i) => (
@@ -859,7 +885,7 @@ export default function AdminDashboard() {
             /* ── Flat list (single-status filter) ── */
             <div className="bg-white rounded-2xl shadow-sm overflow-visible divide-y divide-gray-50">
               {activeWeddings.map(wedding => (
-                <WeddingListRow key={wedding.id} wedding={wedding} navigate={navigate} handleStatusChange={handleStatusChange} coordinators={allCoordinators} onAssign={handleAssignCoordinator} />
+                <WeddingListRow key={wedding.id} wedding={wedding} navigate={navigate} handleStatusChange={handleStatusChange} coordinators={allCoordinators} onAssign={handleAssignCoordinator} onCountChange={handleCountChange} />
               ))}
             </div>
           )}
