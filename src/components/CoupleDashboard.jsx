@@ -40,7 +40,15 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
   const [wedding, setWedding] = useState(null)
   const [tasks, setTasks] = useState([])
   const [myReservations, setMyReservations] = useState([])
-  const [activeTab, setActiveTab] = useState('home') // 'home' | 'timeline' | 'vendors' | 'style'
+  const [activeTab, setActiveTab] = useState('home') // 'home' | 'timeline' | 'vendors' | 'catalogue'
+
+  // Catalogue
+  const [catItems, setCatItems] = useState([])
+  const [catFilterCategory, setCatFilterCategory] = useState('all')
+  const [catReservingItem, setCatReservingItem] = useState(null)
+  const [catReserveQty, setCatReserveQty] = useState(1)
+  const [catReserveNotes, setCatReserveNotes] = useState('')
+  const [catReserveSaving, setCatReserveSaving] = useState(false)
 
   // Account settings
   const [showAccountModal, setShowAccountModal] = useState(false)
@@ -92,7 +100,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
       }
       setWedding(weddingData)
       if (weddingData.theme) setWeddingTheme(weddingData.theme)
-      const [tasksData, { data: resData }] = await Promise.all([
+      const [tasksData, { data: resData }, { data: catData }] = await Promise.all([
         tasksAPI.getByWedding(weddingData.id),
         supabase
           .from('inventory_reservations')
@@ -100,9 +108,11 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
           .eq('wedding_id', weddingData.id)
           .not('status', 'in', '("declined","returned")')
           .order('created_at', { ascending: false }),
+        supabase.from('inventory_items').select('*').eq('active', true).order('sort_order').order('created_at'),
       ])
       setTasks(tasksData)
       setMyReservations(resData || [])
+      setCatItems(catData || [])
       const cvData = await coupleVendorsAPI.getByWedding(weddingData.id)
       setCoupleVendors(cvData)
     } catch (error) {
@@ -309,6 +319,48 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
     }
   }
 
+  // Toggle confirmed/booked on coordinator-assigned vendors
+  const handleVendorToggleConfirmed = async (vendor) => {
+    try {
+      const newStatus = vendor.status === 'confirmed' ? 'booked' : 'confirmed'
+      await supaVendorsAPI.update(vendor.id, { status: newStatus })
+      await loadData()
+    } catch { toast.error('Failed to update vendor') }
+  }
+
+  // Open catalogue reserve modal (resets form)
+  const openCatReserve = (item) => {
+    setCatReservingItem(item)
+    setCatReserveQty(1)
+    setCatReserveNotes('')
+  }
+
+  const handleCatReserve = async ({ quantity, notes }) => {
+    if (!wedding || !catReservingItem) return
+    try {
+      const { error } = await supabase.from('inventory_reservations').insert({
+        item_id: catReservingItem.id,
+        wedding_id: wedding.id,
+        quantity,
+        notes,
+        status: 'requested',
+      })
+      if (error) throw error
+      toast.success('Reservation requested!')
+      setCatReservingItem(null)
+      await loadData()
+    } catch (err) { toast.error('Failed to reserve: ' + err.message) }
+  }
+
+  const handleCatCancelReservation = async (reservationId) => {
+    try {
+      const { error } = await supabase.from('inventory_reservations').delete().eq('id', reservationId)
+      if (error) throw error
+      toast.success('Reservation cancelled')
+      await loadData()
+    } catch { toast.error('Failed to cancel') }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-cowc-cream flex items-center justify-center">
@@ -348,10 +400,10 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
 
   // ── Bottom tab config ────────────────────────────────────────────────────────
   const bottomTabs = [
-    { key: 'home',     label: 'Home',     Icon: Home },
-    { key: 'timeline', label: 'Timeline', Icon: Calendar },
-    { key: 'vendors',  label: 'Vendors',  Icon: Users },
-    { key: 'style',    label: 'Style',    Icon: Palette },
+    { key: 'home',      label: 'Home',      Icon: Home },
+    { key: 'timeline',  label: 'Timeline',  Icon: Calendar },
+    { key: 'vendors',   label: 'Vendors',   Icon: Users },
+    { key: 'catalogue', label: 'Catalogue', Icon: ShoppingBag },
   ]
 
   return (
@@ -562,7 +614,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                     {sortedPending.slice(0, 3).map(task => {
                       const overdue = isPastDue(task.due_date)
                       return (
-                        <div key={task.id} className="flex items-center gap-4 px-5 py-3.5">
+                        <div key={task.id} className="flex items-center gap-4 px-5 py-4">
                           <button
                             onClick={() => handleTaskToggle(task)}
                             className="w-8 h-8 rounded-full border-2 flex-shrink-0 flex items-center justify-center hover:opacity-70 transition-opacity"
@@ -617,12 +669,13 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                     ) : (
                       <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
                         {previewItems.map(item => (
-                          <div key={item.id} className="flex items-start gap-4 px-5 py-3.5">
-                            <div className="w-12 flex-shrink-0 pt-0.5">
-                              <span className="text-sm font-bold text-cowc-dark">{item.time || '—'}</span>
+                          <div key={item.id} className="flex items-center gap-0 px-4 py-4">
+                            <div className="w-16 flex-shrink-0 text-center">
+                              <span className="text-base font-bold text-cowc-dark leading-none">{item.time || '—'}</span>
                             </div>
+                            <div className="w-px h-9 bg-gray-100 flex-shrink-0 mx-3" />
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-cowc-dark">{item.title}</p>
+                              <p className="text-sm font-semibold text-cowc-dark leading-snug">{item.title}</p>
                               {item.description && (
                                 <p className="text-xs text-cowc-gray mt-0.5 truncate">{item.description}</p>
                               )}
@@ -699,7 +752,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
 
               {/* ── 5. CATALOGUE ── */}
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.40 }}>
-                <button onClick={() => safeNavigate('/catalogue')}
+                <button onClick={() => setActiveTab('catalogue')}
                   className="w-full bg-white rounded-2xl shadow-sm hover:shadow-md border border-transparent hover:border-cowc-gold/20 transition-all active:scale-[0.97] px-5 py-4 flex items-center gap-4">
                   <div className="rounded-xl flex items-center justify-center flex-shrink-0"
                     style={{ width: 44, height: 44, background: softRing }}>
@@ -724,7 +777,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                         {myReservations.length} item{myReservations.length !== 1 ? 's' : ''} reserved
                       </p>
                     </div>
-                    <button onClick={() => safeNavigate('/catalogue')}
+                    <button onClick={() => setActiveTab('catalogue')}
                       className="text-xs font-semibold flex items-center gap-0.5" style={{ color: accent }}>
                       Browse <ChevronRight className="w-3.5 h-3.5" />
                     </button>
@@ -837,12 +890,23 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                               <p className="text-[10px] uppercase tracking-widest font-semibold text-cowc-gray">{slot.label}</p>
                               <p className="text-sm font-semibold truncate leading-tight mt-0.5 text-cowc-dark">{vendor.name}</p>
                             </div>
-                            <span className={`text-xs px-2.5 py-1 rounded-full font-semibold flex-shrink-0 ${
-                              isSuggested ? 'bg-amber-100 text-amber-700' :
-                              vendor.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                            }`}>
-                              {isSuggested ? '⏳ Pending' : vendor.status === 'confirmed' ? '✓ Confirmed' : 'Booked'}
-                            </span>
+                            {isSuggested ? (
+                              <span className="text-xs px-2.5 py-1 rounded-full font-semibold flex-shrink-0 bg-amber-100 text-amber-700">
+                                ⏳ Pending
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleVendorToggleConfirmed(vendor)}
+                                title={vendor.status === 'confirmed' ? 'Tap to mark as booked' : 'Tap to mark as confirmed'}
+                                className={`text-xs px-2.5 py-1 rounded-full font-semibold flex-shrink-0 transition-all active:scale-95 ${
+                                  vendor.status === 'confirmed'
+                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                }`}
+                              >
+                                {vendor.status === 'confirmed' ? '✓ Confirmed' : 'Booked'}
+                              </button>
+                            )}
                           </div>
                         )
                       })}
@@ -869,12 +933,23 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                               </p>
                               <p className="text-sm font-semibold truncate text-cowc-dark mt-0.5">{v.name}</p>
                             </div>
-                            <span className={`text-xs px-2.5 py-1 rounded-full font-semibold flex-shrink-0 ${
-                              v.submitted_by_couple ? 'bg-amber-100 text-amber-700' :
-                              v.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                            }`}>
-                              {v.submitted_by_couple ? '⏳ Pending' : v.status === 'confirmed' ? '✓ Confirmed' : 'Booked'}
-                            </span>
+                            {v.submitted_by_couple ? (
+                              <span className="text-xs px-2.5 py-1 rounded-full font-semibold flex-shrink-0 bg-amber-100 text-amber-700">
+                                ⏳ Pending
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleVendorToggleConfirmed(v)}
+                                title={v.status === 'confirmed' ? 'Tap to mark as booked' : 'Tap to mark as confirmed'}
+                                className={`text-xs px-2.5 py-1 rounded-full font-semibold flex-shrink-0 transition-all active:scale-95 ${
+                                  v.status === 'confirmed'
+                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                }`}
+                              >
+                                {v.status === 'confirmed' ? '✓ Confirmed' : 'Booked'}
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1117,155 +1192,134 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
           </div>
         )}
 
-        {/* ── STYLE TAB ──────────────────────────────────────────── */}
-        {activeTab === 'style' && (() => {
-          const t = wedding?.theme
-          if (!t) return (
-            <div className="bg-white rounded-2xl shadow-sm px-5 py-12 text-center">
-              <Palette className="w-8 h-8 mx-auto mb-3 opacity-30" style={{ color: accent }} />
-              <p className="text-sm text-gray-400">Your style details will appear here once your coordinator sets them up.</p>
-            </div>
+        {/* ── CATALOGUE TAB ─────────────────────────────────────── */}
+        {activeTab === 'catalogue' && (() => {
+          const CAT_CATEGORIES = [
+            { value: 'all',         label: 'All' },
+            { value: 'florals',     label: 'Florals' },
+            { value: 'decor',       label: 'Décor' },
+            { value: 'lighting',    label: 'Lighting' },
+            { value: 'linens',      label: 'Linens' },
+            { value: 'signage',     label: 'Signage' },
+            { value: 'accessories', label: 'Accessories' },
+            { value: 'furniture',   label: 'Furniture' },
+            { value: 'general',     label: 'General' },
+          ]
+          const STATUS_CAT = {
+            requested: { badge: 'bg-amber-100 text-amber-700',   label: 'Requested' },
+            confirmed: { badge: 'bg-emerald-100 text-emerald-700', label: 'Confirmed' },
+            declined:  { badge: 'bg-red-100 text-red-600',       label: 'Declined' },
+            returned:  { badge: 'bg-gray-100 text-gray-600',     label: 'Returned' },
+          }
+          const filteredItems = catItems.filter(item =>
+            catFilterCategory === 'all' || item.category === catFilterCategory
           )
-          const allColors = [t.primary, t.secondary, t.accent, t.color4, t.color5, ...(t.extraColors || [])].filter(Boolean)
+          const getMyRes = (itemId) => myReservations.find(r => r.item_id === itemId) || null
           return (
             <div className="space-y-4">
 
-              {/* Palette */}
-              <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                <div className="px-5 pt-4 pb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Palette className="w-4 h-4" style={{ color: accent }} />
-                    <div>
-                      <p className="text-[10px] uppercase tracking-widest font-semibold text-cowc-gray">Your Palette</p>
-                      {t.vibe && <p className="text-sm font-semibold text-cowc-dark leading-tight">{t.vibe}</p>}
-                    </div>
-                  </div>
-                  {!editingPalette && (
+              {/* Category filter */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 overflow-x-auto">
+                <div className="flex gap-2 min-w-max">
+                  {CAT_CATEGORIES.map(c => (
                     <button
-                      onClick={() => {
-                        setPaletteColors(PALETTE_KEYS.map(k => t[k] || ''))
-                        setEditingPalette(true)
-                      }}
-                      className="text-xs font-semibold px-3 py-1.5 rounded-xl transition-all"
-                      style={{ background: softRing, color: accent }}
+                      key={c.value}
+                      onClick={() => setCatFilterCategory(c.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                        catFilterCategory === c.value ? 'text-white' : 'bg-cowc-cream text-cowc-gray hover:bg-cowc-sand'
+                      }`}
+                      style={catFilterCategory === c.value ? { background: accent } : {}}
                     >
-                      Edit Palette
+                      {c.label}
                     </button>
-                  )}
+                  ))}
                 </div>
-
-                {editingPalette ? (
-                  <div className="px-5 pb-5 space-y-4">
-                    <div className="flex gap-3 flex-wrap">
-                      {PALETTE_KEYS.map((key, i) => {
-                        if (!t[key] && !paletteColors[i]) return null
-                        return (
-                          <div key={key} className="flex flex-col items-center gap-1.5">
-                            <div className="relative">
-                              <input
-                                type="color"
-                                value={paletteColors[i] || t[key] || '#ffffff'}
-                                onChange={e => setPaletteColors(prev => {
-                                  const next = [...prev]
-                                  next[i] = e.target.value
-                                  return next
-                                })}
-                                className="w-12 h-12 rounded-xl cursor-pointer border-2 border-gray-200 p-0.5"
-                                style={{ background: paletteColors[i] || t[key] }}
-                              />
-                            </div>
-                            <span className="text-[10px] text-cowc-gray font-medium">{PALETTE_LABELS[i]}</span>
-                            <span className="text-[9px] text-cowc-light-gray font-mono">{paletteColors[i] || t[key] || ''}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                    {/* Preview strip */}
-                    <div className="flex h-8 rounded-lg overflow-hidden">
-                      {PALETTE_KEYS.map((key, i) => {
-                        const color = paletteColors[i] || t[key]
-                        if (!color) return null
-                        return <div key={key} className="flex-1" style={{ background: color }} />
-                      })}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleSavePalette}
-                        disabled={paletteSaving}
-                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2"
-                        style={{ background: accent }}
-                      >
-                        {paletteSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-                        {paletteSaving ? 'Saving…' : 'Save Palette'}
-                      </button>
-                      <button
-                        onClick={() => setEditingPalette(false)}
-                        className="px-4 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 text-cowc-dark hover:bg-gray-200 transition-all"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex h-14">
-                    {allColors.map((hex, i) => (
-                      <div key={i} className="flex-1" style={{ background: hex }} title={hex} />
-                    ))}
-                  </div>
-                )}
               </div>
 
-              {/* Inspiration photos */}
-              {t.inspiration_photos?.length > 0 && (
-                <div>
-                  <p className="text-xs uppercase tracking-widest font-semibold text-cowc-gray px-1 mb-2">Inspiration</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {t.inspiration_photos.slice(0, 9).map((photo, idx) => (
-                      <div key={idx} className="aspect-square rounded-xl overflow-hidden">
-                        <img src={photo} alt={`Inspiration ${idx + 1}`} className="w-full h-full object-cover" />
-                      </div>
-                    ))}
-                  </div>
+              {/* Items grid */}
+              {filteredItems.length === 0 ? (
+                <div className="text-center py-16">
+                  <Package className="w-10 h-10 text-cowc-light-gray mx-auto mb-3" />
+                  <p className="text-cowc-gray text-sm">No items in this category yet</p>
                 </div>
-              )}
-
-              {/* Pinterest / Vision boards */}
-              {t.pinterest_boards?.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2 px-1">
-                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="#E60023">
-                      <path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 0 1 .083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/>
-                    </svg>
-                    <p className="text-[10px] uppercase tracking-widest font-semibold text-cowc-gray">Vision Boards</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    {t.pinterest_boards.map(board => (
-                      <a key={board.id} href={board.url} target="_blank" rel="noopener noreferrer"
-                        className="group rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-all active:scale-95 block">
-                        <div className="aspect-square relative overflow-hidden">
-                          {board.cover_url ? (
-                            <img src={board.cover_url} alt={board.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center" style={{ background: softRing }}>
-                              <svg viewBox="0 0 24 24" className="w-10 h-10 opacity-40" fill="#E60023">
-                                <path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 0 1 .083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/>
-                              </svg>
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                            <div className="bg-white/90 rounded-full p-2.5">
-                              <ExternalLink className="w-4 h-4 text-cowc-dark" />
-                            </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {filteredItems.map(item => {
+                    const res = getMyRes(item.id)
+                    const statusStyle = res ? STATUS_CAT[res.status] : null
+                    return (
+                      <motion.div
+                        key={item.id}
+                        layout
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-white rounded-2xl shadow-sm border overflow-hidden"
+                        style={res ? { borderColor: accent + '50', borderWidth: 1.5 } : { borderColor: '#f3f4f6' }}
+                      >
+                        {/* Photo */}
+                        <div className="relative h-36 bg-cowc-cream overflow-hidden">
+                          {item.photo_url
+                            ? <img src={item.photo_url} alt={item.name} className="w-full h-full object-cover" />
+                            : <div className="w-full h-full flex items-center justify-center">
+                                <Package className="w-10 h-10 text-cowc-light-gray" />
+                              </div>
+                          }
+                          <div className="absolute top-2 left-2 flex gap-1 flex-wrap">
+                            <span className="bg-white/90 text-cowc-dark text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize">
+                              {item.category}
+                            </span>
+                            {res && statusStyle && (
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusStyle.badge}`}>
+                                {statusStyle.label}
+                              </span>
+                            )}
                           </div>
                         </div>
-                        <div className="px-3 py-2.5">
-                          <p className="text-xs font-semibold text-cowc-dark truncate leading-tight">{board.name}</p>
-                          <p className="text-[10px] text-cowc-gray mt-0.5">View on Pinterest</p>
+                        {/* Info */}
+                        <div className="p-3">
+                          <p className="text-sm font-semibold text-cowc-dark leading-snug">{item.name}</p>
+                          {item.description && (
+                            <p className="text-xs text-cowc-gray mt-1 line-clamp-2 leading-snug">{item.description}</p>
+                          )}
+                          <div className="mt-2.5 flex items-center justify-between gap-1">
+                            {res ? (
+                              <>
+                                <span className="text-xs font-semibold" style={{ color: accent }}>
+                                  Qty: {res.quantity}
+                                </span>
+                                {res.status === 'requested' && (
+                                  <button
+                                    onClick={() => handleCatCancelReservation(res.id)}
+                                    className="text-[10px] text-red-400 font-semibold hover:text-red-600 transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-xs text-emerald-600 font-semibold">
+                                  {item.quantity_total} avail.
+                                </span>
+                                <button
+                                  onClick={() => openCatReserve(item)}
+                                  className="flex items-center gap-1 text-white text-[10px] font-semibold px-2.5 py-1.5 rounded-lg hover:opacity-90 transition-all active:scale-95"
+                                  style={{ background: accent }}
+                                >
+                                  <Heart className="w-3 h-3" /> Reserve
+                                </button>
+                              </>
+                            )}
+                          </div>
+                          {res?.notes && (
+                            <p className="text-[10px] text-cowc-gray italic mt-1.5 bg-cowc-cream rounded-lg px-2 py-1 leading-snug">
+                              "{res.notes}"
+                            </p>
+                          )}
                         </div>
-                      </a>
-                    ))}
-                  </div>
+                      </motion.div>
+                    )
+                  })}
                 </div>
               )}
 
@@ -1293,16 +1347,98 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
               <span className="text-[10px] font-semibold tracking-wide">{label}</span>
             </button>
           ))}
-          <button
-            onClick={() => safeNavigate('/catalogue')}
-            className="flex-1 flex flex-col items-center gap-1 py-3 transition-colors"
-            style={{ color: '#9ca3af' }}
-          >
-            <ShoppingBag className="w-5 h-5" />
-            <span className="text-[10px] font-semibold tracking-wide">Catalogue</span>
-          </button>
         </div>
       </div>
+
+      {/* ── Catalogue Reserve Modal ───────────────────────────────────────── */}
+      <AnimatePresence>
+        {catReservingItem && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-sm"
+            onClick={e => { if (e.target === e.currentTarget) setCatReservingItem(null) }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 40 }}
+              className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden"
+            >
+              <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                <h2 className="text-xl font-serif text-cowc-dark">Reserve Item</h2>
+                <button onClick={() => setCatReservingItem(null)} className="p-2 hover:bg-cowc-cream rounded-full">
+                  <X className="w-5 h-5 text-cowc-gray" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                {/* Item preview */}
+                <div className="flex gap-3 p-3 bg-cowc-cream rounded-xl">
+                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-white flex-shrink-0">
+                    {catReservingItem.photo_url
+                      ? <img src={catReservingItem.photo_url} alt={catReservingItem.name} className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center"><Package className="w-6 h-6 text-cowc-light-gray" /></div>
+                    }
+                  </div>
+                  <div>
+                    <p className="font-semibold text-cowc-dark text-sm">{catReservingItem.name}</p>
+                    <p className="text-xs text-cowc-gray capitalize mt-0.5">{catReservingItem.category}</p>
+                    <p className="text-xs font-semibold mt-1" style={{ color: accent }}>
+                      {catReservingItem.quantity_total} available
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-cowc-dark mb-2">Quantity</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={catReservingItem.quantity_total}
+                    value={catReserveQty}
+                    onChange={e => setCatReserveQty(Number(e.target.value))}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none text-cowc-dark"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-cowc-dark mb-2">Notes (optional)</label>
+                  <textarea
+                    value={catReserveNotes}
+                    onChange={e => setCatReserveNotes(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none text-cowc-dark resize-none"
+                    rows={2}
+                    placeholder="Any special requests..."
+                  />
+                </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
+                  Your coordinator will confirm this reservation. You'll see the status update here.
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setCatReservingItem(null)}
+                    className="flex-1 py-3 rounded-xl border-2 border-gray-200 text-cowc-gray font-semibold text-sm hover:bg-cowc-cream transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setCatReserveSaving(true)
+                      await handleCatReserve({ quantity: catReserveQty, notes: catReserveNotes })
+                      setCatReserveSaving(false)
+                    }}
+                    disabled={catReserveSaving || catReserveQty < 1 || catReserveQty > catReservingItem.quantity_total}
+                    className="flex-1 py-3 rounded-xl text-white font-semibold text-sm hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    style={{ background: accent }}
+                  >
+                    {catReserveSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Heart className="w-4 h-4" />}
+                    Reserve
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Account Settings Modal ────────────────────────────────────────── */}
       <AnimatePresence>
@@ -1336,11 +1472,12 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                 </button>
               </div>
 
-              <div className="flex border-b border-gray-100">
+              <div className="flex border-b border-gray-100 overflow-x-auto">
                 {[
-                  { key: 'email', label: 'Change Email' },
-                  { key: 'password', label: 'Change Password' },
-                  { key: 'venue', label: 'Venue' },
+                  { key: 'email',    label: 'Email' },
+                  { key: 'password', label: 'Password' },
+                  { key: 'venue',    label: 'Venue' },
+                  { key: 'style',    label: 'Style' },
                 ].map(tab => (
                   <button
                     key={tab.key}
@@ -1444,6 +1581,131 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                     </button>
                   </div>
                 )}
+
+                {accountTab === 'style' && (() => {
+                  const t = wedding?.theme
+                  return (
+                    <div className="space-y-6">
+                      {/* Color Palette */}
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-sm font-semibold text-cowc-dark">Color Palette</p>
+                          {!editingPalette ? (
+                            <button
+                              onClick={() => { setPaletteColors(PALETTE_KEYS.map(k => t?.[k] || '#ffffff')); setEditingPalette(true) }}
+                              className="text-xs font-semibold px-3 py-1 rounded-lg transition-all"
+                              style={{ background: primaryAlpha(theme.primary, 0.12), color: accent }}
+                            >
+                              Edit
+                            </button>
+                          ) : null}
+                        </div>
+
+                        {/* Preview strip */}
+                        <div className="flex rounded-xl overflow-hidden h-10 mb-3 border border-gray-100">
+                          {PALETTE_KEYS.map((key, i) => (
+                            <div key={key} className="flex-1" style={{ background: editingPalette ? paletteColors[i] : (t?.[key] || '#ffffff') }} />
+                          ))}
+                        </div>
+
+                        {editingPalette ? (
+                          <>
+                            <div className="grid grid-cols-5 gap-2 mb-4">
+                              {PALETTE_KEYS.map((key, i) => (
+                                <div key={key} className="flex flex-col items-center gap-1">
+                                  <input
+                                    type="color"
+                                    value={paletteColors[i] || '#ffffff'}
+                                    onChange={e => setPaletteColors(prev => { const n = [...prev]; n[i] = e.target.value; return n })}
+                                    className="w-10 h-10 rounded-lg border-2 border-gray-200 cursor-pointer p-0.5"
+                                  />
+                                  <span className="text-[10px] text-cowc-gray">{PALETTE_LABELS[i]}</span>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => setEditingPalette(false)}
+                                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-cowc-gray hover:bg-cowc-cream transition-all"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={handleSavePalette}
+                                disabled={paletteSaving}
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                style={{ background: accent }}
+                              >
+                                {paletteSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                                Save Palette
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="grid grid-cols-5 gap-2">
+                            {PALETTE_KEYS.map((key, i) => (
+                              <div key={key} className="flex flex-col items-center gap-1">
+                                <div className="w-10 h-10 rounded-lg border border-gray-200" style={{ background: t?.[key] || '#ffffff' }} />
+                                <span className="text-[10px] text-cowc-gray">{PALETTE_LABELS[i]}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Inspiration Photos */}
+                      {t?.inspiration_photos?.length > 0 && (
+                        <div>
+                          <p className="text-sm font-semibold text-cowc-dark mb-3">Inspiration Photos</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {t.inspiration_photos.map((url, i) => (
+                              <div key={i} className="aspect-square rounded-xl overflow-hidden bg-cowc-cream border border-gray-100">
+                                <img src={url} alt={`Inspiration ${i + 1}`} className="w-full h-full object-cover" />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Pinterest / Vision Boards */}
+                      {t?.pinterest_boards?.length > 0 && (
+                        <div>
+                          <p className="text-sm font-semibold text-cowc-dark mb-3">Vision Boards</p>
+                          <div className="space-y-2">
+                            {t.pinterest_boards.map((board, i) => (
+                              <a
+                                key={i}
+                                href={board.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-3 p-3 bg-cowc-cream rounded-xl hover:bg-cowc-sand transition-all"
+                              >
+                                {board.cover_url ? (
+                                  <img src={board.cover_url} alt={board.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                                ) : (
+                                  <div className="w-12 h-12 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ background: primaryAlpha(theme.primary, 0.15) }}>
+                                    <Heart className="w-5 h-5" style={{ color: accent }} />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-semibold text-cowc-dark truncate">{board.name || 'Vision Board'}</p>
+                                  <p className="text-xs text-cowc-gray truncate">{board.url}</p>
+                                </div>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Empty state */}
+                      {!t?.inspiration_photos?.length && !t?.pinterest_boards?.length && !editingPalette && (
+                        <div className="text-center py-4 text-cowc-gray text-sm">
+                          <p>Your coordinator will add inspiration photos and vision boards here.</p>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
             </motion.div>
           </motion.div>
