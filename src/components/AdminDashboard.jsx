@@ -482,6 +482,30 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* Secondary stats — tasks, upcoming, vendors */}
+          <div className="flex items-center gap-4 pb-5 -mt-1">
+            <button onClick={() => navigate('/admin/tasks')}
+              className="flex items-center gap-2 group hover:opacity-100 opacity-80 transition-opacity">
+              <span className={`font-serif text-2xl font-light leading-none ${stats.tasksRemaining > 0 ? 'text-amber-300' : 'text-white/50'}`}>
+                {stats.tasksRemaining}
+              </span>
+              <span className="text-white/40 text-[10px] uppercase tracking-wider group-hover:text-white/60 transition-colors">tasks open</span>
+            </button>
+            <div className="w-px h-4 bg-white/10 flex-shrink-0" />
+            <div className="flex items-center gap-2 opacity-80">
+              <span className={`font-serif text-2xl font-light leading-none ${stats.next30Days > 0 ? 'text-red-300' : 'text-white/50'}`}>
+                {stats.next30Days}
+              </span>
+              <span className="text-white/40 text-[10px] uppercase tracking-wider">next 30d</span>
+            </div>
+            <div className="w-px h-4 bg-white/10 flex-shrink-0" />
+            <button onClick={() => navigate('/admin/vendors')}
+              className="flex items-center gap-2 group hover:opacity-100 opacity-80 transition-opacity">
+              <span className="font-serif text-2xl font-light leading-none text-white/50">{stats.totalVendors}</span>
+              <span className="text-white/40 text-[10px] uppercase tracking-wider group-hover:text-white/60 transition-colors">vendors</span>
+            </button>
+          </div>
+
           {/* Pipeline segmented bar */}
           <div className="pb-8">
             <p className="text-white/25 text-[9px] uppercase tracking-[0.2em] mb-2.5">Pipeline</p>
