@@ -42,7 +42,9 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
 
   // Account settings state
   const [showAccountModal, setShowAccountModal] = useState(false)
-  const [accountTab, setAccountTab] = useState('email') // 'email' | 'password'
+  const [accountTab, setAccountTab] = useState('email') // 'email' | 'password' | 'venue'
+  const [venueNameEdit, setVenueNameEdit] = useState('')
+  const [venueAddressEdit, setVenueAddressEdit] = useState('')
   const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -50,9 +52,6 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
   const [accountSaving, setAccountSaving] = useState(false)
 
   // Vendor suggestion state
-  const [suggestingSlot, setSuggestingSlot] = useState(null)
-  const [suggestName, setSuggestName] = useState('')
-  const [suggestNotes, setSuggestNotes] = useState('')
   const [submittingVendor, setSubmittingVendor] = useState(false)
   const [showCustomVendorForm, setShowCustomVendorForm] = useState(false)
   const [customVendorName, setCustomVendorName] = useState('')
@@ -157,38 +156,6 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
     } catch (error) {
       console.error('Error toggling task:', error)
       toast.error('Failed to update task. Please try again.')
-    }
-  }
-
-  const handleSuggestVendor = async (category, label) => {
-    if (!wedding || !suggestName.trim()) return
-    setSubmittingVendor(true)
-    try {
-      await vendorsAPI.create({
-        wedding_id: wedding.id,
-        name: suggestName.trim(),
-        category,
-        notes: suggestNotes.trim(),
-        status: 'pending',
-        submitted_by_couple: true,
-      })
-      await logChangeAndNotify({
-        wedding_id: wedding.id,
-        changed_by_user_id: user.id,
-        change_type: 'vendor_suggested',
-        entity_type: 'vendor',
-        entity_id: wedding.id,
-        description: `Suggested ${label}: ${suggestName.trim()}`,
-      })
-      toast.success(`${label} suggestion sent to your coordinator!`)
-      setSuggestingSlot(null)
-      setSuggestName('')
-      setSuggestNotes('')
-      await loadData()
-    } catch {
-      toast.error('Failed to send suggestion. Please try again.')
-    } finally {
-      setSubmittingVendor(false)
     }
   }
 
@@ -328,6 +295,24 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
     }
   }
 
+  const handleUpdateVenue = async () => {
+    if (!wedding || !venueNameEdit.trim()) return
+    setAccountSaving(true)
+    try {
+      await weddingsAPI.update(wedding.id, {
+        venue_name: venueNameEdit.trim(),
+        venue_address: venueAddressEdit.trim(),
+      })
+      toast.success('Venue updated!')
+      setShowAccountModal(false)
+      await loadData()
+    } catch (err) {
+      toast.error('Failed to update venue: ' + err.message)
+    } finally {
+      setAccountSaving(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-cowc-cream flex items-center justify-center">
@@ -406,6 +391,8 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                     setNewEmail(user?.email || '')
                     setNewPassword('')
                     setConfirmPassword('')
+                    setVenueNameEdit(wedding?.venue_name || '')
+                    setVenueAddressEdit(wedding?.venue_address || '')
                     setAccountTab('email')
                     setShowAccountModal(true)
                   }}
@@ -789,53 +776,41 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
               <Users className="w-4 h-4" style={{ color: accent }} />
               <h2 className="text-base font-semibold text-cowc-dark">Your Vendor Team</h2>
             </div>
-            {(() => {
-              const filled = VENDOR_SLOTS.filter(s => wedding.vendors?.some(v => s.covers.includes(v.category))).length
-              return (
-                <span className="text-xs font-medium text-cowc-gray">
-                  {filled}/{VENDOR_SLOTS.length} filled
-                </span>
-              )
-            })()}
           </div>
 
-          {/* Standard 10 slots */}
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
-            {VENDOR_SLOTS.map(slot => {
-              const vendor = wedding.vendors?.find(v => slot.covers.includes(v.category))
-              const isSuggested = vendor?.submitted_by_couple
-              const isThisOpen = suggestingSlot === slot.category
+          {/* Booked vendor slots — only show categories that have a vendor */}
+          {(() => {
+            const filledSlots = VENDOR_SLOTS.filter(slot =>
+              wedding.vendors?.find(v => slot.covers.includes(v.category))
+            )
+            if (filledSlots.length === 0) return (
+              <div className="bg-white rounded-2xl shadow-sm px-5 py-8 text-center">
+                <p className="text-sm text-gray-400">Your coordinator will add vendors here as they're booked.</p>
+              </div>
+            )
+            return (
+              <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
+                {filledSlots.map(slot => {
+                  const vendor = wedding.vendors.find(v => slot.covers.includes(v.category))
+                  const isSuggested = vendor?.submitted_by_couple
+                  const SlotIcon = slot.icon
+                  return (
+                    <div key={slot.category} className="flex items-center gap-3 px-5 py-3.5">
+                      {/* Icon */}
+                      <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                        style={{ background: isSuggested ? '#fef3c7' : softRing }}
+                      >
+                        <SlotIcon className="w-4 h-4" style={{ color: isSuggested ? '#d97706' : accent }} />
+                      </div>
 
-              return (
-                <div key={slot.category}>
-                  <div className="flex items-center gap-3 px-5 py-3.5">
-                    {/* Vendor icon */}
-                    {(() => {
-                      const SlotIcon = slot.icon
-                      const filled = vendor && !isSuggested
-                      return (
-                        <div
-                          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{ background: filled ? softRing : '#f3f4f6' }}
-                        >
-                          <SlotIcon
-                            className="w-4 h-4"
-                            style={{ color: filled ? accent : '#a0aec0' }}
-                          />
-                        </div>
-                      )
-                    })()}
+                      {/* Label + name */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] uppercase tracking-widest font-semibold text-cowc-gray">{slot.label}</p>
+                        <p className="text-sm font-semibold truncate leading-tight mt-0.5 text-cowc-dark">{vendor.name}</p>
+                      </div>
 
-                    {/* Label + name */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] uppercase tracking-widest font-semibold text-cowc-gray">{slot.label}</p>
-                      <p className={`text-sm font-semibold truncate leading-tight mt-0.5 ${vendor ? 'text-cowc-dark' : 'text-gray-300'}`}>
-                        {vendor ? vendor.name : '—'}
-                      </p>
-                    </div>
-
-                    {/* Status pill or Suggest button */}
-                    {vendor ? (
+                      {/* Status pill */}
                       <span className={`text-xs px-2.5 py-1 rounded-full font-semibold flex-shrink-0 ${
                         isSuggested
                           ? 'bg-amber-100 text-amber-700'
@@ -845,69 +820,12 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                       }`}>
                         {isSuggested ? '⏳ Pending' : vendor.status === 'confirmed' ? '✓ Confirmed' : 'Booked'}
                       </span>
-                    ) : (
-                      (
-                        <button
-                          onClick={() => {
-                            setSuggestingSlot(isThisOpen ? null : slot.category)
-                            setSuggestName('')
-                            setSuggestNotes('')
-                          }}
-                          className="text-xs px-3 py-1.5 rounded-full font-semibold flex-shrink-0 transition-all active:scale-95"
-                          style={{ background: softRing, color: accent }}
-                        >
-                          {isThisOpen ? '✕' : '+ Suggest'}
-                        </button>
-                      )
-                    )}
-                  </div>
-
-                  {/* Inline suggest form */}
-                  <AnimatePresence>
-                    {isThisOpen && (
-                      <motion.div
-                        key="suggest-form"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.18 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="px-5 pb-4 pt-2 bg-gray-50 border-t border-gray-100">
-                          <p className="text-xs font-semibold text-cowc-gray mb-2">
-                            Who is your {slot.label.toLowerCase()}?
-                          </p>
-                          <input
-                            type="text"
-                            value={suggestName}
-                            onChange={e => setSuggestName(e.target.value)}
-                            placeholder={`${slot.label} name`}
-                            className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 mb-2 focus:outline-none bg-white text-cowc-dark placeholder-gray-400"
-                            autoFocus
-                          />
-                          <input
-                            type="text"
-                            value={suggestNotes}
-                            onChange={e => setSuggestNotes(e.target.value)}
-                            placeholder="Website or contact info (optional)"
-                            className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 mb-3 focus:outline-none bg-white text-cowc-dark placeholder-gray-400"
-                          />
-                          <button
-                            onClick={() => handleSuggestVendor(slot.category, slot.label)}
-                            disabled={!suggestName.trim() || submittingVendor}
-                            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all active:scale-95 disabled:opacity-50"
-                            style={{ background: accent }}
-                          >
-                            {submittingVendor ? 'Sending…' : '→ Send Suggestion'}
-                          </button>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              )
-            })}
-          </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
 
           {/* Additional vendors (outside the standard 10 categories) */}
           {(() => {
@@ -1354,6 +1272,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                 {[
                   { key: 'email', label: 'Change Email' },
                   { key: 'password', label: 'Change Password' },
+                  { key: 'venue', label: 'Venue' },
                 ].map(tab => (
                   <button
                     key={tab.key}
@@ -1449,6 +1368,42 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                     >
                       {accountSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                       Update Password
+                    </button>
+                  </div>
+                )}
+
+                {/* Venue Tab */}
+                {accountTab === 'venue' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-cowc-dark mb-2">Venue Name</label>
+                      <input
+                        type="text"
+                        value={venueNameEdit}
+                        onChange={e => setVenueNameEdit(e.target.value)}
+                        placeholder="e.g. The Grand Ballroom"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none text-cowc-dark"
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-cowc-dark mb-2">Address</label>
+                      <input
+                        type="text"
+                        value={venueAddressEdit}
+                        onChange={e => setVenueAddressEdit(e.target.value)}
+                        placeholder="123 Main St, City, State"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none text-cowc-dark"
+                      />
+                    </div>
+                    <button
+                      onClick={handleUpdateVenue}
+                      disabled={accountSaving || !venueNameEdit.trim()}
+                      className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                      style={{ background: accent }}
+                    >
+                      {accountSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      Save Venue
                     </button>
                   </div>
                 )}
