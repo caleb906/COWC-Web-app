@@ -390,88 +390,85 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-cowc-cream pb-24">
 
-      {/* ── Header — single nav bar ─────────────────────────── */}
+      {/* ── Header ─────────────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-cowc-dark via-cowc-dark to-gray-800 text-white pt-3 pb-7 px-4 safe-top relative overflow-hidden"
+        className="bg-gradient-to-br from-cowc-dark via-cowc-dark to-gray-800 text-white pt-12 pb-20 px-6 safe-top relative overflow-hidden"
       >
         <div className="absolute top-0 right-0 w-96 h-96 bg-cowc-gold opacity-10 rounded-full blur-3xl" />
+
         <div className="max-w-7xl mx-auto relative z-10">
-          <div className="flex items-center gap-2">
-            {/* Left — users + bell */}
-            <div className="flex items-center gap-1 flex-shrink-0">
+          {/* Mobile: stacked. Desktop: side-by-side */}
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-10">
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="COWC" className="h-10 w-10 sm:h-12 sm:w-12 object-contain flex-shrink-0" />
+              <div>
+                <h1 className="text-3xl sm:text-5xl font-serif font-light leading-tight">
+                  Welcome, {user?.full_name?.split(' ')[0] || 'Admin'}
+                </h1>
+                <p className="text-white/70 text-xs sm:text-sm uppercase tracking-widest mt-0.5">Admin Dashboard</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 sm:gap-2 sm:flex-shrink-0">
               <button
                 onClick={() => navigate('/admin/users')}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                className="p-2.5 sm:p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
                 title="Users"
               >
-                <Users className="w-4 h-4" />
+                <Users className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               <NotificationBell iconColor="white" />
-            </div>
-            {/* Centre — label */}
-            <h1 className="flex-1 text-center text-xl font-serif font-light tracking-widest text-white truncate">
-              Admin
-            </h1>
-            {/* Right — settings + logout */}
-            <div className="flex items-center gap-1 flex-shrink-0">
               <button
                 onClick={() => setShowSettings(true)}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                aria-label="Settings"
+                className="p-2.5 sm:p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
               >
-                <Settings className="w-4 h-4" />
+                <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               <button
                 onClick={handleSignOut}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                aria-label="Sign out"
+                className="p-2.5 sm:p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-4">
+            {[
+              { icon: Heart,       label: 'Weddings',        value: stats.totalWeddings,  fill: true },
+              { icon: Calendar,    label: 'Next 30 Days',    value: stats.next30Days      },
+              { icon: TrendingUp,  label: 'Tasks Left',      value: stats.tasksRemaining, click: () => navigate('/admin/tasks') },
+              { icon: ShoppingBag, label: 'Vendors',         value: stats.totalVendors,   click: () => navigate('/admin/vendors') },
+              { icon: Users,       label: 'In Pipeline',     value: stats.inquiry + stats.inTalks + stats.signed },
+            ].map(({ icon: Icon, label, value, fill, click }, i) => (
+              <motion.div
+                key={label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 + i * 0.1 }}
+                onClick={click}
+                className={`bg-white/95 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg p-3 sm:p-6 ${click ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}
+              >
+                <Icon className={`w-5 h-5 sm:w-8 sm:h-8 text-cowc-gold mb-1.5 sm:mb-3 ${fill ? 'fill-cowc-gold' : ''}`} />
+                <div className="text-2xl sm:text-3xl font-serif font-light text-cowc-dark mb-0.5 sm:mb-1">{value}</div>
+                <div className="text-[10px] sm:text-sm text-cowc-gray leading-tight">{label}</div>
+              </motion.div>
+            ))}
           </div>
         </div>
       </motion.div>
 
-      <div className="max-w-7xl mx-auto px-4 -mt-5 relative z-20">
-
-        {/* Stats — overlapping the dark header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-5 gap-2 mb-4"
-        >
-          {[
-            { icon: Heart,       label: 'Weddings',    value: stats.totalWeddings,  fill: true },
-            { icon: Calendar,    label: 'Next 30 Days', value: stats.next30Days     },
-            { icon: TrendingUp,  label: 'Tasks Left',  value: stats.tasksRemaining, click: () => navigate('/admin/tasks') },
-            { icon: ShoppingBag, label: 'Vendors',     value: stats.totalVendors,   click: () => navigate('/admin/vendors') },
-            { icon: Users,       label: 'In Pipeline', value: stats.inquiry + stats.inTalks + stats.signed },
-          ].map(({ icon: Icon, label, value, fill, click }, i) => (
-            <motion.div
-              key={label}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 + i * 0.05 }}
-              onClick={click}
-              className={`bg-white rounded-xl shadow-lg px-3 py-3 ${click ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}
-            >
-              <Icon className={`w-5 h-5 text-cowc-gold mb-1.5 ${fill ? 'fill-cowc-gold' : ''}`} />
-              <div className="text-2xl font-serif font-light text-cowc-dark leading-none mb-0.5">{value}</div>
-              <div className="text-[10px] text-cowc-gray leading-tight">{label}</div>
-            </motion.div>
-          ))}
-        </motion.div>
+      <div className="max-w-7xl mx-auto px-6 -mt-10 relative z-20">
 
         {/* Quick Actions */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6"
+          className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-10 sm:mb-12"
         >
           {[
             { label: 'Create Wedding',      sub: 'Add a new couple',              path: '/admin/create-wedding',      Icon: Plus },
@@ -497,7 +494,7 @@ export default function AdminDashboard() {
         {/* ── Weddings Section ─────────────────────────────── */}
         <section>
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-            <h2 className="text-2xl font-serif font-light text-cowc-dark">Weddings</h2>
+            <h2 className="text-4xl font-serif font-light text-cowc-dark">Weddings</h2>
             <div className="flex items-center gap-3">
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-cowc-gray" />
