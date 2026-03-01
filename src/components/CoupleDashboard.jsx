@@ -371,7 +371,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
         <div className="absolute -bottom-20 -left-20 w-72 h-72 rounded-full blur-3xl opacity-10 pointer-events-none"
           style={{ background: 'white' }} />
 
-        <div className="relative z-10 max-w-lg mx-auto px-5">
+        <div className="relative z-10 max-w-lg md:max-w-2xl mx-auto px-5">
 
           {/* Minimal top bar — icons only, don't compete with the hero */}
           <div className="flex items-center justify-between pt-12 pb-0">
@@ -409,7 +409,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
 
           {/* Couple name + countdown — the real hero */}
           <div className="text-center pt-5 pb-10">
-            <p className="text-white/60 text-[11px] uppercase tracking-[0.2em] mb-2">
+            <p className="text-white/60 text-xs uppercase tracking-[0.2em] mb-2">
               {days < 0 ? 'Married' : days === 0 ? 'Wedding Day' : 'Counting down'}
             </p>
 
@@ -460,7 +460,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                     className="h-full rounded-full bg-white/80"
                   />
                 </div>
-                <p className="text-white/50 text-[11px] mt-1.5 tracking-wide">
+                <p className="text-white/50 text-xs mt-1.5 tracking-wide">
                   {completedCount} of {totalCount} tasks complete
                 </p>
               </div>
@@ -470,292 +470,213 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
       </motion.div>
 
       {/* ── Tab Content ─────────────────────────────────────────── */}
-      <div className="max-w-lg mx-auto px-4 -mt-4 relative z-20 space-y-3">
+      <div className="max-w-lg md:max-w-2xl mx-auto px-4 -mt-4 relative z-20 space-y-4">
 
         {/* ── HOME TAB ─────────────────────────────────────── */}
-        {activeTab === 'home' && (<>
+        {activeTab === 'home' && (() => {
+          const pendingTasks = tasks.filter(t => !t.completed)
+          const allDone = tasks.length > 0 && tasks.every(t => t.completed)
+          // Sort: overdue first, then by due date
+          const sortedPending = [...pendingTasks].sort((a, b) => {
+            const aOver = isPastDue(a.due_date) ? -1 : 0
+            const bOver = isPastDue(b.due_date) ? -1 : 0
+            if (aOver !== bOver) return aOver - bOver
+            if (a.due_date && b.due_date) return new Date(a.due_date) - new Date(b.due_date)
+            return 0
+          })
+          const coordinator = wedding.coordinators?.length > 0
+            ? (wedding.coordinators.find(c => c.is_lead) || wedding.coordinators[0])
+            : null
+          const coordName = coordinator ? (coordinator.full_name || coordinator.name || 'Your Coordinator') : null
 
-          {/* Coordinator card */}
-          {wedding.coordinators?.length > 0 && (() => {
-            const lead = wedding.coordinators.find(c => c.is_lead) || wedding.coordinators[0]
-            const name = lead.full_name || lead.name || 'Your Coordinator'
-            return (
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.22 }}
-                className="bg-white rounded-2xl p-5 shadow-sm"
-              >
-                <p className="text-xs uppercase tracking-widest font-semibold text-cowc-gray mb-3">Your Coordinator</p>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 text-white text-lg font-serif"
-                    style={{ background: heroBg }}>
-                    {name.charAt(0)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-cowc-dark">{name}</p>
-                    {lead.email && <p className="text-sm text-cowc-gray truncate">{lead.email}</p>}
-                    {lead.phone && <p className="text-sm text-cowc-gray">{lead.phone}</p>}
-                  </div>
-                  <div className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                    style={{ background: softRing, color: accent }}>
-                    Lead
-                  </div>
-                </div>
-              </motion.div>
-            )
-          })()}
+          return (
+            <>
+              {/* ── 1. TASKS — the primary action ── */}
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
 
-          {/* ── Timeline Snapshot ── */}
-          {(() => {
-            const items = [...(wedding.timeline_items || [])].sort((a, b) => {
-              if (a.time && b.time) return a.time.localeCompare(b.time)
-              return (a.sort_order ?? 0) - (b.sort_order ?? 0)
-            }).filter(i => i.timeline_type !== 'vendor').slice(0, 4)
-            return (
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.24 }}
-                className="bg-white rounded-2xl shadow-sm overflow-hidden"
-              >
-                <div className="px-5 pt-4 pb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" style={{ color: accent }} />
-                    <p className="text-xs uppercase tracking-widest font-semibold text-cowc-gray">Timeline</p>
+                {allDone ? (
+                  /* All done — celebration */
+                  <div className="bg-white rounded-3xl shadow-sm px-6 py-10 text-center">
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+                      style={{ background: softRing }}>
+                      <CheckCircle2 className="w-8 h-8" style={{ color: accent }} />
+                    </div>
+                    <p className="font-serif text-xl text-cowc-dark">All caught up</p>
+                    <p className="text-sm text-cowc-gray mt-1">You're ready for the big day 🎉</p>
                   </div>
-                  <button onClick={() => setActiveTab('timeline')}
-                    className="text-xs font-semibold flex items-center gap-0.5" style={{ color: accent }}>
-                    Full timeline <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                {items.length === 0 ? (
-                  <div className="px-5 pb-5 text-center">
-                    <p className="text-xs text-gray-400">Your day-of timeline will appear here once it's built.</p>
+
+                ) : sortedPending.length === 0 ? (
+                  /* No tasks assigned yet */
+                  <div className="bg-white rounded-3xl shadow-sm px-6 py-10 text-center">
+                    <Heart className="w-8 h-8 mx-auto mb-3 opacity-20" style={{ color: accent }} />
+                    <p className="text-sm text-cowc-gray">Your tasks will appear here once your coordinator assigns them.</p>
                   </div>
+
                 ) : (
-                  <div className="divide-y divide-gray-50">
-                    {items.map(item => (
-                      <div key={item.id} className="flex items-center gap-4 px-5 py-3">
-                        <span className="text-sm font-bold text-cowc-dark w-12 text-right flex-shrink-0">{item.time || '—'}</span>
-                        <p className="text-sm text-cowc-dark font-medium truncate">{item.title}</p>
+                  /* Task list */
+                  <div className="bg-white rounded-3xl shadow-sm overflow-hidden">
+                    {/* Header */}
+                    <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-wider font-semibold text-cowc-gray">What's next</p>
+                        <p className="font-serif text-cowc-dark text-lg leading-tight mt-0.5">
+                          {overdueTasks.length > 0
+                            ? <span className="text-red-500">{overdueTasks.length} overdue</span>
+                            : `${sortedPending.length} task${sortedPending.length !== 1 ? 's' : ''} remaining`}
+                        </p>
                       </div>
-                    ))}
-                    {(wedding.timeline_items || []).filter(i => i.timeline_type !== 'vendor').length > 4 && (
-                      <button onClick={() => setActiveTab('timeline')}
-                        className="w-full px-5 py-3 text-xs font-semibold text-left" style={{ color: accent }}>
-                        +{(wedding.timeline_items || []).filter(i => i.timeline_type !== 'vendor').length - 4} more items…
-                      </button>
-                    )}
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{ background: softRing }}>
+                        <span className="font-serif text-lg font-light" style={{ color: accent }}>
+                          {sortedPending.length}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Task rows */}
+                    <div className="divide-y divide-gray-50">
+                      {sortedPending.map((task, i) => {
+                        const overdue = isPastDue(task.due_date)
+                        return (
+                          <button key={task.id} onClick={() => handleTaskToggle(task)}
+                            className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors text-left active:scale-[0.99]">
+                            {/* Checkbox circle */}
+                            <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                              overdue ? 'border-red-400' : 'border-gray-200'
+                            }`} style={!overdue ? { borderColor: primaryAlpha(theme.primary, 0.4) } : {}}>
+                              {overdue && <div className="w-2 h-2 rounded-full bg-red-400" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-base font-medium text-cowc-dark truncate">{task.title}</p>
+                              {task.due_date && (
+                                <p className={`text-xs mt-0.5 ${overdue ? 'text-red-500 font-semibold' : 'text-cowc-gray'}`}>
+                                  {overdue ? 'Overdue · ' : ''}Due {formatDate(task.due_date, 'MMM d')}
+                                </p>
+                              )}
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-gray-200 flex-shrink-0" />
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
                 )}
               </motion.div>
-            )
-          })()}
 
-          {/* ── Vendor Team Snapshot ── */}
-          {(() => {
-            const filledSlots = VENDOR_SLOTS.filter(slot =>
-              wedding.vendors?.find(v => slot.covers.includes(v.category))
-            ).slice(0, 5)
-            if (filledSlots.length === 0) return null
-            return (
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.26 }}
-                className="bg-white rounded-2xl shadow-sm overflow-hidden"
-              >
-                <div className="px-5 pt-4 pb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4" style={{ color: accent }} />
-                    <p className="text-xs uppercase tracking-widest font-semibold text-cowc-gray">Your Team</p>
-                  </div>
-                  <button onClick={() => setActiveTab('vendors')}
-                    className="text-xs font-semibold flex items-center gap-0.5" style={{ color: accent }}>
-                    Full team <ChevronRight className="w-3.5 h-3.5" />
+              {/* ── 2. QUICK LINKS ── */}
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}
+                className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { label: 'Timeline',  sub: 'Day-of schedule',  Icon: Calendar,    tab: 'timeline' },
+                  { label: 'Vendors',   sub: 'Your vendor team', Icon: Users,       tab: 'vendors' },
+                  { label: 'Style',     sub: 'Colours & palette',Icon: Palette,     tab: 'style' },
+                  { label: 'Catalogue', sub: 'Reserve items',    Icon: ShoppingBag, path: '/catalogue' },
+                ].map(({ label, sub, Icon, tab, path }) => (
+                  <button key={label}
+                    onClick={() => tab ? setActiveTab(tab) : safeNavigate(path)}
+                    className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-[0.97]
+                      py-5 flex flex-col items-center gap-2
+                      md:p-4 md:flex-row md:items-center md:gap-3">
+                    <div className="rounded-2xl flex items-center justify-center flex-shrink-0"
+                      style={{ width: 48, height: 48, background: softRing }}>
+                      <Icon className="w-5 h-5 md:w-6 md:h-6" style={{ color: accent }} />
+                    </div>
+                    <div className="text-center md:text-left">
+                      <span className="font-serif text-sm md:text-base text-cowc-dark leading-tight block">{label}</span>
+                      <span className="hidden md:block text-xs text-cowc-gray mt-0.5">{sub}</span>
+                    </div>
                   </button>
-                </div>
-                <div className="divide-y divide-gray-50">
-                  {filledSlots.map(slot => {
-                    const vendor = wedding.vendors.find(v => slot.covers.includes(v.category))
-                    const Icon = slot.icon
-                    return (
-                      <div key={slot.category} className="flex items-center gap-3 px-5 py-3">
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{ background: softRing }}>
-                          <Icon className="w-3.5 h-3.5" style={{ color: accent }} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-cowc-dark truncate">{vendor.name}</p>
-                          <p className="text-xs text-cowc-gray">{slot.label}</p>
-                        </div>
-                      </div>
-                    )
-                  })}
-                  {VENDOR_SLOTS.filter(s => wedding.vendors?.find(v => s.covers.includes(v.category))).length > 5 && (
-                    <button onClick={() => setActiveTab('vendors')}
-                      className="w-full px-5 py-3 text-xs font-semibold text-left" style={{ color: accent }}>
-                      +{VENDOR_SLOTS.filter(s => wedding.vendors?.find(v => s.covers.includes(v.category))).length - 5} more…
-                    </button>
-                  )}
-                </div>
+                ))}
               </motion.div>
-            )
-          })()}
 
-          {/* Your Rentals */}
-          {myReservations.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.27 }}
-              className="bg-white rounded-2xl shadow-sm overflow-hidden"
-            >
-              <div className="px-5 pt-4 pb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Package className="w-4 h-4" style={{ color: accent }} />
-                  <div>
-                    <p className="text-xs uppercase tracking-widest font-semibold text-cowc-gray">Your Rentals</p>
-                    <p className="text-sm font-semibold text-cowc-dark leading-tight">
-                      {myReservations.length} item{myReservations.length !== 1 ? 's' : ''} reserved
-                    </p>
-                  </div>
-                </div>
-                <button onClick={() => safeNavigate('/catalogue')}
-                  className="text-xs font-semibold flex items-center gap-0.5" style={{ color: accent }}>
-                  Browse all <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div className="flex gap-3 overflow-x-auto px-5 pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                {myReservations.map(res => {
-                  const item = res.inventory_items
-                  if (!item) return null
-                  const statusColor = {
-                    confirmed: { dot: 'bg-emerald-400', label: 'text-emerald-600', text: 'Confirmed' },
-                    requested: { dot: 'bg-amber-400',   label: 'text-amber-600',   text: 'Pending' },
-                  }[res.status] || { dot: 'bg-gray-300', label: 'text-gray-500', text: res.status }
-                  return (
-                    <div key={res.id} className="flex-shrink-0 w-28 rounded-xl overflow-hidden border border-gray-100">
-                      <div className="w-full h-24 overflow-hidden bg-cowc-cream">
-                        {item.photo_url
-                          ? <img src={item.photo_url} alt={item.name} className="w-full h-full object-cover" />
-                          : <div className="w-full h-full flex items-center justify-center">
-                              <Package className="w-6 h-6 text-cowc-light-gray" />
-                            </div>
-                        }
+              {/* ── 3. COORDINATOR — contact card ── */}
+              {coordinator && (
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}
+                  className="bg-white rounded-3xl shadow-sm overflow-hidden">
+                  <div className="px-5 pt-5 pb-4">
+                    <p className="text-xs uppercase tracking-wider font-semibold text-cowc-gray mb-3">Your coordinator</p>
+                    <div className="flex items-center gap-3">
+                      {/* Avatar */}
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 text-white font-serif text-xl"
+                        style={{ background: heroBg }}>
+                        {coordName.charAt(0)}
                       </div>
-                      <div className="p-2">
-                        <p className="text-[11px] font-semibold text-cowc-dark truncate leading-tight">{item.name}</p>
-                        <div className="flex items-center gap-1 mt-1">
-                          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusColor.dot}`} />
-                          <span className={`text-[10px] font-semibold ${statusColor.label}`}>{statusColor.text}</span>
-                        </div>
-                        {res.quantity > 1 && <p className="text-[10px] text-cowc-gray mt-0.5">Qty: {res.quantity}</p>}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-cowc-dark leading-tight">{coordName}</p>
+                        <p className="text-xs text-cowc-gray mt-0.5">Lead coordinator</p>
                       </div>
                     </div>
-                  )
-                })}
-                <button onClick={() => safeNavigate('/catalogue')}
-                  className="flex-shrink-0 w-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 h-[116px]"
-                  style={{ borderColor: primaryAlpha(theme.primary, 0.3) }}>
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: softRing }}>
-                    <ShoppingBag className="w-4 h-4" style={{ color: accent }} />
-                  </div>
-                  <span className="text-[10px] font-semibold text-center leading-tight px-1" style={{ color: accent }}>
-                    Browse more
-                  </span>
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Browse Catalogue CTA (no rentals yet) */}
-          {myReservations.length === 0 && (
-            <motion.button
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.27 }}
-              onClick={() => safeNavigate('/catalogue')}
-              className="w-full bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4 text-left hover:shadow-md transition-all active:scale-[0.98]"
-            >
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: softRing }}>
-                <ShoppingBag className="w-6 h-6" style={{ color: accent }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-cowc-dark">Browse the Catalogue</p>
-                <p className="text-xs text-cowc-gray mt-0.5">Reserve décor, linens, lighting &amp; more for your day</p>
-              </div>
-              <ChevronRight className="w-5 h-5 text-cowc-light-gray flex-shrink-0" />
-            </motion.button>
-          )}
-
-          {/* Overdue alert */}
-          {overdueTasks.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.28 }}
-              className="bg-red-50 border-2 border-red-200 rounded-2xl p-4 flex items-center gap-3"
-            >
-              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <span className="text-red-600 text-sm font-bold">{overdueTasks.length}</span>
-              </div>
-              <p className="text-sm text-red-700 font-semibold">
-                {overdueTasks.length} overdue {overdueTasks.length === 1 ? 'task' : 'tasks'} — tap below to check them off
-              </p>
-            </motion.div>
-          )}
-
-          {/* Pending tasks */}
-          {tasks.filter(t => !t.completed).length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.32 }}
-            >
-              <div className="flex items-center justify-between mb-2 px-1">
-                <h2 className="text-base font-semibold text-cowc-dark">Upcoming Tasks</h2>
-              </div>
-              <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
-                {tasks.filter(t => !t.completed).map(task => {
-                  const overdue = isPastDue(task.due_date)
-                  return (
-                    <button key={task.id} onClick={() => handleTaskToggle(task)}
-                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors text-left active:scale-[0.98]">
-                      <Circle className="w-5 h-5 flex-shrink-0" style={{ color: softRingMed }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-cowc-dark truncate">{task.title}</p>
-                        {task.due_date && (
-                          <p className={`text-xs mt-0.5 ${overdue ? 'text-red-500 font-semibold' : 'text-cowc-gray'}`}>
-                            Due {formatDate(task.due_date, 'MMM d')}{overdue ? ' · Overdue' : ''}
-                          </p>
+                    {/* Contact buttons */}
+                    {(coordinator.email || coordinator.phone) && (
+                      <div className="flex gap-2 mt-4">
+                        {coordinator.email && (
+                          <a href={`mailto:${coordinator.email}`}
+                            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-colors"
+                            style={{ background: softRing, color: accent }}>
+                            <Mail className="w-4 h-4" /> Email
+                          </a>
+                        )}
+                        {coordinator.phone && (
+                          <a href={`tel:${coordinator.phone}`}
+                            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-colors"
+                            style={{ background: softRing, color: accent }}>
+                            <Phone className="w-4 h-4" /> Call
+                          </a>
                         )}
                       </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* ── 4. RENTALS — horizontal scroll, if any ── */}
+              {myReservations.length > 0 && (
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}
+                  className="bg-white rounded-3xl shadow-sm overflow-hidden">
+                  <div className="px-5 pt-5 pb-1 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-wider font-semibold text-cowc-gray">Your rentals</p>
+                      <p className="font-serif text-cowc-dark text-lg leading-tight mt-0.5">
+                        {myReservations.length} item{myReservations.length !== 1 ? 's' : ''} reserved
+                      </p>
+                    </div>
+                    <button onClick={() => safeNavigate('/catalogue')}
+                      className="text-xs font-semibold flex items-center gap-0.5" style={{ color: accent }}>
+                      Browse <ChevronRight className="w-3.5 h-3.5" />
                     </button>
-                  )
-                })}
-              </div>
-            </motion.div>
-          )}
-
-          {/* All done state */}
-          {tasks.length > 0 && tasks.every(t => t.completed) && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.32 }}
-              className="bg-white rounded-2xl p-8 text-center shadow-sm"
-            >
-              <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: softRing }}>
-                <CheckCircle2 className="w-7 h-7" style={{ color: accent }} />
-              </div>
-              <p className="font-serif text-cowc-dark text-lg">All tasks complete!</p>
-              <p className="text-sm text-cowc-gray mt-1">You're all set for the big day 🎉</p>
-            </motion.div>
-          )}
-
-        </>)}
+                  </div>
+                  <div className="flex gap-3 overflow-x-auto px-5 py-4" style={{ scrollbarWidth: 'none' }}>
+                    {myReservations.map(res => {
+                      const item = res.inventory_items
+                      if (!item) return null
+                      const isConfirmed = res.status === 'confirmed'
+                      return (
+                        <div key={res.id} className="flex-shrink-0 w-28 rounded-2xl overflow-hidden border border-gray-100">
+                          <div className="w-full h-24 bg-cowc-cream overflow-hidden">
+                            {item.photo_url
+                              ? <img src={item.photo_url} alt={item.name} className="w-full h-full object-cover" />
+                              : <div className="w-full h-full flex items-center justify-center">
+                                  <Package className="w-6 h-6 text-cowc-light-gray" />
+                                </div>}
+                          </div>
+                          <div className="p-2.5">
+                            <p className="text-[11px] font-semibold text-cowc-dark truncate leading-tight">{item.name}</p>
+                            <div className="flex items-center gap-1 mt-1">
+                              <div className={`w-1.5 h-1.5 rounded-full ${isConfirmed ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                              <span className={`text-[10px] font-semibold ${isConfirmed ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                {isConfirmed ? 'Confirmed' : 'Pending'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </>
+          )
+        })()}
 
         {/* ── TIMELINE TAB ──────────────────────────────────────────── */}
         {activeTab === 'timeline' && (() => {
@@ -767,7 +688,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
           const vendorItems  = items.filter(i => i.timeline_type === 'vendor')
           const Section = ({ label, list }) => list.length === 0 ? null : (
             <div>
-              <p className="text-[10px] uppercase tracking-widest font-semibold text-cowc-gray px-1 mb-2">{label}</p>
+              <p className="text-xs uppercase tracking-widest font-semibold text-cowc-gray px-1 mb-2">{label}</p>
               <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
                 {list.map(item => (
                   <div key={item.id} className="flex items-start gap-4 px-5 py-4">
@@ -811,7 +732,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
               )
               return (
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest font-semibold text-cowc-gray px-1 mb-2">Your Vendor Team</p>
+                  <p className="text-xs uppercase tracking-widest font-semibold text-cowc-gray px-1 mb-2">Your Vendor Team</p>
                   {filledSlots.length === 0 ? (
                     <div className="bg-white rounded-2xl shadow-sm px-5 py-8 text-center">
                       <p className="text-sm text-gray-400">Your coordinator will add vendors here as they're booked.</p>
@@ -1213,7 +1134,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
               {/* Inspiration photos */}
               {t.inspiration_photos?.length > 0 && (
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest font-semibold text-cowc-gray px-1 mb-2">Inspiration</p>
+                  <p className="text-xs uppercase tracking-widest font-semibold text-cowc-gray px-1 mb-2">Inspiration</p>
                   <div className="grid grid-cols-3 gap-2">
                     {t.inspiration_photos.slice(0, 9).map((photo, idx) => (
                       <div key={idx} className="aspect-square rounded-xl overflow-hidden">

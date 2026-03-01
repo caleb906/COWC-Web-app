@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Calendar, Users, Heart, Plus, TrendingUp,
   LogOut, Settings, Grid, List, Search, X,
-  UserPlus, ClipboardList, ChevronDown, Archive,
+  UserPlus, ClipboardList, ChevronDown, ChevronRight, Archive,
   RotateCcw, CheckCircle, ShoppingBag, Package, StickyNote, Building2,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/appStore'
@@ -120,7 +120,7 @@ function WeddingGridCard({ wedding, i, navigate, handleStatusChange }) {
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: i * 0.05 }}
       onClick={() => navigate(`/wedding/${wedding.id}`)}
-      className="card-premium p-6 cursor-pointer group relative overflow-hidden"
+      className="bg-white rounded-2xl p-5 shadow-sm cursor-pointer group relative overflow-hidden hover:shadow-md transition-shadow active:scale-[0.99]"
     >
       <div className="absolute top-0 left-0 right-0 h-1"
         style={{ backgroundColor: wedding.theme.primary }} />
@@ -176,7 +176,7 @@ function WeddingListRow({ wedding, navigate, handleStatusChange }) {
   return (
     <div
       onClick={() => navigate(`/wedding/${wedding.id}`)}
-      className="p-5 hover:bg-cowc-cream transition-colors cursor-pointer flex items-center justify-between gap-4"
+      className="p-5 hover:bg-gray-50 transition-colors cursor-pointer flex items-center justify-between gap-4 active:scale-[0.99]"
     >
       <div className="flex items-center gap-4 flex-1 min-w-0">
         <div className="w-1 h-12 rounded-full flex-shrink-0"
@@ -390,103 +390,95 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-cowc-cream pb-24">
 
-      {/* ── Header ─────────────────────────────────────────── */}
+      {/* ── Hero — admin command centre ─────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-cowc-dark via-cowc-dark to-gray-800 text-white pt-12 pb-20 px-6 safe-top relative overflow-hidden"
+        className="bg-gradient-to-br from-cowc-dark via-cowc-dark to-gray-800 text-white safe-top relative overflow-hidden"
       >
-        <div className="absolute top-0 right-0 w-96 h-96 bg-cowc-gold opacity-10 rounded-full blur-3xl" />
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse at 85% 5%, rgba(201,169,110,0.18) 0%, transparent 55%)' }} />
 
-        <div className="max-w-7xl mx-auto relative z-10">
-          {/* Mobile: stacked. Desktop: side-by-side */}
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-10">
-            <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="COWC" className="h-10 w-10 sm:h-12 sm:w-12 object-contain flex-shrink-0" />
-              <div>
-                <h1 className="text-3xl sm:text-5xl font-serif font-light leading-tight">
-                  Welcome, {user?.full_name?.split(' ')[0] || 'Admin'}
-                </h1>
-                <p className="text-white/70 text-xs sm:text-sm uppercase tracking-widest mt-0.5">Admin Dashboard</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5 sm:gap-2 sm:flex-shrink-0">
-              <button
-                onClick={() => navigate('/admin/users')}
-                className="p-2.5 sm:p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
-                title="Users"
-              >
-                <Users className="w-4 h-4 sm:w-5 sm:h-5" />
+        <div className="max-w-7xl mx-auto px-5 relative z-10">
+          {/* Top bar */}
+          <div className="flex items-center justify-between pt-12 pb-0">
+            <div className="flex items-center gap-1">
+              <button onClick={() => navigate('/admin/users')}
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors" title="Users">
+                <Users className="w-4 h-4" />
               </button>
               <NotificationBell iconColor="white" />
-              <button
-                onClick={() => setShowSettings(true)}
-                className="p-2.5 sm:p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
-              >
-                <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+            </div>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setShowSettings(true)}
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+                <Settings className="w-4 h-4" />
               </button>
-              <button
-                onClick={handleSignOut}
-                className="p-2.5 sm:p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all"
-              >
-                <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
+              <button onClick={handleSignOut}
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+                <LogOut className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-4">
-            {[
-              { icon: Heart,       label: 'Weddings',        value: stats.totalWeddings,  fill: true },
-              { icon: Calendar,    label: 'Next 30 Days',    value: stats.next30Days      },
-              { icon: TrendingUp,  label: 'Tasks Left',      value: stats.tasksRemaining, click: () => navigate('/admin/tasks') },
-              { icon: ShoppingBag, label: 'Vendors',         value: stats.totalVendors,   click: () => navigate('/admin/vendors') },
-              { icon: Users,       label: 'In Pipeline',     value: stats.inquiry + stats.inTalks + stats.signed },
-            ].map(({ icon: Icon, label, value, fill, click }, i) => (
-              <motion.div
-                key={label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 + i * 0.1 }}
-                onClick={click}
-                className={`bg-white/95 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg p-3 sm:p-6 ${click ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}
-              >
-                <Icon className={`w-5 h-5 sm:w-8 sm:h-8 text-cowc-gold mb-1.5 sm:mb-3 ${fill ? 'fill-cowc-gold' : ''}`} />
-                <div className="text-2xl sm:text-3xl font-serif font-light text-cowc-dark mb-0.5 sm:mb-1">{value}</div>
-                <div className="text-[10px] sm:text-sm text-cowc-gray leading-tight">{label}</div>
-              </motion.div>
-            ))}
+          {/* Identity + big stats */}
+          <div className="pt-4 pb-10">
+            <p className="text-white/50 text-xs uppercase tracking-[0.2em] mb-1">Admin</p>
+            <h1 className="text-3xl font-serif font-light text-white mb-6">
+              {user?.full_name?.split(' ')[0] || 'Admin'}
+            </h1>
+
+            {/* Stats row — numbers as the language */}
+            <div className="flex items-start gap-0 flex-wrap">
+              {[
+                { value: stats.totalWeddings, label: 'Weddings', click: null },
+                { value: stats.next30Days,    label: 'Next 30d', urgent: stats.next30Days > 0, click: null },
+                { value: stats.tasksRemaining,label: 'Tasks',    urgent: stats.tasksRemaining > 0, click: () => navigate('/admin/tasks') },
+                { value: stats.totalVendors,  label: 'Vendors',  click: () => navigate('/admin/vendors') },
+              ].map(({ value, label, urgent, click }, i) => (
+                <button key={label} onClick={click || undefined}
+                  disabled={!click}
+                  className={`flex-1 min-w-[70px] text-center py-2 ${click ? 'cursor-pointer hover:bg-white/5 rounded-xl transition-colors' : 'cursor-default'}`}>
+                  <span className={`block text-4xl font-serif font-light leading-none ${urgent ? 'text-red-300' : 'text-white'}`}>
+                    {value}
+                  </span>
+                  <span className="block text-white/45 text-xs uppercase tracking-wider mt-1">{label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </motion.div>
 
-      <div className="max-w-7xl mx-auto px-6 -mt-10 relative z-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 -mt-4 relative z-20">
 
         {/* Quick Actions */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-10 sm:mb-12"
+          transition={{ delay: 0.15 }}
+          className="grid grid-cols-3 gap-4 mb-8"
         >
           {[
-            { label: 'Create Wedding',      sub: 'Add a new couple',              path: '/admin/create-wedding',      Icon: Plus },
-            { label: 'Invite Users',        sub: 'Couples & coordinators',        path: '/admin/invite-users',        Icon: UserPlus },
-            { label: 'Assign Coordinators', sub: 'Match to weddings',             path: '/admin/assign-coordinators', Icon: Calendar },
-            { label: 'Catalogue',           sub: 'Manage rental items',           path: '/admin/catalogue',           Icon: ShoppingBag },
-            { label: 'Vendors',             sub: 'Vendor directory',              path: '/admin/vendors',             Icon: Users },
-            { label: 'Venues',              sub: 'Venue directory',               path: '/admin/venues',              Icon: Building2 },
+            { label: 'New Wedding',  sub: 'Add a new couple',       path: '/admin/create-wedding',      Icon: Plus },
+            { label: 'Invite Users', sub: 'Couples & coordinators', path: '/admin/invite-users',        Icon: UserPlus },
+            { label: 'Coordinators', sub: 'Assign to weddings',     path: '/admin/assign-coordinators', Icon: Calendar },
+            { label: 'Catalogue',    sub: 'Manage rental items',    path: '/admin/catalogue',           Icon: ShoppingBag },
+            { label: 'Vendors',      sub: 'Vendor directory',       path: '/admin/vendors',             Icon: Users },
+            { label: 'Venues',       sub: 'Venue directory',        path: '/admin/venues',              Icon: Building2 },
           ].map(({ label, sub, path, Icon }) => (
             <button key={label} onClick={() => navigate(path)}
-              className="card-premium p-4 sm:p-8 text-left group hover:scale-105 transition-transform active:scale-95">
-              <div className="flex items-center justify-between mb-2 sm:mb-4">
-                <Icon className="w-7 h-7 sm:w-10 sm:h-10 text-cowc-gold" />
-                <span className="text-xl sm:text-3xl group-hover:translate-x-1 transition-transform text-cowc-light-gray">→</span>
+              className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-[0.97] group
+                py-5 flex flex-col items-center gap-2
+                md:p-5 md:flex-row md:items-center md:gap-4 md:text-left">
+              <div className="rounded-2xl bg-cowc-cream group-hover:bg-cowc-gold/10 transition-colors flex items-center justify-center flex-shrink-0"
+                style={{ width: 52, height: 52 }}>
+                <Icon className="w-6 h-6 md:w-7 md:h-7 text-cowc-gold" />
               </div>
-              <h3 className="text-base sm:text-2xl font-serif text-cowc-dark mb-0.5 sm:mb-2 leading-tight">{label}</h3>
-              <p className="text-cowc-gray text-xs sm:text-base hidden sm:block">{sub}</p>
-              <p className="text-cowc-gray text-[10px] sm:hidden leading-tight">{sub}</p>
+              <div className="text-center md:text-left">
+                <span className="font-serif text-sm md:text-base text-cowc-dark leading-tight block">{label}</span>
+                <span className="hidden md:block text-sm text-cowc-gray mt-0.5">{sub}</span>
+              </div>
             </button>
           ))}
         </motion.div>
@@ -494,7 +486,7 @@ export default function AdminDashboard() {
         {/* ── Weddings Section ─────────────────────────────── */}
         <section>
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-            <h2 className="text-4xl font-serif font-light text-cowc-dark">Weddings</h2>
+            <h2 className="text-2xl md:text-3xl font-serif font-light text-cowc-dark">Weddings</h2>
             <div className="flex items-center gap-3">
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-cowc-gray" />
@@ -589,7 +581,7 @@ export default function AdminDashboard() {
 
           {/* Wedding cards */}
           {activeWeddings.length === 0 ? (
-            <div className="card-premium p-16 text-center">
+            <div className="bg-white rounded-3xl p-16 text-center shadow-sm">
               <Heart className="w-16 h-16 text-cowc-light-gray mx-auto mb-4" />
               <p className="text-xl text-cowc-gray">No weddings match your filters</p>
             </div>
@@ -608,7 +600,7 @@ export default function AdminDashboard() {
                     <div className="flex items-center gap-3 mb-4">
                       <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dot}`} />
                       <h2 className="text-base font-semibold text-cowc-dark">{label}</h2>
-                      <span className="text-xs text-cowc-light-gray font-medium">
+                      <span className="text-sm text-cowc-light-gray font-medium">
                         {count} wedding{count !== 1 ? 's' : ''}
                       </span>
                       <div className="flex-1 h-px bg-cowc-sand" />
@@ -619,7 +611,7 @@ export default function AdminDashboard() {
                         {group.weddings.map((wedding, i) => <WeddingGridCard key={wedding.id} wedding={wedding} i={i} navigate={navigate} handleStatusChange={handleStatusChange} />)}
                       </div>
                     ) : (
-                      <div className="card-premium divide-y divide-cowc-sand">
+                      <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
                         {group.weddings.map(wedding => <WeddingListRow key={wedding.id} wedding={wedding} navigate={navigate} handleStatusChange={handleStatusChange} />)}
                       </div>
                     )}
@@ -636,7 +628,7 @@ export default function AdminDashboard() {
             </div>
           ) : (
             /* ── Flat list (single-status filter) ── */
-            <div className="card-premium divide-y divide-cowc-sand">
+            <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
               {activeWeddings.map(wedding => (
                 <WeddingListRow key={wedding.id} wedding={wedding} navigate={navigate} handleStatusChange={handleStatusChange} />
               ))}
@@ -664,7 +656,7 @@ export default function AdminDashboard() {
                   exit={{ opacity: 0, height: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="card-premium divide-y divide-cowc-sand opacity-70">
+                  <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50 opacity-70">
                     {archivedWeddings.map((wedding) => (
                       <div key={wedding.id}
                         className="p-5 flex items-center justify-between gap-4"
