@@ -83,151 +83,184 @@ export default function CoordinatorDashboard() {
     return dA >= 0 ? -1 : 1
   })
 
+  // Most urgent upcoming wedding (for featured card)
+  const nextWedding = sortedWeddings.find(w => daysUntil(w.wedding_date) >= 0)
+
   return (
     <div className="min-h-screen bg-cowc-cream pb-24">
 
-      {/* ── Nav bar ──────────────────────────────────────────── */}
+      {/* ── Hero — coordinator identity + at-a-glance ── */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="bg-gradient-to-br from-cowc-dark via-cowc-dark to-gray-800 text-white relative overflow-hidden"
       >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-cowc-gold opacity-10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-cowc-gold opacity-10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 pt-3 pb-7">
-          <div className="flex items-center gap-2">
-            <div className="flex-shrink-0"><NotificationBell iconColor="white" /></div>
-            <h1 className="flex-1 text-center text-xl font-serif font-light tracking-widest text-white truncate">
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse at 80% 10%, rgba(201,169,110,0.15) 0%, transparent 60%)' }} />
+
+        <div className="relative z-10 max-w-4xl mx-auto px-5">
+          {/* Top bar */}
+          <div className="flex items-center justify-between pt-12 pb-0">
+            <NotificationBell iconColor="white" />
+            <button onClick={handleSignOut}
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              aria-label="Sign out">
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Identity + stats */}
+          <div className="pt-4 pb-10">
+            <p className="text-white/50 text-[11px] uppercase tracking-[0.2em] mb-1">Coordinator</p>
+            <h1 className="text-3xl font-serif font-light text-white">
               {user?.full_name?.split(' ')[0]}
             </h1>
-            <div className="flex-shrink-0">
-              <button onClick={handleSignOut}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all active:scale-95"
-                aria-label="Sign out">
-                <LogOut className="w-4 h-4" />
-              </button>
+
+            {/* Inline stats row */}
+            <div className="flex items-center gap-6 mt-5">
+              <div>
+                <span className="text-4xl font-serif font-light text-white leading-none">{upcomingCount}</span>
+                <p className="text-white/50 text-[11px] uppercase tracking-wider mt-0.5">Upcoming</p>
+              </div>
+              <div className="w-px h-10 bg-white/15" />
+              <div>
+                <span className={`text-4xl font-serif font-light leading-none ${thisMonthCount > 0 ? 'text-red-300' : 'text-white'}`}>
+                  {thisMonthCount}
+                </span>
+                <p className="text-white/50 text-[11px] uppercase tracking-wider mt-0.5">This month</p>
+              </div>
+              <div className="w-px h-10 bg-white/15" />
+              <div>
+                <span className="text-4xl font-serif font-light text-white leading-none">{weddings.length}</span>
+                <p className="text-white/50 text-[11px] uppercase tracking-wider mt-0.5">Total</p>
+              </div>
             </div>
           </div>
         </div>
       </motion.div>
 
       {/* ── Content ──────────────────────────────────────────── */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 -mt-5 relative z-20 space-y-4">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 -mt-4 relative z-20 space-y-4">
 
-        {/* Two-up stat cards */}
-        <div className="grid grid-cols-2 gap-3">
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white rounded-2xl shadow-lg px-4 py-3 flex items-center gap-3"
-          >
-            <Heart className="w-6 h-6 text-cowc-gold fill-cowc-gold flex-shrink-0" />
-            <div>
-              <div className="text-3xl font-serif font-light text-cowc-dark leading-none">{upcomingCount}</div>
-              <div className="text-[10px] text-cowc-gray uppercase tracking-wider mt-0.5">Upcoming</div>
-            </div>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className={`bg-white rounded-2xl shadow-lg px-4 py-3 flex items-center gap-3 ${thisMonthCount > 0 ? 'ring-1 ring-red-200' : ''}`}
-          >
-            <Calendar className={`w-6 h-6 flex-shrink-0 ${thisMonthCount > 0 ? 'text-red-500' : 'text-cowc-gold'}`} />
-            <div>
-              <div className={`text-3xl font-serif font-light leading-none ${thisMonthCount > 0 ? 'text-red-500' : 'text-cowc-dark'}`}>
-                {thisMonthCount}
+        {/* ── Featured: next upcoming wedding ── */}
+        {nextWedding && (() => {
+          const days = daysUntil(nextWedding.wedding_date)
+          const isUrgent = days <= 30
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              onClick={() => navigate(`/wedding/${nextWedding.id}`)}
+              className="bg-white rounded-3xl shadow-lg overflow-hidden cursor-pointer active:scale-[0.99] transition-transform"
+            >
+              {/* Top accent bar */}
+              <div className="h-1 w-full" style={{ background: isUrgent ? '#ef4444' : '#c9a96e' }} />
+              <div className="px-5 py-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-cowc-gray mb-1">
+                      {isUrgent ? '⚡ Coming up soon' : 'Next wedding'}
+                    </p>
+                    <h2 className="font-serif text-2xl text-cowc-dark leading-tight">{nextWedding.couple_name}</h2>
+                    <div className="flex items-center gap-2 mt-2 text-xs text-cowc-gray">
+                      <Calendar className="w-3.5 h-3.5 text-cowc-gold flex-shrink-0" />
+                      <span>{formatDate(nextWedding.wedding_date, 'EEEE, MMMM d, yyyy')}</span>
+                    </div>
+                    {nextWedding.venue_name && (
+                      <div className="flex items-center gap-2 mt-1 text-xs text-cowc-gray">
+                        <MapPin className="w-3.5 h-3.5 text-cowc-gold flex-shrink-0" />
+                        <span className="truncate">{nextWedding.venue_name}</span>
+                      </div>
+                    )}
+                  </div>
+                  {/* Countdown */}
+                  <div className="text-right flex-shrink-0">
+                    <span className={`text-5xl font-serif font-light leading-none ${isUrgent ? 'text-red-500' : 'text-cowc-gold'}`}>
+                      {days === 0 ? '🎊' : days}
+                    </span>
+                    <p className="text-[11px] text-cowc-gray mt-1">{days === 0 ? 'today' : days === 1 ? 'day' : 'days'}</p>
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center justify-end">
+                  <span className="text-xs font-semibold text-cowc-gold flex items-center gap-1">
+                    Open wedding <ChevronRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
               </div>
-              <div className="text-[10px] text-cowc-gray uppercase tracking-wider mt-0.5">This Month</div>
-            </div>
-          </motion.div>
-        </div>
+            </motion.div>
+          )
+        })()}
 
-        {/* Refresh indicator */}
-        {refreshing && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="flex items-center gap-2 text-xs text-cowc-gold font-semibold">
-            <TrendingUp className="w-3.5 h-3.5 animate-spin" /> Refreshing...
-          </motion.div>
-        )}
-
-        {/* ── Wedding List ──────────────────────────────────── */}
+        {/* ── All Weddings list ──────────────────────────────── */}
         <section>
-          <div className="flex items-center justify-between mb-2.5">
-            <p className="text-xs uppercase tracking-widest font-semibold text-cowc-gray">Your Weddings</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-cowc-gray">
+              All weddings
+            </p>
             <button onClick={handleRefresh} disabled={refreshing}
-              className="text-xs text-cowc-gold font-semibold flex items-center gap-1.5 hover:opacity-70 transition-opacity">
+              className="text-xs text-cowc-gold font-semibold flex items-center gap-1 hover:opacity-70 transition-opacity">
               <TrendingUp className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
+              {refreshing ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>
 
           {sortedWeddings.length === 0 ? (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="bg-white rounded-2xl p-10 text-center shadow-sm">
+            <div className="bg-white rounded-3xl p-10 text-center shadow-sm">
               <Calendar className="w-10 h-10 text-cowc-light-gray mx-auto mb-3" />
               <p className="text-cowc-gray text-sm">No weddings assigned yet</p>
-            </motion.div>
+            </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="bg-white rounded-3xl shadow-sm overflow-hidden divide-y divide-gray-50">
               {sortedWeddings.map((wedding, index) => {
                 const days = daysUntil(wedding.wedding_date)
                 const lead = isLead(wedding)
-                // Urgency: red border <30d, gold 30-90d, subtle gray for past
-                const borderColor = days < 0 ? '#e5e7eb' : days <= 30 ? '#ef4444' : '#c9a96e'
+                const isUrgent = days >= 0 && days <= 30
+                const isPast = days < 0
 
                 return (
-                  <motion.div
+                  <motion.button
                     key={wedding.id}
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 + index * 0.05 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.05 + index * 0.04 }}
                     onClick={() => navigate(`/wedding/${wedding.id}`)}
-                    style={{ borderLeftColor: borderColor }}
-                    className="bg-white rounded-2xl shadow-sm border-l-4 px-4 py-3 cursor-pointer group active:scale-[0.99] transition-transform"
+                    className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-gray-50 transition-colors active:scale-[0.99] group"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      {/* Left: name + lead badge */}
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <h3 className="text-base font-serif text-cowc-dark group-hover:text-cowc-gold transition-colors truncate">
+                    {/* Urgency dot */}
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      isPast ? 'bg-gray-200' : isUrgent ? 'bg-red-400' : 'bg-cowc-gold'
+                    }`} />
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-serif text-cowc-dark text-base truncate group-hover:text-cowc-gold transition-colors">
                           {wedding.couple_name}
-                        </h3>
+                        </p>
                         {lead && (
-                          <span className="badge-lead flex-shrink-0 text-[10px] px-1.5 py-0.5">Lead</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cowc-gold/15 text-cowc-gold font-semibold flex-shrink-0">
+                            Lead
+                          </span>
                         )}
                       </div>
-                      {/* Right: days badge + chevron */}
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                          days < 0      ? 'bg-gray-100 text-cowc-gray' :
-                          days === 0    ? 'bg-red-100 text-red-600' :
-                          days <= 30    ? 'bg-red-100 text-red-600' :
-                                          'bg-cowc-gold/15 text-cowc-gold'
-                        }`}>
-                          {days < 0 ? `${Math.abs(days)}d ago` : days === 0 ? 'Today!' : `${days}d`}
-                        </span>
-                        <ChevronRight className="w-4 h-4 text-cowc-light-gray group-hover:text-cowc-gold group-hover:translate-x-0.5 transition-all" />
-                      </div>
+                      <p className="text-xs text-cowc-gray mt-0.5">
+                        {formatDate(wedding.wedding_date, 'MMM d, yyyy')}
+                        {wedding.venue_name && ` · ${wedding.venue_name}`}
+                      </p>
                     </div>
 
-                    {/* Date + venue */}
-                    <div className="flex items-center gap-2 mt-1.5 text-xs text-cowc-gray flex-wrap">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3 text-cowc-gold flex-shrink-0" />
-                        <span>{formatDate(wedding.wedding_date, 'MMM d, yyyy')}</span>
-                      </div>
-                      {wedding.venue_name && (
-                        <>
-                          <span className="text-cowc-light-gray">·</span>
-                          <div className="flex items-center gap-1 min-w-0">
-                            <MapPin className="w-3 h-3 text-cowc-gold flex-shrink-0" />
-                            <span className="truncate">{wedding.venue_name}</span>
-                          </div>
-                        </>
-                      )}
+                    {/* Days badge */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        isPast    ? 'bg-gray-100 text-cowc-gray' :
+                        isUrgent  ? 'bg-red-50 text-red-600' :
+                                    'bg-cowc-gold/10 text-cowc-gold'
+                      }`}>
+                        {isPast ? `${Math.abs(days)}d ago` : days === 0 ? 'Today' : `${days}d`}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-200 group-hover:text-cowc-gold transition-colors" />
                     </div>
-                  </motion.div>
+                  </motion.button>
                 )
               })}
             </div>
@@ -235,32 +268,22 @@ export default function CoordinatorDashboard() {
         </section>
 
         {/* ── Recent Activity ───────────────────────────────── */}
-        <section>
-          <div className="flex items-center gap-2 mb-2.5">
-            <Bell className="w-3.5 h-3.5 text-cowc-gold" />
-            <p className="text-xs uppercase tracking-widest font-semibold text-cowc-gray">Recent Activity</p>
-          </div>
-
-          {changeLogs.length === 0 ? (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="bg-white rounded-2xl p-10 text-center shadow-sm">
-              <Bell className="w-10 h-10 text-cowc-light-gray mx-auto mb-3" />
-              <p className="text-cowc-gray text-sm">No recent updates</p>
-            </motion.div>
-          ) : (
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-              {changeLogs.slice(0, 10).map((change, index) => (
+        {changeLogs.length > 0 && (
+          <section>
+            <p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-cowc-gray mb-3">Recent activity</p>
+            <div className="bg-white rounded-3xl shadow-sm overflow-hidden divide-y divide-gray-50">
+              {changeLogs.slice(0, 8).map((change, index) => (
                 <motion.div
                   key={change.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   transition={{ delay: 0.05 * index }}
-                  className="flex gap-3 px-4 py-3 border-b border-gray-50 last:border-0"
+                  className="flex gap-3 px-5 py-4"
                 >
                   <ChangeIcon type={change.change_type} />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-0.5">
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-cowc-gold/12 text-cowc-gold truncate max-w-[60%]">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-xs font-semibold text-cowc-gold truncate max-w-[55%]">
                         {change.wedding?.couple_name}
                       </span>
                       <span className="text-[11px] text-cowc-light-gray flex-shrink-0">
@@ -272,8 +295,8 @@ export default function CoordinatorDashboard() {
                 </motion.div>
               ))}
             </div>
-          )}
-        </section>
+          </section>
+        )}
 
       </div>
 
