@@ -901,6 +901,97 @@ function _buildSummary(coupleName, changes) {
 }
 
 // =============================================
+// TASK ASSIGNMENT NOTIFICATION
+// =============================================
+
+/**
+ * Send an immediate in-app notification + email when a task is assigned.
+ *
+ * @param {object} opts
+ *   weddingId         - string
+ *   assignedByUserId  - string (coordinator/admin who is assigning)
+ *   task              - { id, title, due_date, assigned_to }
+ *   targetUserId      - string | null  (the specific user to notify, e.g. couple user ID)
+ *
+ * Returns: { sent: boolean, coupleEmail: string|null }
+ */
+export async function notifyTaskAssigned({ weddingId, assignedByUserId, task, targetUserId = null }) {
+  try {
+    // 1. Fetch wedding details (couple user, name, couple email)
+    const { data: wedding, error: wErr } = await supabase
+      .from('weddings')
+      .select(`
+        couple_user_id,
+        couple_name,
+        coordinator_assignments(coordinator_id),
+        couple:profiles!weddings_couple_user_id_fkey(id, email, full_name)
+      `)
+      .eq('id', weddingId)
+      .single()
+
+    if (wErr || !wedding) return { sent: false, coupleEmail: null }
+
+    // 2. Determine who to notify (default: couple + all coordinators except actor)
+    const recipientIds = new Set()
+    if (task.assigned_to === 'couple' && wedding.couple_user_id) {
+      recipientIds.add(wedding.couple_user_id)
+    } else if (targetUserId) {
+      recipientIds.add(targetUserId)
+    } else {
+      if (wedding.couple_user_id) recipientIds.add(wedding.couple_user_id)
+      wedding.coordinator_assignments?.forEach(a => recipientIds.add(a.coordinator_id))
+    }
+    recipientIds.delete(assignedByUserId) // never self-notify
+
+    if (recipientIds.size === 0) return { sent: false, coupleEmail: null }
+
+    // 3. Build message
+    const duePart = task.due_date
+      ? ` — due ${new Date(task.due_date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+      : ''
+    const message = `${wedding.couple_name}: New task assigned — "${task.title}"${duePart}`
+
+    // 4. Insert in-app notifications
+    const rows = Array.from(recipientIds).map(uid => ({
+      user_id: uid,
+      wedding_id: weddingId,
+      message,
+      type: 'task_assigned',
+      read: false,
+    }))
+    await supabase.from('notifications').insert(rows)
+
+    // 5. Also log to change_logs (skip logChangeAndNotify to avoid double-send)
+    await changeLogsAPI.create({
+      wedding_id: weddingId,
+      changed_by_user_id: assignedByUserId,
+      change_type: 'task_assigned',
+      entity_type: 'task',
+      entity_id: task.id,
+      description: `Assigned task: "${task.title}"${duePart}`,
+    })
+
+    // 6. Fire email via Supabase Edge Function (non-blocking — failure won't stop the flow)
+    const coupleEmail = wedding.couple?.email || null
+    if (coupleEmail && task.assigned_to === 'couple') {
+      supabase.functions.invoke('send-task-notification', {
+        body: {
+          to: coupleEmail,
+          coupleName: wedding.couple_name,
+          taskTitle: task.title,
+          taskDue: task.due_date || null,
+        },
+      }).catch(e => console.warn('Email edge function error:', e?.message))
+    }
+
+    return { sent: true, coupleEmail }
+  } catch (err) {
+    console.warn('notifyTaskAssigned error:', err?.message)
+    return { sent: false, coupleEmail: null }
+  }
+}
+
+// =============================================
 // TRANSFORM FUNCTIONS
 // =============================================
 function transformWedding(data) {

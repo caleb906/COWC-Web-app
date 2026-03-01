@@ -13,7 +13,7 @@ import {
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../stores/appStore'
 import { useWeddingTheme } from '../contexts/WeddingThemeContext'
-import { weddingsAPI, tasksAPI, vendorsAPI, timelineAPI } from '../services/unifiedAPI'
+import { weddingsAPI, tasksAPI, vendorsAPI, timelineAPI, notifyTaskAssigned } from '../services/unifiedAPI'
 import { coupleVendorsAPI } from '../services/supabaseAPI'
 import { supabase } from '../lib/supabase'
 import { useToast } from './Toast'
@@ -397,7 +397,23 @@ export default function WeddingDetailPageFull() {
         assigned_to: updates.assigned_to,
       })
       setEditingTaskId(null)
-      toast.success('Task updated')
+
+      // Fire notification when task is assigned to the couple
+      if (updates.assigned_to === 'couple' && wedding?.id) {
+        const result = await notifyTaskAssigned({
+          weddingId: wedding.id,
+          assignedByUserId: user?.id,
+          task: { id: taskId, title: updates.title, due_date: updates.due_date, assigned_to: updates.assigned_to },
+        })
+        if (result.sent) {
+          toast.success('Task updated · Notification sent to couple')
+        } else {
+          toast.success('Task updated')
+        }
+      } else {
+        toast.success('Task updated')
+      }
+
       await loadWedding()
     } catch (error) {
       console.error('Error updating task:', error)

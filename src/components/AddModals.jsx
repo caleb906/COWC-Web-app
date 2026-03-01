@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Save, Search, ExternalLink, ChevronDown } from 'lucide-react'
 import { useToast } from './Toast'
-import { tasksAPI, vendorsAPI, timelineAPI } from '../services/unifiedAPI'
+import { tasksAPI, vendorsAPI, timelineAPI, notifyTaskAssigned } from '../services/unifiedAPI'
+import { useAuthStore } from '../stores/appStore'
 
 // Timeline preset packages
 const TIMELINE_PRESETS = {
@@ -57,6 +58,7 @@ const TIMELINE_PRESETS = {
 
 export function AddTaskModal({ isOpen, onClose, weddingId, onTaskAdded }) {
   const toast = useToast()
+  const { user } = useAuthStore()
   const modalRef = useRef(null)
   const [formData, setFormData] = useState({
     title: '',
@@ -85,7 +87,7 @@ export function AddTaskModal({ isOpen, onClose, weddingId, onTaskAdded }) {
     setSaving(true)
 
     try {
-      await tasksAPI.create({
+      const newTask = await tasksAPI.create({
         wedding_id: weddingId,
         title: formData.title,
         description: formData.description || '',
@@ -93,7 +95,18 @@ export function AddTaskModal({ isOpen, onClose, weddingId, onTaskAdded }) {
         assigned_to: formData.assigned_to,
       })
 
-      toast.success('Task created successfully!')
+      // Notify couple if task is assigned to them
+      if (formData.assigned_to === 'couple' && weddingId) {
+        const result = await notifyTaskAssigned({
+          weddingId,
+          assignedByUserId: user?.id,
+          task: { id: newTask?.id, title: formData.title, due_date: formData.due_date, assigned_to: formData.assigned_to },
+        })
+        toast.success(result.sent ? 'Task created · Notification sent to couple' : 'Task created successfully!')
+      } else {
+        toast.success('Task created successfully!')
+      }
+
       onTaskAdded()
       onClose()
       setFormData({ title: '', description: '', due_date: '', assigned_to: 'couple' })

@@ -9,6 +9,7 @@ import {
   coordinatorAssignmentsAPI as supabaseCoordinatorAssignmentsAPI,
   notificationsAPI as supabaseNotificationsAPI,
   logChangeAndNotify as supabaseLogChangeAndNotify,
+  notifyTaskAssigned as supabaseNotifyTaskAssigned,
 } from './supabaseAPI'
 
 // Export all APIs from Supabase
@@ -21,5 +22,6 @@ export const changeLogsAPI = supabaseChangeLogsAPI
 export const coordinatorAssignmentsAPI = supabaseCoordinatorAssignmentsAPI
 export const notificationsAPI = supabaseNotificationsAPI
 export const logChangeAndNotify = supabaseLogChangeAndNotify
+export const notifyTaskAssigned = supabaseNotifyTaskAssigned
 
 console.log('🔌 Data Source: Supabase')
