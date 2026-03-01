@@ -345,14 +345,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
     }
   }
 
-  // Toggle confirmed/booked on coordinator-assigned vendors
-  const handleVendorToggleConfirmed = async (vendor) => {
-    try {
-      const newStatus = vendor.status === 'confirmed' ? 'booked' : 'confirmed'
-      await supaVendorsAPI.update(vendor.id, { status: newStatus })
-      await loadData()
-    } catch { toast.error('Failed to update vendor') }
-  }
+  // Coordinator-assigned vendor status is read-only for couples
 
   // Open catalogue reserve modal (resets form)
   const openCatReserve = (item) => {
@@ -562,10 +555,12 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
             if (a.due_date && b.due_date) return new Date(a.due_date) - new Date(b.due_date)
             return 0
           })
-          const coordinator = wedding.coordinators?.length > 0
+          const coordAssignment = wedding.coordinators?.length > 0
             ? (wedding.coordinators.find(c => c.is_lead) || wedding.coordinators[0])
             : null
-          const coordName = coordinator ? (coordinator.full_name || coordinator.name || 'Your Coordinator') : null
+          // coordinator_assignments nests the profile under .coordinator
+          const coordinator = coordAssignment?.coordinator || null
+          const coordName = coordinator ? (coordinator.full_name || 'Your Coordinator') : null
 
           return (
             <>
@@ -921,17 +916,13 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                                 ⏳ Pending
                               </span>
                             ) : (
-                              <button
-                                onClick={() => handleVendorToggleConfirmed(vendor)}
-                                title={vendor.status === 'confirmed' ? 'Tap to mark as booked' : 'Tap to mark as confirmed'}
-                                className={`text-xs px-2.5 py-1 rounded-full font-semibold flex-shrink-0 transition-all active:scale-95 ${
-                                  vendor.status === 'confirmed'
-                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                }`}
-                              >
-                                {vendor.status === 'confirmed' ? '✓ Confirmed' : 'Booked'}
-                              </button>
+                              <span className={`text-xs px-2.5 py-1 rounded-full font-semibold flex-shrink-0 ${
+                                vendor.status === 'confirmed' || vendor.status === 'booked'
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {vendor.status === 'confirmed' || vendor.status === 'booked' ? '✓ Confirmed' : 'Pending'}
+                              </span>
                             )}
                           </div>
                         )
@@ -964,17 +955,13 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                                 ⏳ Pending
                               </span>
                             ) : (
-                              <button
-                                onClick={() => handleVendorToggleConfirmed(v)}
-                                title={v.status === 'confirmed' ? 'Tap to mark as booked' : 'Tap to mark as confirmed'}
-                                className={`text-xs px-2.5 py-1 rounded-full font-semibold flex-shrink-0 transition-all active:scale-95 ${
-                                  v.status === 'confirmed'
-                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                }`}
-                              >
-                                {v.status === 'confirmed' ? '✓ Confirmed' : 'Booked'}
-                              </button>
+                              <span className={`text-xs px-2.5 py-1 rounded-full font-semibold flex-shrink-0 ${
+                                v.status === 'confirmed' || v.status === 'booked'
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {v.status === 'confirmed' || v.status === 'booked' ? '✓ Confirmed' : 'Pending'}
+                              </span>
                             )}
                           </div>
                         ))}

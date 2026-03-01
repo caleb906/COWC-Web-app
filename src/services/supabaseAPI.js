@@ -116,7 +116,12 @@ export const weddingsAPI = {
         couple:profiles!weddings_couple_user_id_fkey(id, full_name, email),
         tasks(*),
         vendors(*),
-        timeline_items(*)
+        timeline_items(*),
+        coordinator_assignments(
+          id,
+          is_lead,
+          coordinator:profiles(id, full_name, email, phone)
+        )
       `)
       .eq('id', id)
       .single()
