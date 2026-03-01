@@ -131,6 +131,7 @@ export const weddingsAPI = {
   },
 
   async getForCouple(userId) {
+    // Fetch weddings where the user is either the primary couple account OR the partner account
     const { data, error } = await supabase
       .from('weddings')
       .select(`
@@ -139,7 +140,7 @@ export const weddingsAPI = {
         vendors(*),
         timeline_items(*)
       `)
-      .eq('couple_user_id', userId)
+      .or(`couple_user_id.eq.${userId},partner_user_id.eq.${userId}`)
 
     if (error) throw error
     return data.map(transformWedding)
@@ -217,6 +218,9 @@ export const weddingsAPI = {
     if (updates.couple_user_id !== undefined) updateData.couple_user_id = updates.couple_user_id
     if (updates.couple_email !== undefined) updateData.couple_email = updates.couple_email
     if (updates.couple_invite_sent_at !== undefined) updateData.couple_invite_sent_at = updates.couple_invite_sent_at
+    if (updates.partner_user_id !== undefined) updateData.partner_user_id = updates.partner_user_id
+    if (updates.partner_email !== undefined) updateData.partner_email = updates.partner_email
+    if (updates.partner_invite_sent_at !== undefined) updateData.partner_invite_sent_at = updates.partner_invite_sent_at
     if (updates.wedding_date !== undefined) updateData.wedding_date = updates.wedding_date
     if (updates.ceremony_time !== undefined) updateData.ceremony_time = updates.ceremony_time
     if (updates.venue_name !== undefined) updateData.venue_name = updates.venue_name
@@ -849,7 +853,7 @@ async function _flushNotifications(weddingId, changedByUserId, changes) {
   try {
     const { data: wedding, error } = await supabase
       .from('weddings')
-      .select('couple_user_id, couple_name, coordinator_assignments(coordinator_id)')
+      .select('couple_user_id, partner_user_id, couple_name, coordinator_assignments(coordinator_id)')
       .eq('id', weddingId)
       .single()
 
@@ -857,6 +861,7 @@ async function _flushNotifications(weddingId, changedByUserId, changes) {
 
     const participantIds = new Set()
     if (wedding.couple_user_id) participantIds.add(wedding.couple_user_id)
+    if (wedding.partner_user_id) participantIds.add(wedding.partner_user_id)
     wedding.coordinator_assignments?.forEach(a => participantIds.add(a.coordinator_id))
     participantIds.delete(changedByUserId) // don't notify yourself
 
@@ -927,6 +932,7 @@ export async function notifyTaskAssigned({ weddingId, assignedByUserId, task, ta
       .from('weddings')
       .select(`
         couple_user_id,
+        partner_user_id,
         couple_name,
         coordinator_assignments(coordinator_id),
         couple:profiles!weddings_couple_user_id_fkey(id, email, full_name)
@@ -936,14 +942,17 @@ export async function notifyTaskAssigned({ weddingId, assignedByUserId, task, ta
 
     if (wErr || !wedding) return { sent: false, coupleEmail: null }
 
-    // 2. Determine who to notify (default: couple + all coordinators except actor)
+    // 2. Determine who to notify (default: couple + partner + all coordinators except actor)
     const recipientIds = new Set()
     if (task.assigned_to === 'couple' && wedding.couple_user_id) {
       recipientIds.add(wedding.couple_user_id)
+      // Also notify the partner if they have an account
+      if (wedding.partner_user_id) recipientIds.add(wedding.partner_user_id)
     } else if (targetUserId) {
       recipientIds.add(targetUserId)
     } else {
       if (wedding.couple_user_id) recipientIds.add(wedding.couple_user_id)
+      if (wedding.partner_user_id) recipientIds.add(wedding.partner_user_id)
       wedding.coordinator_assignments?.forEach(a => recipientIds.add(a.coordinator_id))
     }
     recipientIds.delete(assignedByUserId) // never self-notify
@@ -1011,6 +1020,9 @@ function transformWedding(data) {
     couple_email: data.couple_email || null,
     couple_invite_sent_at: data.couple_invite_sent_at || null,
     couple: data.couple || null,
+    partner_user_id: data.partner_user_id || null,
+    partner_email: data.partner_email || null,
+    partner_invite_sent_at: data.partner_invite_sent_at || null,
     wedding_date: data.wedding_date,
     ceremony_time: data.ceremony_time,
     venue_name: data.venue_name,

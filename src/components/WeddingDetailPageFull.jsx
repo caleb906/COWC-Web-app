@@ -48,6 +48,15 @@ export default function WeddingDetailPageFull() {
   const [showRevokeConfirm, setShowRevokeConfirm] = useState(false)
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
 
+  // Invite partner (second person in couple) state
+  const [showPartnerInviteModal, setShowPartnerInviteModal] = useState(false)
+  const [partnerInviteEmail, setPartnerInviteEmail] = useState('')
+  const [partnerInviteFirstName, setPartnerInviteFirstName] = useState('')
+  const [partnerInviteSending, setPartnerInviteSending] = useState(false)
+  const [partnerInvitedPassword, setPartnerInvitedPassword] = useState(null)
+  const [showRevokePartnerConfirm, setShowRevokePartnerConfirm] = useState(false)
+  const [partnerRevoking, setPartnerRevoking] = useState(false)
+
   // Rentals state (admin view)
   const [rentals, setRentals] = useState([])
   const [rentalsLoading, setRentalsLoading] = useState(false)
@@ -284,6 +293,67 @@ export default function WeddingDetailPageFull() {
       toast.error('Failed to revoke: ' + err.message)
     } finally {
       setInviteRevoking(false)
+    }
+  }
+
+  const handleInvitePartner = async () => {
+    if (!partnerInviteEmail.trim()) { toast.error('Please enter an email address'); return }
+    setPartnerInviteSending(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-couple-invite`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            weddingId: id,
+            email: partnerInviteEmail.trim(),
+            coupleName: wedding.couple_name,
+            inviteType: 'partner',
+            partnerFirstName: partnerInviteFirstName.trim() || null,
+          }),
+        }
+      )
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to send partner invite')
+      setPartnerInvitedPassword(json.tempPassword)
+      await loadWedding()
+    } catch (err) {
+      toast.error('Failed to send partner invite: ' + err.message)
+    } finally {
+      setPartnerInviteSending(false)
+    }
+  }
+
+  const handleRevokePartner = async () => {
+    setPartnerRevoking(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-couple-invite`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ action: 'revoke_partner', weddingId: id }),
+        }
+      )
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to revoke partner access')
+      toast.success('Partner access revoked')
+      setShowRevokePartnerConfirm(false)
+      setShowPartnerInviteModal(false)
+      await loadWedding()
+    } catch (err) {
+      toast.error('Failed to revoke partner: ' + err.message)
+    } finally {
+      setPartnerRevoking(false)
     }
   }
 
@@ -750,6 +820,28 @@ export default function WeddingDetailPageFull() {
                                 <X className="w-4 h-4 text-red-400 flex-shrink-0" />
                                 <span className="text-red-300">Revoke Access</span>
                               </button>
+                            )}
+
+                            {/* Divider + Partner invite */}
+                            {wedding.couple_user_id && (
+                              <>
+                                <div className="border-t border-white/10" />
+                                <button
+                                  onClick={() => {
+                                    setShowSettingsMenu(false)
+                                    setPartnerInviteEmail(wedding.partner_email || '')
+                                    setPartnerInviteFirstName('')
+                                    setPartnerInvitedPassword(null)
+                                    setShowPartnerInviteModal(true)
+                                  }}
+                                  className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-white/10 transition-colors text-left"
+                                >
+                                  {wedding.partner_user_id
+                                    ? <><Check className="w-4 h-4 text-emerald-400 flex-shrink-0" /><span className="text-emerald-300">Partner Portal Active</span></>
+                                    : <><UserPlus className="w-4 h-4 text-cowc-gold flex-shrink-0" /><span className="text-white/80">Invite Partner</span></>
+                                  }
+                                </button>
+                              </>
                             )}
 
                             {/* Couple portal — coordinator + admin */}
@@ -1652,6 +1744,181 @@ export default function WeddingDetailPageFull() {
                 >
                   {inviteRevoking ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
                   Revoke Access
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Invite Partner Modal ──────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showPartnerInviteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            onClick={e => { if (e.target === e.currentTarget) { setShowPartnerInviteModal(false); setPartnerInvitedPassword(null); setPartnerInviteEmail('') } }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-md"
+            >
+              <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-cowc-gold/10 flex items-center justify-center">
+                    <UserPlus className="w-5 h-5 text-cowc-gold" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-serif text-cowc-dark">
+                      {wedding.partner_user_id ? 'Manage Partner Access' : 'Invite Partner'}
+                    </h2>
+                    <p className="text-xs text-cowc-gray">{wedding.couple_name} — second login account</p>
+                  </div>
+                </div>
+                <button onClick={() => { setShowPartnerInviteModal(false); setPartnerInvitedPassword(null); setPartnerInviteEmail('') }} className="p-2 hover:bg-cowc-cream rounded-full">
+                  <X className="w-5 h-5 text-cowc-gray" />
+                </button>
+              </div>
+              {partnerInvitedPassword ? (
+                /* ── Password Reveal ── */
+                <div className="p-6 space-y-5">
+                  <div className="flex flex-col items-center text-center gap-2 pt-2">
+                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6 text-green-500" />
+                    </div>
+                    <p className="text-sm font-semibold text-cowc-dark">Partner account created for</p>
+                    <p className="text-xs text-cowc-gray">{partnerInviteEmail}</p>
+                  </div>
+                  <div className="bg-cowc-cream rounded-2xl p-5 text-center space-y-1">
+                    <p className="text-xs text-cowc-gray uppercase tracking-widest font-semibold">Temporary Password</p>
+                    <p className="font-mono text-3xl font-bold text-cowc-dark tracking-[0.25em] select-all">{partnerInvitedPassword}</p>
+                    <p className="text-xs text-cowc-gray pt-1">Share with the second partner — they can change it after logging in</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(partnerInvitedPassword); toast.success('Password copied!') }}
+                      className="flex-1 py-3 rounded-xl border-2 border-cowc-sand text-cowc-dark font-semibold hover:bg-cowc-cream transition-all flex items-center justify-center gap-2 text-sm"
+                    >
+                      <Copy className="w-4 h-4" />
+                      Copy
+                    </button>
+                    <button
+                      onClick={() => { setShowPartnerInviteModal(false); setPartnerInvitedPassword(null); setPartnerInviteEmail('') }}
+                      className="flex-1 py-3 rounded-xl bg-cowc-gold text-white font-semibold hover:opacity-90 transition-all text-sm"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* ── Email + Name Entry ── */
+                <div className="p-6 space-y-4">
+                  {wedding.partner_invite_sent_at && (
+                    <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                      Partner invite previously sent on {formatDate(wedding.partner_invite_sent_at, 'MMM d, yyyy')}. Sending again will reset their password.
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-semibold text-cowc-dark mb-2">Partner's Email Address</label>
+                    <input
+                      type="email"
+                      value={partnerInviteEmail}
+                      onChange={e => setPartnerInviteEmail(e.target.value)}
+                      placeholder="partner@example.com"
+                      className="input-premium"
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-cowc-dark mb-2">Partner's First Name <span className="text-cowc-gray font-normal">(optional)</span></label>
+                    <input
+                      type="text"
+                      value={partnerInviteFirstName}
+                      onChange={e => setPartnerInviteFirstName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleInvitePartner() }}
+                      placeholder="e.g. Alex"
+                      className="input-premium"
+                    />
+                    <p className="text-xs text-cowc-gray mt-2">Used to personalize their welcome email.</p>
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={() => setShowPartnerInviteModal(false)}
+                      className="flex-1 py-3 rounded-xl border-2 border-cowc-sand text-cowc-gray font-semibold hover:bg-cowc-cream transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleInvitePartner}
+                      disabled={partnerInviteSending || !partnerInviteEmail.trim()}
+                      className="flex-1 py-3 rounded-xl bg-cowc-gold text-white font-semibold hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {partnerInviteSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                      Create Account
+                    </button>
+                  </div>
+                  {wedding.partner_user_id && (
+                    <button
+                      onClick={() => { setShowPartnerInviteModal(false); setShowRevokePartnerConfirm(true) }}
+                      className="w-full text-xs text-red-400 hover:text-red-600 transition-colors text-center pt-1"
+                    >
+                      Revoke partner access
+                    </button>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Revoke Partner Confirmation ───────────────────────────────────── */}
+      <AnimatePresence>
+        {showRevokePartnerConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            onClick={e => { if (e.target === e.currentTarget) setShowRevokePartnerConfirm(false) }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6"
+            >
+              <div className="flex items-start gap-4 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <X className="w-5 h-5 text-red-500" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-serif text-cowc-dark">Revoke Partner Access</h2>
+                  <p className="text-sm text-cowc-gray mt-1">
+                    This will delete {wedding.partner_email ? `${wedding.partner_email}'s` : "the partner's"} account and remove their portal access.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowRevokePartnerConfirm(false)}
+                  className="flex-1 py-3 rounded-xl border-2 border-cowc-sand text-cowc-gray font-semibold hover:bg-cowc-cream transition-all"
+                  disabled={partnerRevoking}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRevokePartner}
+                  disabled={partnerRevoking}
+                  className="flex-1 py-3 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {partnerRevoking ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                  Revoke
                 </button>
               </div>
             </motion.div>

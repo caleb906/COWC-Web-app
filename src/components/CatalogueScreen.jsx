@@ -222,12 +222,13 @@ export default function CatalogueScreen({ onPreviewNavigate } = {}) {
   const loadData = async () => {
     setLoading(true)
     try {
-      // Get this couple's wedding
+      // Get this couple's wedding — works for both primary couple and partner accounts
       const { data: weddingData } = await supabase
         .from('weddings')
         .select('id, couple_name, wedding_date')
-        .eq('couple_user_id', user.id)
-        .single()
+        .or(`couple_user_id.eq.${user.id},partner_user_id.eq.${user.id}`)
+        .limit(1)
+        .maybeSingle()
 
       setWedding(weddingData)
 
