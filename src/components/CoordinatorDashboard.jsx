@@ -86,7 +86,7 @@ export default function CoordinatorDashboard() {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-cowc-dark via-cowc-dark to-gray-800 text-white pt-12 pb-20 px-6 safe-top relative overflow-hidden"
+        className="bg-gradient-to-br from-cowc-dark via-cowc-dark to-gray-800 text-white pt-8 pb-14 px-4 sm:px-6 safe-top relative overflow-hidden"
       >
         {/* Decorative elements */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-cowc-gold opacity-10 rounded-full blur-3xl" />
@@ -217,22 +217,22 @@ export default function CoordinatorDashboard() {
                       <ChevronRight className="w-6 h-6 text-cowc-light-gray group-hover:text-cowc-gold group-hover:translate-x-1 transition-all" />
                     </div>
 
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3 text-cowc-gray">
-                        <Calendar className="w-5 h-5 text-cowc-gold" />
-                        <span className="font-sans">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 text-cowc-gray">
+                        <Calendar className="w-4 h-4 text-cowc-gold flex-shrink-0" />
+                        <span className="font-sans text-sm">
                           {formatDate(wedding.wedding_date, 'EEEE, MMMM d, yyyy')}
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-3 text-cowc-gray">
-                        <MapPin className="w-5 h-5 text-cowc-gold" />
-                        <span className="font-sans">{wedding.venue_name}</span>
+                      <div className="flex items-center gap-2 text-cowc-gray">
+                        <MapPin className="w-4 h-4 text-cowc-gold flex-shrink-0" />
+                        <span className="font-sans text-sm">{wedding.venue_name}</span>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <Clock className="w-5 h-5 text-cowc-gold" />
-                        <span className={`font-sans font-semibold ${
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-cowc-gold flex-shrink-0" />
+                        <span className={`font-sans text-sm font-semibold ${
                           days < 0 ? 'text-cowc-light-gray' :
                           days <= 30 ? 'text-red-500' :
                           'text-cowc-gold'
