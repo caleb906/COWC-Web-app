@@ -104,10 +104,8 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
       setTasks(tasksData)
       setMyReservations(resData || [])
       // Load couple's own vendors
-      if (!isPreview) {
-        const cvData = await coupleVendorsAPI.getByWedding(weddingData.id)
-        setCoupleVendors(cvData)
-      }
+      const cvData = await coupleVendorsAPI.getByWedding(weddingData.id)
+      setCoupleVendors(cvData)
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -132,7 +130,6 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
 
   const handleTaskToggle = async (task) => {
     if (!user || !wedding) return
-    if (isPreview) return // Read-only in preview mode
 
     try {
       const newCompleted = !task.completed
@@ -398,32 +395,31 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
             </p>
             <div className="flex items-center gap-2">
               {!isPreview && <NotificationBell iconColor="white" />}
-              {isPreview ? (
+              {isPreview && (
                 <div className="px-3 py-1.5 rounded-full bg-white/10 text-white/70 text-xs font-semibold tracking-wide">
                   Preview
                 </div>
-              ) : (
-                <>
-                  <button
-                    onClick={() => {
-                      setNewEmail(user?.email || '')
-                      setNewPassword('')
-                      setConfirmPassword('')
-                      setAccountTab('email')
-                      setShowAccountModal(true)
-                    }}
-                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                    aria-label="Account settings"
-                  >
-                    <Settings className="w-4 h-4" />
-                  </button>
-                  <button onClick={handleSignOut}
-                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              )}
+              <>
+                <button
+                  onClick={() => {
+                    setNewEmail(user?.email || '')
+                    setNewPassword('')
+                    setConfirmPassword('')
+                    setAccountTab('email')
+                    setShowAccountModal(true)
+                  }}
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                  aria-label="Account settings"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
+                <button onClick={handleSignOut}
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
                     aria-label="Sign out">
                     <LogOut className="w-4 h-4" />
                   </button>
-                </>
-              )}
+              </>
             </div>
           </div>
 
@@ -850,7 +846,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                         {isSuggested ? '⏳ Pending' : vendor.status === 'confirmed' ? '✓ Confirmed' : 'Booked'}
                       </span>
                     ) : (
-                      !isPreview && (
+                      (
                         <button
                           onClick={() => {
                             setSuggestingSlot(isThisOpen ? null : slot.category)
@@ -950,8 +946,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
           })()}
 
           {/* Suggest another vendor (custom category) */}
-          {!isPreview && (
-            <div className="mt-3">
+          <div className="mt-3">
               {!showCustomVendorForm ? (
                 <button
                   onClick={() => setShowCustomVendorForm(true)}
@@ -1007,12 +1002,10 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                 </motion.div>
               )}
             </div>
-          )}
         </motion.div>
 
         {/* ── My Vendors ────────────────────────────────────────────────────── */}
-        {!isPreview && (
-          <motion.div
+        <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.34 }}
@@ -1226,8 +1219,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                 No vendors added yet — tap Add to get started.
               </p>
             )}
-          </motion.div>
-        )}
+        </motion.div>
 
         {/* Inspiration photos */}
         {wedding.theme?.inspiration_photos?.length > 0 && (
