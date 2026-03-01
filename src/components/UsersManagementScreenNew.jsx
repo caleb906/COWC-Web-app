@@ -449,7 +449,7 @@ export default function UsersManagementScreenNew() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-lg mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden"
+              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-lg mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
             >
               {/* Modal header */}
               <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
@@ -470,7 +470,7 @@ export default function UsersManagementScreenNew() {
                 </button>
               </div>
 
-              <form onSubmit={handleAddUser} className="px-6 py-5 space-y-4">
+              <form onSubmit={handleAddUser} className="px-6 py-5 space-y-4 overflow-y-auto">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <label className="block text-xs font-semibold text-cowc-dark mb-1.5">Full Name *</label>
@@ -553,7 +553,7 @@ export default function UsersManagementScreenNew() {
                   </div>
                 )}
 
-                <div className="flex gap-3 pt-1">
+                <div className="flex gap-3 pt-1 pb-1">
                   <button
                     type="button"
                     onClick={() => { setShowAddModal(false); setCreatedUser(null) }}

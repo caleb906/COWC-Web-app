@@ -86,7 +86,7 @@ function StatusPill({ wedding, onStatusChange }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.95 }}
             transition={{ duration: 0.12 }}
-            className="absolute left-0 top-8 w-36 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50"
+            className="absolute left-0 top-8 w-36 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-[200]"
           >
             {PIPELINE_STAGES.filter(s => s.value !== 'all').map((s) => (
               <button
@@ -146,7 +146,7 @@ function CoordinatorPill({ wedding, coordinators, onAssign }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.95 }}
             transition={{ duration: 0.12 }}
-            className="absolute left-0 top-8 w-44 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50"
+            className="absolute left-0 top-8 w-44 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-[200]"
           >
             {coordinators.length === 0 && (
               <p className="text-xs text-gray-400 px-3 py-3">No coordinators found</p>
@@ -197,7 +197,7 @@ function WeddingFeaturedCard({ wedding, i, navigate, handleStatusChange, coordin
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: i * 0.05 }}
       onClick={() => navigate(`/wedding/${wedding.id}`)}
-      className="bg-cowc-dark rounded-3xl p-7 cursor-pointer group hover:shadow-xl transition-all active:scale-[0.99] relative overflow-hidden mb-4"
+      className="bg-cowc-dark rounded-3xl p-7 cursor-pointer group hover:shadow-xl transition-all active:scale-[0.99] relative mb-4"
     >
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: 'radial-gradient(ellipse at 90% 10%, rgba(212,165,116,0.12) 0%, transparent 60%)' }} />
@@ -806,7 +806,7 @@ export default function AdminDashboard() {
                         )}
                       </div>
                     ) : (
-                      <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
+                      <div className="bg-white rounded-2xl shadow-sm overflow-visible divide-y divide-gray-50">
                         {group.weddings.map(wedding => <WeddingListRow key={wedding.id} wedding={wedding} navigate={navigate} handleStatusChange={handleStatusChange} coordinators={allCoordinators} onAssign={handleAssignCoordinator} />)}
                       </div>
                     )}
@@ -828,7 +828,7 @@ export default function AdminDashboard() {
             </div>
           ) : (
             /* ── Flat list (single-status filter) ── */
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
+            <div className="bg-white rounded-2xl shadow-sm overflow-visible divide-y divide-gray-50">
               {activeWeddings.map(wedding => (
                 <WeddingListRow key={wedding.id} wedding={wedding} navigate={navigate} handleStatusChange={handleStatusChange} coordinators={allCoordinators} onAssign={handleAssignCoordinator} />
               ))}
