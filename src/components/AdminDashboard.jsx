@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../stores/appStore'
 import { weddingsAPI, vendorsAPI } from '../services/unifiedAPI'
-import { coordinatorAssignmentsAPI, profilesAPI } from '../services/supabaseAPI'
+import { coordinatorAssignmentsAPI, usersAPI as profilesAPI } from '../services/supabaseAPI'
 import { supabase } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { formatDate, daysUntil } from '../utils/dates'
