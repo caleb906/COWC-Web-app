@@ -142,50 +142,80 @@ export default function CoordinatorDashboard() {
       {/* ── Content ──────────────────────────────────────────── */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 -mt-4 relative z-20 space-y-5">
 
-        {/* ── Featured: next upcoming wedding ── */}
+        {/* ── Featured: next upcoming wedding — Option C dark card ── */}
         {nextWedding && (() => {
           const days = daysUntil(nextWedding.wedding_date)
-          const isUrgent = days <= 30
+          const isUrgent = days >= 0 && days <= 30
+          const pkg = nextWedding.package_type
+          const pkgLabel = pkg === 'FP' ? 'Full Planning' : pkg === 'PP' ? 'Partial Planning' : pkg === 'DOC' ? 'Day of Coordination' : pkg || null
+          const tasksDone = (nextWedding.tasks || []).filter(t => t.completed).length
+          const tasksTotal = (nextWedding.tasks || []).length
+
           return (
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              onClick={() => navigate(`/wedding/${nextWedding.id}`)}
-              className="bg-white rounded-3xl shadow-lg overflow-hidden cursor-pointer active:scale-[0.99] transition-transform"
             >
-              {/* Top accent bar */}
-              <div className="h-1 w-full" style={{ background: isUrgent ? '#ef4444' : '#c9a96e' }} />
-              <div className="px-5 py-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs uppercase tracking-wider font-semibold text-cowc-gray mb-1">
-                      {isUrgent ? '⚡ Coming up soon' : 'Next wedding'}
-                    </p>
-                    <h2 className="font-serif text-2xl text-cowc-dark leading-tight">{nextWedding.couple_name}</h2>
-                    <div className="flex items-center gap-2 mt-2 text-xs text-cowc-gray">
-                      <Calendar className="w-3.5 h-3.5 text-cowc-gold flex-shrink-0" />
-                      <span>{formatDate(nextWedding.wedding_date, 'EEEE, MMMM d, yyyy')}</span>
+              <p className={`text-xs uppercase tracking-widest font-semibold mb-3 ${isUrgent ? 'text-red-400' : 'text-cowc-gold'}`}>
+                {isUrgent ? '⚡ Coming up soon' : 'Your next wedding'}
+              </p>
+              <div
+                onClick={() => navigate(`/wedding/${nextWedding.id}`)}
+                className="bg-cowc-dark rounded-3xl p-7 cursor-pointer group hover:shadow-xl transition-all active:scale-[0.99] relative overflow-hidden"
+              >
+                <div className="absolute inset-0 pointer-events-none"
+                  style={{ background: 'radial-gradient(ellipse at 90% 10%, rgba(212,165,116,0.12) 0%, transparent 60%)' }} />
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between mb-5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {pkgLabel && (
+                        <span className="text-xs uppercase tracking-wider font-semibold px-3 py-1.5 rounded-full bg-white/10 text-white/80">
+                          {pkgLabel}
+                        </span>
+                      )}
                     </div>
-                    {nextWedding.venue_name && (
-                      <div className="flex items-center gap-2 mt-1 text-xs text-cowc-gray">
-                        <MapPin className="w-3.5 h-3.5 text-cowc-gold flex-shrink-0" />
-                        <span className="truncate">{nextWedding.venue_name}</span>
-                      </div>
-                    )}
+                    <div className="text-right flex-shrink-0">
+                      <p className={`font-serif text-4xl font-light leading-none ${isUrgent ? 'text-red-300' : 'text-cowc-gold'}`}>
+                        {days === 0 ? '🎊' : days}
+                      </p>
+                      <p className="text-white/40 text-xs mt-1">{days === 0 ? 'today' : 'days'}</p>
+                    </div>
                   </div>
-                  {/* Countdown */}
-                  <div className="text-right flex-shrink-0">
-                    <span className={`text-5xl font-serif font-light leading-none ${isUrgent ? 'text-red-500' : 'text-cowc-gold'}`}>
-                      {days === 0 ? '🎊' : days}
-                    </span>
-                    <p className="text-[11px] text-cowc-gray mt-1">{days === 0 ? 'today' : days === 1 ? 'day' : 'days'}</p>
+
+                  <h2 className="font-serif text-3xl font-light text-white group-hover:text-cowc-gold transition-colors mb-1">
+                    {nextWedding.couple_name}
+                  </h2>
+                  <p className="text-white/50 text-sm mb-5">
+                    {formatDate(nextWedding.wedding_date, 'EEEE, MMMM d, yyyy')}
+                    {nextWedding.venue_name && ` · ${nextWedding.venue_name}`}
+                  </p>
+
+                  <div className="flex items-center gap-6 flex-wrap mb-5">
+                    <div>
+                      <p className="text-white/40 text-xs uppercase tracking-wider">Tasks left</p>
+                      <p className="text-white/80 text-sm mt-0.5">{tasksTotal - tasksDone} open</p>
+                    </div>
+                    <div>
+                      <p className="text-white/40 text-xs uppercase tracking-wider">Venue</p>
+                      <p className="text-white/80 text-sm mt-0.5">{nextWedding.venue_name || 'Not set'}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="mt-4 flex items-center justify-end">
-                  <span className="text-xs font-semibold text-cowc-gold flex items-center gap-1">
-                    Open wedding <ChevronRight className="w-3.5 h-3.5" />
-                  </span>
+
+                  <div className="flex gap-3 pt-5 border-t border-white/10" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => navigate(`/wedding/${nextWedding.id}`)}
+                      className="flex-1 py-2.5 rounded-xl bg-cowc-gold text-white text-sm font-semibold hover:opacity-90 transition"
+                    >
+                      Open wedding
+                    </button>
+                    <button
+                      onClick={() => navigate(`/wedding/${nextWedding.id}/timeline`)}
+                      className="flex-1 py-2.5 rounded-xl bg-white/10 text-white/80 text-sm font-semibold hover:bg-white/20 transition"
+                    >
+                      View timeline
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -211,12 +241,13 @@ export default function CoordinatorDashboard() {
               <p className="text-cowc-gray text-sm">No weddings assigned yet</p>
             </div>
           ) : (
-            <div className="bg-white rounded-3xl shadow-sm overflow-hidden divide-y divide-gray-50">
+            <div className="bg-white rounded-3xl shadow-sm overflow-hidden divide-y divide-cowc-sand">
               {sortedWeddings.map((wedding, index) => {
                 const days = daysUntil(wedding.wedding_date)
                 const lead = isLead(wedding)
                 const isUrgent = days >= 0 && days <= 30
                 const isPast = days < 0
+                const wDate = wedding.wedding_date ? new Date(wedding.wedding_date + 'T00:00:00') : null
 
                 return (
                   <motion.button
@@ -225,16 +256,25 @@ export default function CoordinatorDashboard() {
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.05 + index * 0.04 }}
                     onClick={() => navigate(`/wedding/${wedding.id}`)}
-                    className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-gray-50 transition-colors active:scale-[0.99] group"
+                    className="w-full flex items-center gap-5 px-5 py-4 text-left hover:bg-cowc-cream transition-colors active:scale-[0.99] group"
                   >
-                    {/* Urgency dot */}
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                      isPast ? 'bg-gray-200' : isUrgent ? 'bg-red-400' : 'bg-cowc-gold'
-                    }`} />
+                    {/* Date block */}
+                    {wDate ? (
+                      <div className="w-12 text-center flex-shrink-0">
+                        <p className="font-serif text-2xl font-light text-cowc-dark leading-none">{wDate.getDate()}</p>
+                        <p className="text-xs text-cowc-light-gray uppercase tracking-wide mt-0.5">
+                          {wDate.toLocaleString('default', { month: 'short' })}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="w-12 text-center flex-shrink-0">
+                        <p className="text-xs text-cowc-light-gray">—</p>
+                      </div>
+                    )}
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="font-serif text-cowc-dark text-base md:text-lg truncate group-hover:text-cowc-gold transition-colors">
+                        <p className="font-serif text-lg text-cowc-dark truncate group-hover:text-cowc-gold transition-colors">
                           {wedding.couple_name}
                         </p>
                         {lead && (
@@ -244,22 +284,15 @@ export default function CoordinatorDashboard() {
                         )}
                       </div>
                       <p className="text-sm text-cowc-gray mt-0.5">
-                        {formatDate(wedding.wedding_date, 'MMM d, yyyy')}
+                        {wedding.package_type === 'FP' ? 'Full Planning' : wedding.package_type === 'PP' ? 'Partial Planning' : wedding.package_type === 'DOC' ? 'Day of Coord' : ''}
                         {wedding.venue_name && ` · ${wedding.venue_name}`}
+                        {days !== null && <span className={` · ${isPast ? 'text-cowc-light-gray' : isUrgent ? 'text-red-500' : 'text-cowc-gold'} font-medium`}>
+                          {isPast ? `${Math.abs(days)}d ago` : days === 0 ? 'Today' : `${days}d`}
+                        </span>}
                       </p>
                     </div>
 
-                    {/* Days badge */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                        isPast    ? 'bg-gray-100 text-cowc-gray' :
-                        isUrgent  ? 'bg-red-50 text-red-600' :
-                                    'bg-cowc-gold/10 text-cowc-gold'
-                      }`}>
-                        {isPast ? `${Math.abs(days)}d ago` : days === 0 ? 'Today' : `${days}d`}
-                      </span>
-                      <ChevronRight className="w-4 h-4 text-gray-200 group-hover:text-cowc-gold transition-colors" />
-                    </div>
+                    <ChevronRight className="w-4 h-4 text-cowc-light-gray group-hover:text-cowc-gold transition-colors flex-shrink-0" />
                   </motion.button>
                 )
               })}

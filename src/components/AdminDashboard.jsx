@@ -108,95 +108,138 @@ function StatusPill({ wedding, onStatusChange }) {
 }
 
 // ─── Shared card sub-components ─────────────────────────────────────────────
-function WeddingGridCard({ wedding, i, navigate, handleStatusChange }) {
+
+// Featured (first in group) — dark, prominent
+function WeddingFeaturedCard({ wedding, i, navigate, handleStatusChange }) {
   const days = daysUntil(wedding.wedding_date)
-  const progress = wedding.totalTasks > 0
-    ? (wedding.tasksCompleted / wedding.totalTasks) * 100 : 0
+  const isUrgent = days >= 0 && days <= 30
 
   return (
     <motion.div
-      key={wedding.id}
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ delay: i * 0.05 }}
       onClick={() => navigate(`/wedding/${wedding.id}`)}
-      className="bg-white rounded-2xl p-5 shadow-sm cursor-pointer group relative overflow-hidden hover:shadow-md transition-shadow active:scale-[0.99]"
+      className="bg-cowc-dark rounded-3xl p-7 cursor-pointer group hover:shadow-xl transition-all active:scale-[0.99] relative overflow-hidden mb-4"
     >
-      <div className="absolute top-0 left-0 right-0 h-1"
-        style={{ backgroundColor: wedding.theme.primary }} />
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse at 90% 10%, rgba(212,165,116,0.12) 0%, transparent 60%)' }} />
 
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex-1 min-w-0 pr-3">
-          <h3 className="text-xl font-serif text-cowc-dark group-hover:text-cowc-gold transition-colors truncate">
-            {wedding.couple_name}
-          </h3>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <p className="text-xs text-cowc-light-gray">{wedding.theme.vibe}</p>
-            <PackageBadge packageType={wedding.package_type} />
+      <div className="relative z-10">
+        <div className="flex items-start justify-between mb-5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs uppercase tracking-wider font-semibold px-3 py-1.5 rounded-full bg-white/10 text-white/80">
+              {wedding.package_type === 'FP' ? 'Full Planning' : wedding.package_type === 'PP' ? 'Partial Planning' : wedding.package_type === 'DOC' ? 'Day of Coordination' : wedding.package_type || '—'}
+            </span>
+            {isUrgent && <span className="text-xs font-semibold text-red-300">⚡ Coming up</span>}
+          </div>
+          <StatusPill wedding={wedding} onStatusChange={handleStatusChange} />
+        </div>
+
+        <h3 className="font-serif text-3xl font-light text-white group-hover:text-cowc-gold transition-colors mb-1">
+          {wedding.couple_name}
+        </h3>
+        <p className="text-white/50 text-sm mb-5">{wedding.theme?.vibe}</p>
+
+        <div className="flex items-center gap-8 flex-wrap">
+          <div>
+            <p className="text-white/40 text-xs uppercase tracking-wider">Date</p>
+            <p className="text-white/80 text-sm mt-0.5">{formatDate(wedding.wedding_date, 'MMM d, yyyy')}</p>
+          </div>
+          <div>
+            <p className="text-white/40 text-xs uppercase tracking-wider">Coordinator</p>
+            <p className="text-white/80 text-sm mt-0.5">
+              {wedding.coordinatorNames?.length > 0 ? wedding.coordinatorNames[0].replace(' ✦', '') : 'Not assigned'}
+            </p>
+          </div>
+          <div>
+            <p className="text-white/40 text-xs uppercase tracking-wider">Tasks</p>
+            <p className="text-white/80 text-sm mt-0.5">{wedding.tasksCompleted} / {wedding.totalTasks}</p>
+          </div>
+          <div className="ml-auto text-right">
+            <p className={`font-serif text-4xl font-light leading-none ${isUrgent ? 'text-red-300' : days < 0 ? 'text-white/30' : 'text-cowc-gold'}`}>
+              {days < 0 ? Math.abs(days) : days === 0 ? '🎊' : days}
+            </p>
+            <p className="text-white/40 text-xs mt-1">
+              {days < 0 ? 'days ago' : days === 0 ? 'today' : 'days'}
+            </p>
           </div>
         </div>
-        <StatusPill wedding={wedding} onStatusChange={handleStatusChange} />
-      </div>
-
-      <div className="space-y-2 mb-4 text-sm text-cowc-gray">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-cowc-gold flex-shrink-0" />
-          {formatDate(wedding.wedding_date, 'MMM d, yyyy')}
-        </div>
-        <div className="flex items-center gap-2">
-          <Users className="w-4 h-4 text-cowc-gold flex-shrink-0" />
-          <span className="truncate">
-            {wedding.coordinatorNames?.length > 0 ? wedding.coordinatorNames[0] : 'No coordinator'}
-          </span>
-        </div>
-      </div>
-
-      <div className="mb-2">
-        <div className="flex justify-between text-xs text-cowc-gray mb-1">
-          <span>Tasks</span>
-          <span>{wedding.tasksCompleted}/{wedding.totalTasks}</span>
-        </div>
-        <div className="h-1.5 bg-cowc-sand rounded-full overflow-hidden">
-          <div className="h-full transition-all duration-500"
-            style={{ width: `${progress}%`, backgroundColor: wedding.theme.primary }} />
-        </div>
-      </div>
-
-      <div className={`text-xs font-semibold mt-2 ${
-        days < 0 ? 'text-cowc-light-gray' :
-        days <= 30 ? 'text-red-500' : 'text-cowc-gold'
-      }`}>
-        {days < 0 ? `${Math.abs(days)} days ago` : days === 0 ? 'Today!' : `${days} days away`}
       </div>
     </motion.div>
   )
 }
 
+// Standard 2-col card — minimal info
+function WeddingGridCard({ wedding, i, navigate, handleStatusChange }) {
+  const days = daysUntil(wedding.wedding_date)
+  const isUrgent = days >= 0 && days <= 30
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: i * 0.04 }}
+      onClick={() => navigate(`/wedding/${wedding.id}`)}
+      className="bg-white rounded-2xl p-6 shadow-sm cursor-pointer group border border-transparent hover:border-cowc-gold/30 hover:shadow-md transition-all active:scale-[0.99]"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+          wedding.package_type === 'FP'  ? 'bg-amber-50 text-amber-700' :
+          wedding.package_type === 'PP'  ? 'bg-purple-50 text-purple-700' :
+          wedding.package_type === 'DOC' ? 'bg-sky-50 text-sky-700' :
+          'bg-gray-100 text-gray-600'
+        }`}>
+          {wedding.package_type === 'FP' ? 'Full Planning' : wedding.package_type === 'PP' ? 'Partial Planning' : wedding.package_type === 'DOC' ? 'Day of Coord' : wedding.package_type || '—'}
+        </span>
+        <div className="flex items-center gap-2">
+          <span className={`text-sm font-semibold ${
+            days < 0 ? 'text-cowc-light-gray' : isUrgent ? 'text-red-500' : 'text-cowc-gold'
+          }`}>
+            {days < 0 ? `${Math.abs(days)}d ago` : days === 0 ? 'Today' : `${days}d`}
+          </span>
+          <StatusPill wedding={wedding} onStatusChange={handleStatusChange} />
+        </div>
+      </div>
+
+      <h3 className="font-serif text-xl font-light text-cowc-dark group-hover:text-cowc-gold transition-colors mb-1">
+        {wedding.couple_name}
+      </h3>
+      <p className="text-sm text-cowc-gray">{formatDate(wedding.wedding_date, 'MMM d, yyyy')} · {wedding.theme?.vibe}</p>
+    </motion.div>
+  )
+}
+
 function WeddingListRow({ wedding, navigate, handleStatusChange }) {
+  const days = daysUntil(wedding.wedding_date)
+  const isUrgent = days >= 0 && days <= 30
   return (
     <div
       onClick={() => navigate(`/wedding/${wedding.id}`)}
-      className="p-5 hover:bg-gray-50 transition-colors cursor-pointer flex items-center justify-between gap-4 active:scale-[0.99]"
+      className="p-5 hover:bg-gray-50 transition-colors cursor-pointer flex items-center gap-5 active:scale-[0.99]"
     >
-      <div className="flex items-center gap-4 flex-1 min-w-0">
-        <div className="w-1 h-12 rounded-full flex-shrink-0"
-          style={{ backgroundColor: wedding.theme.primary }} />
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-lg font-serif text-cowc-dark truncate">{wedding.couple_name}</h3>
-            <PackageBadge packageType={wedding.package_type} />
-          </div>
-          <p className="text-sm text-cowc-gray">
-            {formatDate(wedding.wedding_date)} · {wedding.venue_name}
-          </p>
-        </div>
-      </div>
-      <div className="flex items-center gap-4 flex-shrink-0">
-        <p className="text-sm text-cowc-gray hidden md:block">
-          {wedding.tasksCompleted}/{wedding.totalTasks} tasks
+      <div className="w-14 text-center flex-shrink-0">
+        <p className="font-serif text-2xl font-light text-cowc-dark leading-none">
+          {wedding.wedding_date ? new Date(wedding.wedding_date + 'T00:00:00').getDate() : '—'}
         </p>
-        <StatusPill wedding={wedding} onStatusChange={handleStatusChange} />
+        <p className="text-xs text-cowc-light-gray uppercase tracking-wide mt-0.5">
+          {wedding.wedding_date ? new Date(wedding.wedding_date + 'T00:00:00').toLocaleString('default', { month: 'short' }) : ''}
+        </p>
       </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <h3 className="font-serif text-lg text-cowc-dark truncate group-hover:text-cowc-gold transition-colors">{wedding.couple_name}</h3>
+          <PackageBadge packageType={wedding.package_type} />
+        </div>
+        <p className="text-sm text-cowc-gray mt-0.5">
+          {wedding.theme?.vibe}{wedding.venue_name ? ` · ${wedding.venue_name}` : ''}
+          {days !== null && <span className={` · ${isUrgent ? 'text-red-500' : 'text-cowc-gold'} font-medium`}>
+            {days < 0 ? `${Math.abs(days)}d ago` : days === 0 ? 'Today' : `${days}d away`}
+          </span>}
+        </p>
+      </div>
+      <StatusPill wedding={wedding} onStatusChange={handleStatusChange} />
+      <ChevronRight className="w-4 h-4 text-cowc-light-gray flex-shrink-0" />
     </div>
   )
 }
@@ -607,8 +650,17 @@ export default function AdminDashboard() {
                     </div>
 
                     {view === 'grid' ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {group.weddings.map((wedding, i) => <WeddingGridCard key={wedding.id} wedding={wedding} i={i} navigate={navigate} handleStatusChange={handleStatusChange} />)}
+                      <div>
+                        {/* First wedding: featured dark card */}
+                        <WeddingFeaturedCard key={group.weddings[0].id} wedding={group.weddings[0]} i={0} navigate={navigate} handleStatusChange={handleStatusChange} />
+                        {/* Rest: 2-col minimal cards */}
+                        {group.weddings.length > 1 && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {group.weddings.slice(1).map((wedding, i) => (
+                              <WeddingGridCard key={wedding.id} wedding={wedding} i={i + 1} navigate={navigate} handleStatusChange={handleStatusChange} />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
@@ -620,11 +672,16 @@ export default function AdminDashboard() {
               })}
             </div>
           ) : view === 'grid' ? (
-            /* ── Flat grid (single-status filter) ── */
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {activeWeddings.map((wedding, i) => (
-                <WeddingGridCard key={wedding.id} wedding={wedding} i={i} navigate={navigate} handleStatusChange={handleStatusChange} />
-              ))}
+            /* ── Flat grid (single-status filter) — Option C: first featured, rest 2-col ── */
+            <div>
+              <WeddingFeaturedCard wedding={activeWeddings[0]} i={0} navigate={navigate} handleStatusChange={handleStatusChange} />
+              {activeWeddings.length > 1 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {activeWeddings.slice(1).map((wedding, i) => (
+                    <WeddingGridCard key={wedding.id} wedding={wedding} i={i + 1} navigate={navigate} handleStatusChange={handleStatusChange} />
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             /* ── Flat list (single-status filter) ── */

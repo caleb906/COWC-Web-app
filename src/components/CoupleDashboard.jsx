@@ -512,60 +512,60 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                     <p className="text-sm text-cowc-gray">Your tasks will appear here once your coordinator assigns them.</p>
                   </div>
 
-                ) : (
-                  /* Task list */
-                  <div className="bg-white rounded-3xl shadow-sm overflow-hidden">
-                    {/* Header */}
-                    <div className="px-5 pt-5 pb-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs uppercase tracking-wider font-semibold text-cowc-gray">What's next</p>
-                        <p className="font-serif text-cowc-dark text-lg leading-tight mt-0.5">
-                          {overdueTasks.length > 0
-                            ? <span className="text-red-500">{overdueTasks.length} overdue</span>
-                            : `${sortedPending.length} task${sortedPending.length !== 1 ? 's' : ''} remaining`}
-                        </p>
-                      </div>
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{ background: softRing }}>
-                        <span className="font-serif text-lg font-light" style={{ color: accent }}>
-                          {sortedPending.length}
-                        </span>
+                ) : (() => {
+                  /* Featured next task — Option C dark card style */
+                  const nextTask = sortedPending[0]
+                  const overdue = isPastDue(nextTask.due_date)
+                  const remaining = sortedPending.length - 1
+                  return (
+                    <div>
+                      <p className={`text-xs uppercase tracking-widest font-semibold mb-3 ${overdue ? 'text-red-400' : 'text-cowc-gold'}`}
+                        style={!overdue ? { color: accent } : {}}>
+                        {overdue ? '⚠️ Overdue' : '⚡ What\'s next'}
+                      </p>
+                      <div
+                        className="rounded-3xl p-7 relative overflow-hidden"
+                        style={{ backgroundColor: '#2d3748' }}
+                      >
+                        <div className="absolute inset-0 pointer-events-none"
+                          style={{ background: `radial-gradient(ellipse at 90% 10%, ${primaryAlpha(theme.primary, 0.15)} 0%, transparent 60%)` }} />
+                        <div className="relative z-10">
+                          <p className="text-white/40 text-xs uppercase tracking-wider mb-2">
+                            {overdue ? `Due ${formatDate(nextTask.due_date, 'MMM d')}` : nextTask.due_date ? `Due ${formatDate(nextTask.due_date, 'MMM d')}` : 'No due date'}
+                          </p>
+                          <h3 className="font-serif text-2xl font-light text-white mb-1 leading-snug">
+                            {nextTask.title}
+                          </h3>
+                          {nextTask.description && (
+                            <p className="text-white/50 text-sm mb-5 leading-relaxed line-clamp-2">{nextTask.description}</p>
+                          )}
+                          <div className="flex items-center gap-3 mt-5 pt-5 border-t border-white/10">
+                            <button
+                              onClick={() => handleTaskToggle(nextTask)}
+                              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90"
+                              style={{ backgroundColor: accent }}
+                            >
+                              Mark complete
+                            </button>
+                            {remaining > 0 && (
+                              <button
+                                onClick={() => setActiveTab('timeline')}
+                                className="flex-1 py-2.5 rounded-xl bg-white/10 text-white/80 text-sm font-semibold hover:bg-white/20 transition"
+                              >
+                                +{remaining} more task{remaining !== 1 ? 's' : ''}
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
-
-                    {/* Task rows */}
-                    <div className="divide-y divide-gray-50">
-                      {sortedPending.map((task, i) => {
-                        const overdue = isPastDue(task.due_date)
-                        return (
-                          <button key={task.id} onClick={() => handleTaskToggle(task)}
-                            className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors text-left active:scale-[0.99]">
-                            {/* Checkbox circle */}
-                            <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                              overdue ? 'border-red-400' : 'border-gray-200'
-                            }`} style={!overdue ? { borderColor: primaryAlpha(theme.primary, 0.4) } : {}}>
-                              {overdue && <div className="w-2 h-2 rounded-full bg-red-400" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-base font-medium text-cowc-dark truncate">{task.title}</p>
-                              {task.due_date && (
-                                <p className={`text-xs mt-0.5 ${overdue ? 'text-red-500 font-semibold' : 'text-cowc-gray'}`}>
-                                  {overdue ? 'Overdue · ' : ''}Due {formatDate(task.due_date, 'MMM d')}
-                                </p>
-                              )}
-                            </div>
-                            <ChevronRight className="w-4 h-4 text-gray-200 flex-shrink-0" />
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
+                  )
+                })()}
               </motion.div>
 
               {/* ── 2. QUICK LINKS ── */}
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}
-                className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                className="grid grid-cols-2 gap-3">
                 {[
                   { label: 'Timeline',  sub: 'Day-of schedule',  Icon: Calendar,    tab: 'timeline' },
                   { label: 'Vendors',   sub: 'Your vendor team', Icon: Users,       tab: 'vendors' },
@@ -574,16 +574,14 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                 ].map(({ label, sub, Icon, tab, path }) => (
                   <button key={label}
                     onClick={() => tab ? setActiveTab(tab) : safeNavigate(path)}
-                    className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-[0.97]
-                      py-5 flex flex-col items-center gap-2
-                      md:p-4 md:flex-row md:items-center md:gap-3">
+                    className="bg-white rounded-2xl shadow-sm hover:shadow-md hover:border-cowc-gold/20 border border-transparent transition-all active:scale-[0.97] p-5 flex flex-col items-start gap-3">
                     <div className="rounded-2xl flex items-center justify-center flex-shrink-0"
-                      style={{ width: 48, height: 48, background: softRing }}>
-                      <Icon className="w-5 h-5 md:w-6 md:h-6" style={{ color: accent }} />
+                      style={{ width: 52, height: 52, background: softRing }}>
+                      <Icon className="w-6 h-6" style={{ color: accent }} />
                     </div>
-                    <div className="text-center md:text-left">
-                      <span className="font-serif text-sm md:text-base text-cowc-dark leading-tight block">{label}</span>
-                      <span className="hidden md:block text-xs text-cowc-gray mt-0.5">{sub}</span>
+                    <div className="text-left">
+                      <span className="font-serif text-base text-cowc-dark leading-tight block">{label}</span>
+                      <span className="text-xs text-cowc-gray mt-0.5 block">{sub}</span>
                     </div>
                   </button>
                 ))}
@@ -593,16 +591,18 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
               {coordinator && (
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}
                   className="bg-white rounded-3xl shadow-sm overflow-hidden">
+                  {/* Accent top stripe */}
+                  <div className="h-1 w-full" style={{ background: heroBg }} />
                   <div className="px-5 pt-5 pb-4">
                     <p className="text-xs uppercase tracking-wider font-semibold text-cowc-gray mb-3">Your coordinator</p>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                       {/* Avatar */}
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 text-white font-serif text-xl"
+                      <div className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 text-white font-serif text-2xl"
                         style={{ background: heroBg }}>
                         {coordName.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-cowc-dark leading-tight">{coordName}</p>
+                        <p className="font-serif text-lg text-cowc-dark leading-tight">{coordName}</p>
                         <p className="text-xs text-cowc-gray mt-0.5">Lead coordinator</p>
                       </div>
                     </div>

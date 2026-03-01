@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wedding Card Layout Options</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'cowc-gold': '#d4a574',
+            'cowc-cream': '#faf9f7',
+            'cowc-sand': '#e8dfd6',
+            'cowc-dark': '#2d3748',
+            'cowc-gray': '#718096',
+            'cowc-light-gray': '#a0aec0',
+          },
+          fontFamily: {
+            serif: ['Cormorant Garamond', 'Georgia', 'serif'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #faf9f7; }
+    .serif { font-family: 'Cormorant Garamond', Georgia, serif; }
+  </style>
+</head>
+<body class="min-h-screen bg-cowc-cream">
+
+  <!-- Nav between options -->
+  <div class="sticky top-0 z-50 bg-cowc-dark shadow-lg">
+    <div class="max-w-7xl mx-auto px-6 py-3 flex items-center gap-3">
+      <span class="text-white/60 text-sm font-medium mr-2">Layout options:</span>
+      <a href="#option-a" class="px-4 py-1.5 rounded-full bg-cowc-gold text-white text-sm font-medium hover:opacity-90 transition">A · Magazine Grid</a>
+      <a href="#option-b" class="px-4 py-1.5 rounded-full bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition">B · Editorial List</a>
+      <a href="#option-c" class="px-4 py-1.5 rounded-full bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition">C · Big Feature</a>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────────────────── -->
+  <!-- OPTION A: Magazine Grid (2-col, bigger cards, minimal info) -->
+  <!-- ─────────────────────────────────────────── -->
+  <section id="option-a" class="max-w-7xl mx-auto px-6 pt-12 pb-20">
+    <div class="mb-8">
+      <span class="text-xs uppercase tracking-widest font-semibold text-cowc-gold">Option A</span>
+      <h2 class="serif text-4xl font-light text-cowc-dark mt-1">Magazine Grid</h2>
+      <p class="text-cowc-gray mt-1">2 columns · bigger cards · less info · easy to scan</p>
+    </div>
+
+    <div class="flex items-center justify-between mb-6">
+      <h3 class="serif text-3xl font-light text-cowc-dark">Weddings <span class="text-cowc-light-gray text-2xl">25</span></h3>
+      <div class="flex gap-2">
+        <button class="px-4 py-2 rounded-full border border-cowc-sand text-sm text-cowc-gray hover:border-cowc-gold transition">By Status</button>
+        <button class="px-4 py-2 rounded-full border border-cowc-sand text-sm text-cowc-gray hover:border-cowc-gold transition">By Date</button>
+        <button class="px-4 py-2 rounded-full bg-cowc-dark text-white text-sm">All Types</button>
+      </div>
+    </div>
+
+    <!-- Status pills -->
+    <div class="flex gap-2 mb-8 flex-wrap">
+      <button class="px-4 py-1.5 rounded-full bg-cowc-dark text-white text-sm font-medium">All <span class="opacity-60">25</span></button>
+      <button class="px-4 py-1.5 rounded-full bg-cowc-cream border border-cowc-sand text-cowc-gray text-sm">● Planning <span class="font-medium text-cowc-dark">23</span></button>
+      <button class="px-4 py-1.5 rounded-full bg-cowc-cream border border-cowc-sand text-cowc-gray text-sm">● Signed <span class="font-medium text-cowc-dark">0</span></button>
+      <button class="px-4 py-1.5 rounded-full bg-cowc-cream border border-cowc-sand text-cowc-gray text-sm">● Completed <span class="font-medium text-cowc-dark">1</span></button>
+    </div>
+
+    <!-- Group label -->
+    <div class="flex items-center gap-4 mb-5">
+      <div class="w-2 h-2 rounded-full bg-amber-400"></div>
+      <span class="text-sm font-semibold text-cowc-dark uppercase tracking-wider">Planning</span>
+      <span class="text-sm text-cowc-light-gray">23 weddings</span>
+      <div class="flex-1 h-px bg-cowc-sand"></div>
+    </div>
+
+    <!-- 2-col grid -->
+    <div class="grid grid-cols-2 gap-5">
+
+      <!-- Card -->
+      <div class="bg-white rounded-2xl p-7 shadow-sm hover:shadow-md transition-all cursor-pointer group border border-transparent hover:border-cowc-gold/20">
+        <div class="flex items-start justify-between mb-4">
+          <span class="text-xs uppercase tracking-wider font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-600">Day of Coordination</span>
+          <span class="text-sm text-cowc-light-gray">45 days</span>
+        </div>
+        <h4 class="serif text-2xl font-light text-cowc-dark group-hover:text-cowc-gold transition-colors mb-1">Cade & Brennah</h4>
+        <p class="text-cowc-gray text-sm mb-4">Earthy Elegance</p>
+        <div class="flex items-center gap-2 text-cowc-gray">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+          <span class="text-sm">Apr 14, 2026</span>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-7 shadow-sm hover:shadow-md transition-all cursor-pointer group border border-transparent hover:border-cowc-gold/20">
+        <div class="flex items-start justify-between mb-4">
+          <span class="text-xs uppercase tracking-wider font-semibold px-3 py-1 rounded-full bg-purple-50 text-purple-600">Full Planning</span>
+          <span class="text-sm text-cowc-light-gray">70 days</span>
+        </div>
+        <h4 class="serif text-2xl font-light text-cowc-dark group-hover:text-cowc-gold transition-colors mb-1">Paige Lovely & Jared Weaver</h4>
+        <p class="text-cowc-gray text-sm mb-4">Classic Elegant</p>
+        <div class="flex items-center gap-2 text-cowc-gray">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+          <span class="text-sm">May 9, 2026</span>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-7 shadow-sm hover:shadow-md transition-all cursor-pointer group border border-transparent hover:border-cowc-gold/20">
+        <div class="flex items-start justify-between mb-4">
+          <span class="text-xs uppercase tracking-wider font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-600">Day of Coordination</span>
+          <span class="text-sm text-cowc-light-gray">64 days</span>
+        </div>
+        <h4 class="serif text-2xl font-light text-cowc-dark group-hover:text-cowc-gold transition-colors mb-1">Lena & Jeffery</h4>
+        <p class="text-cowc-gray text-sm mb-4">Classic Elegant</p>
+        <div class="flex items-center gap-2 text-cowc-gray">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+          <span class="text-sm">May 23, 2026</span>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-7 shadow-sm hover:shadow-md transition-all cursor-pointer group border border-transparent hover:border-cowc-gold/20">
+        <div class="flex items-start justify-between mb-4">
+          <span class="text-xs uppercase tracking-wider font-semibold px-3 py-1 rounded-full bg-green-50 text-green-600">Partial Planning</span>
+          <span class="text-sm text-cowc-light-gray">91 days</span>
+        </div>
+        <h4 class="serif text-2xl font-light text-cowc-dark group-hover:text-cowc-gold transition-colors mb-1">Darren Ayoub & Aubin Fefley</h4>
+        <p class="text-cowc-gray text-sm mb-4">Serene Botanical</p>
+        <div class="flex items-center gap-2 text-cowc-gray">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+          <span class="text-sm">May 30, 2026</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ─────────────────────────────────────────── -->
+  <!-- OPTION B: Editorial List (single column, full-width rows) -->
+  <!-- ─────────────────────────────────────────── -->
+  <section id="option-b" class="bg-white border-t-4 border-cowc-sand">
+  <div class="max-w-7xl mx-auto px-6 pt-12 pb-20">
+    <div class="mb-8">
+      <span class="text-xs uppercase tracking-widest font-semibold text-cowc-gold">Option B</span>
+      <h2 class="serif text-4xl font-light text-cowc-dark mt-1">Editorial List</h2>
+      <p class="text-cowc-gray mt-1">Full-width rows · date left · status right · fast to skim</p>
+    </div>
+
+    <div class="flex items-center justify-between mb-8">
+      <h3 class="serif text-3xl font-light text-cowc-dark">Weddings <span class="text-cowc-light-gray text-2xl">25</span></h3>
+    </div>
+
+    <!-- Group label -->
+    <div class="flex items-center gap-4 mb-4">
+      <div class="w-2 h-2 rounded-full bg-amber-400"></div>
+      <span class="text-sm font-semibold text-cowc-dark uppercase tracking-wider">Planning</span>
+      <span class="text-sm text-cowc-light-gray">23 weddings</span>
+      <div class="flex-1 h-px bg-cowc-sand"></div>
+    </div>
+
+    <!-- List rows -->
+    <div class="divide-y divide-cowc-sand">
+
+      <div class="flex items-center gap-6 py-5 group cursor-pointer hover:bg-cowc-cream -mx-6 px-6 transition-colors">
+        <!-- Date block -->
+        <div class="w-16 text-center flex-shrink-0">
+          <p class="serif text-2xl font-light text-cowc-dark leading-none">14</p>
+          <p class="text-xs text-cowc-gray uppercase tracking-wide mt-0.5">Apr</p>
+        </div>
+        <!-- Couple info -->
+        <div class="flex-1 min-w-0">
+          <h4 class="serif text-xl font-light text-cowc-dark group-hover:text-cowc-gold transition-colors">Cade & Brennah</h4>
+          <p class="text-sm text-cowc-gray mt-0.5">Earthy Elegance · 45 days away</p>
+        </div>
+        <!-- Service badge -->
+        <span class="flex-shrink-0 text-xs uppercase tracking-wider font-semibold px-3 py-1.5 rounded-full bg-blue-50 text-blue-600">Day of Coordination</span>
+        <!-- Arrow -->
+        <svg class="w-5 h-5 text-cowc-light-gray group-hover:text-cowc-gold transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7" /></svg>
+      </div>
+
+      <div class="flex items-center gap-6 py-5 group cursor-pointer hover:bg-cowc-cream -mx-6 px-6 transition-colors">
+        <div class="w-16 text-center flex-shrink-0">
+          <p class="serif text-2xl font-light text-cowc-dark leading-none">9</p>
+          <p class="text-xs text-cowc-gray uppercase tracking-wide mt-0.5">May</p>
+        </div>
+        <div class="flex-1 min-w-0">
+          <h4 class="serif text-xl font-light text-cowc-dark group-hover:text-cowc-gold transition-colors">Paige Lovely & Jared Weaver</h4>
+          <p class="text-sm text-cowc-gray mt-0.5">Classic Elegant · 70 days away</p>
+        </div>
+        <span class="flex-shrink-0 text-xs uppercase tracking-wider font-semibold px-3 py-1.5 rounded-full bg-purple-50 text-purple-600">Full Planning</span>
+        <svg class="w-5 h-5 text-cowc-light-gray group-hover:text-cowc-gold transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7" /></svg>
+      </div>
+
+      <div class="flex items-center gap-6 py-5 group cursor-pointer hover:bg-cowc-cream -mx-6 px-6 transition-colors">
+        <div class="w-16 text-center flex-shrink-0">
+          <p class="serif text-2xl font-light text-cowc-dark leading-none">23</p>
+          <p class="text-xs text-cowc-gray uppercase tracking-wide mt-0.5">May</p>
+        </div>
+        <div class="flex-1 min-w-0">
+          <h4 class="serif text-xl font-light text-cowc-dark group-hover:text-cowc-gold transition-colors">Lena & Jeffery</h4>
+          <p class="text-sm text-cowc-gray mt-0.5">Classic Elegant · 64 days away</p>
+        </div>
+        <span class="flex-shrink-0 text-xs uppercase tracking-wider font-semibold px-3 py-1.5 rounded-full bg-blue-50 text-blue-600">Day of Coordination</span>
+        <svg class="w-5 h-5 text-cowc-light-gray group-hover:text-cowc-gold transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7" /></svg>
+      </div>
+
+      <div class="flex items-center gap-6 py-5 group cursor-pointer hover:bg-cowc-cream -mx-6 px-6 transition-colors">
+        <div class="w-16 text-center flex-shrink-0">
+          <p class="serif text-2xl font-light text-cowc-dark leading-none">30</p>
+          <p class="text-xs text-cowc-gray uppercase tracking-wide mt-0.5">May</p>
+        </div>
+        <div class="flex-1 min-w-0">
+          <h4 class="serif text-xl font-light text-cowc-dark group-hover:text-cowc-gold transition-colors">Darren Ayoub & Aubin Fefley</h4>
+          <p class="text-sm text-cowc-gray mt-0.5">Serene Botanical · 91 days away</p>
+        </div>
+        <span class="flex-shrink-0 text-xs uppercase tracking-wider font-semibold px-3 py-1.5 rounded-full bg-green-50 text-green-600">Partial Planning</span>
+        <svg class="w-5 h-5 text-cowc-light-gray group-hover:text-cowc-gold transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7" /></svg>
+      </div>
+
+      <div class="flex items-center gap-6 py-5 group cursor-pointer hover:bg-cowc-cream -mx-6 px-6 transition-colors">
+        <div class="w-16 text-center flex-shrink-0">
+          <p class="serif text-2xl font-light text-cowc-dark leading-none">6</p>
+          <p class="text-xs text-cowc-gray uppercase tracking-wide mt-0.5">Jun</p>
+        </div>
+        <div class="flex-1 min-w-0">
+          <h4 class="serif text-xl font-light text-cowc-dark group-hover:text-cowc-gold transition-colors">Laura Bays & Duane Altrig</h4>
+          <p class="text-sm text-cowc-gray mt-0.5">Classic Elegant · 98 days away</p>
+        </div>
+        <span class="flex-shrink-0 text-xs uppercase tracking-wider font-semibold px-3 py-1.5 rounded-full bg-purple-50 text-purple-600">Full Planning</span>
+        <svg class="w-5 h-5 text-cowc-light-gray group-hover:text-cowc-gold transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7" /></svg>
+      </div>
+
+      <div class="flex items-center gap-6 py-5 group cursor-pointer hover:bg-cowc-cream -mx-6 px-6 transition-colors">
+        <div class="w-16 text-center flex-shrink-0">
+          <p class="serif text-2xl font-light text-cowc-dark leading-none">20</p>
+          <p class="text-xs text-cowc-gray uppercase tracking-wide mt-0.5">Jun</p>
+        </div>
+        <div class="flex-1 min-w-0">
+          <h4 class="serif text-xl font-light text-cowc-dark group-hover:text-cowc-gold transition-colors">Jodi & Bryce</h4>
+          <p class="text-sm text-cowc-gray mt-0.5">Classic Elegant · 112 days away</p>
+        </div>
+        <span class="flex-shrink-0 text-xs uppercase tracking-wider font-semibold px-3 py-1.5 rounded-full bg-purple-50 text-purple-600">Full Planning</span>
+        <svg class="w-5 h-5 text-cowc-light-gray group-hover:text-cowc-gold transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7" /></svg>
+      </div>
+
+    </div>
+  </div>
+  </section>
+
+
+  <!-- ─────────────────────────────────────────── -->
+  <!-- OPTION C: Big Feature — first card full width, then 2-col -->
+  <!-- ─────────────────────────────────────────── -->
+  <section id="option-c" class="border-t-4 border-cowc-sand">
+  <div class="max-w-7xl mx-auto px-6 pt-12 pb-20">
+    <div class="mb-8">
+      <span class="text-xs uppercase tracking-widest font-semibold text-cowc-gold">Option C</span>
+      <h2 class="serif text-4xl font-light text-cowc-dark mt-1">Big Feature</h2>
+      <p class="text-cowc-gray mt-1">Next wedding featured large · rest in 2-col · makes the urgent feel urgent</p>
+    </div>
+
+    <div class="flex items-center justify-between mb-8">
+      <h3 class="serif text-3xl font-light text-cowc-dark">Weddings <span class="text-cowc-light-gray text-2xl">25</span></h3>
+    </div>
+
+    <!-- FEATURED: next up -->
+    <div class="mb-6">
+      <p class="text-xs uppercase tracking-widest font-semibold text-cowc-gold mb-3">⚡ Next up — 45 days</p>
+      <div class="bg-cowc-dark rounded-3xl p-8 cursor-pointer group hover:shadow-xl transition-all">
+        <div class="flex items-start justify-between mb-6">
+          <span class="text-xs uppercase tracking-wider font-semibold px-3 py-1.5 rounded-full bg-white/10 text-white/80">Day of Coordination</span>
+          <span class="text-white/50 text-sm">Apr 14, 2026</span>
+        </div>
+        <h4 class="serif text-4xl font-light text-white group-hover:text-cowc-gold transition-colors mb-2">Cade & Brennah</h4>
+        <p class="text-white/50 text-base mb-6">Earthy Elegance</p>
+        <div class="flex items-center gap-6">
+          <div>
+            <p class="text-white/40 text-xs uppercase tracking-wider">Coordinator</p>
+            <p class="text-white/80 text-sm mt-0.5">Not assigned</p>
+          </div>
+          <div>
+            <p class="text-white/40 text-xs uppercase tracking-wider">Tasks</p>
+            <p class="text-white/80 text-sm mt-0.5">0 / 0</p>
+          </div>
+          <div>
+            <p class="text-white/40 text-xs uppercase tracking-wider">Venue</p>
+            <p class="text-white/80 text-sm mt-0.5">Not set</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Remaining in 2-col -->
+    <div class="mb-3">
+      <p class="text-xs uppercase tracking-widest font-semibold text-cowc-gray">Upcoming</p>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+
+      <div class="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer group border border-transparent hover:border-cowc-gold/30">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs uppercase tracking-wider font-semibold px-2.5 py-1 rounded-full bg-purple-50 text-purple-600">Full Planning</span>
+          <span class="text-sm text-cowc-light-gray font-medium">70d</span>
+        </div>
+        <h4 class="serif text-xl font-light text-cowc-dark group-hover:text-cowc-gold transition-colors mb-1">Paige Lovely & Jared Weaver</h4>
+        <p class="text-sm text-cowc-gray">May 9 · Classic Elegant</p>
+      </div>
+
+      <div class="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer group border border-transparent hover:border-cowc-gold/30">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs uppercase tracking-wider font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-600">Day of Coord</span>
+          <span class="text-sm text-cowc-light-gray font-medium">64d</span>
+        </div>
+        <h4 class="serif text-xl font-light text-cowc-dark group-hover:text-cowc-gold transition-colors mb-1">Lena & Jeffery</h4>
+        <p class="text-sm text-cowc-gray">May 23 · Classic Elegant</p>
+      </div>
+
+      <div class="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer group border border-transparent hover:border-cowc-gold/30">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs uppercase tracking-wider font-semibold px-2.5 py-1 rounded-full bg-green-50 text-green-600">Partial Planning</span>
+          <span class="text-sm text-cowc-light-gray font-medium">91d</span>
+        </div>
+        <h4 class="serif text-xl font-light text-cowc-dark group-hover:text-cowc-gold transition-colors mb-1">Darren Ayoub & Aubin Fefley</h4>
+        <p class="text-sm text-cowc-gray">May 30 · Serene Botanical</p>
+      </div>
+
+      <div class="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer group border border-transparent hover:border-cowc-gold/30">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs uppercase tracking-wider font-semibold px-2.5 py-1 rounded-full bg-purple-50 text-purple-600">Full Planning</span>
+          <span class="text-sm text-cowc-light-gray font-medium">98d</span>
+        </div>
+        <h4 class="serif text-xl font-light text-cowc-dark group-hover:text-cowc-gold transition-colors mb-1">Laura Bays & Duane Altrig</h4>
+        <p class="text-sm text-cowc-gray">Jun 6 · Classic Elegant</p>
+      </div>
+
+      <div class="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer group border border-transparent hover:border-cowc-gold/30">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs uppercase tracking-wider font-semibold px-2.5 py-1 rounded-full bg-purple-50 text-purple-600">Full Planning</span>
+          <span class="text-sm text-cowc-light-gray font-medium">112d</span>
+        </div>
+        <h4 class="serif text-xl font-light text-cowc-dark group-hover:text-cowc-gold transition-colors mb-1">Jodi & Bryce</h4>
+        <p class="text-sm text-cowc-gray">Jun 20 · Classic Elegant</p>
+      </div>
+
+      <div class="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer group border border-transparent hover:border-cowc-gold/30">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs uppercase tracking-wider font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-600">Day of Coord</span>
+          <span class="text-sm text-cowc-light-gray font-medium">112d</span>
+        </div>
+        <h4 class="serif text-xl font-light text-cowc-dark group-hover:text-cowc-gold transition-colors mb-1">Annika & Mario</h4>
+        <p class="text-sm text-cowc-gray">Jun 20 · Soft Elegance</p>
+      </div>
+
+    </div>
+  </div>
+  </section>
+
+  <!-- Footer CTA -->
+  <div class="bg-cowc-dark py-12 text-center">
+    <p class="text-white/50 text-sm mb-2">Which layout do you want to build?</p>
+    <p class="serif text-3xl font-light text-white">A · Magazine Grid &nbsp;&nbsp; B · Editorial List &nbsp;&nbsp; C · Big Feature</p>
+  </div>
+
+</body>
+</html>
