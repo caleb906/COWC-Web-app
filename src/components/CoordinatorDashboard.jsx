@@ -127,24 +127,26 @@ export default function CoordinatorDashboard() {
             </div>
           </div>
 
-          {/* Stats Card */}
+          {/* Stats Card — inline horizontal layout */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-5 sm:p-8 text-center"
+            className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg px-6 py-4 sm:px-8 sm:py-6 flex items-center gap-4"
           >
-            <div className="flex items-center justify-center mb-2 sm:mb-4">
-              <Heart className="w-6 h-6 sm:w-8 sm:h-8 text-cowc-gold fill-cowc-gold" />
-            </div>
-            <div className="text-4xl sm:text-6xl font-serif font-light text-cowc-dark mb-1 sm:mb-2">
-              {upcomingCount}
-            </div>
-            <div className="text-base sm:text-xl text-cowc-dark mb-0.5 sm:mb-1">
-              Upcoming {upcomingCount === 1 ? 'Wedding' : 'Weddings'}
-            </div>
-            <div className="text-xs sm:text-sm text-cowc-gray uppercase tracking-wider">
-              Next 6 Months
+            <Heart className="w-8 h-8 sm:w-10 sm:h-10 text-cowc-gold fill-cowc-gold flex-shrink-0" />
+            <div className="flex items-baseline gap-2 flex-1">
+              <span className="text-4xl sm:text-5xl font-serif font-light text-cowc-dark leading-none">
+                {upcomingCount}
+              </span>
+              <div>
+                <div className="text-sm sm:text-base text-cowc-dark font-medium leading-tight">
+                  Upcoming {upcomingCount === 1 ? 'Wedding' : 'Weddings'}
+                </div>
+                <div className="text-[11px] text-cowc-gray uppercase tracking-wider">
+                  Next 6 Months
+                </div>
+              </div>
             </div>
           </motion.div>
         </div>
