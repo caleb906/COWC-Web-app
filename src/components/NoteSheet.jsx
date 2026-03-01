@@ -19,8 +19,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  X, Mic, MicOff, Square, ChevronDown,
-  Loader2, CheckCircle2, SkipForward, Pencil,
+  X, Mic, Square, ChevronDown,
+  CheckCircle2, SkipForward, Pencil,
   Store, Clock, ListChecks, RefreshCw,
   CheckCheck, AlertCircle, WifiOff,
 } from 'lucide-react'
@@ -28,10 +28,12 @@ import { supabase } from '../lib/supabase'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const SUPABASE_URL    = import.meta.env.VITE_SUPABASE_URL
-const PROCESS_FN      = `${SUPABASE_URL}/functions/v1/process-coordinator-note`
-const TRANSCRIBE_FN   = `${SUPABASE_URL}/functions/v1/transcribe-audio`
-const SUPABASE_ANON   = import.meta.env.VITE_SUPABASE_ANON_KEY
+const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL
+const PROCESS_FN    = `${SUPABASE_URL}/functions/v1/process-coordinator-note`
+const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+// Browser Speech Recognition (Chrome / Edge / Safari 15+) — free, no API key
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null
 
 // Map suggestion type → icon + label
 const TYPE_META = {
@@ -282,13 +284,12 @@ export default function NoteSheet({ open, onClose, weddings = [], defaultWedding
   const [charCount, setCharCount]                 = useState(0)
 
   // ── Recording state ──────────────────────────────────────────────────────
-  const [recording, setRecording]       = useState(false)
-  const [recordSecs, setRecordSecs]     = useState(0)
-  const [transcribing, setTranscribing] = useState(false)
-  const [recordError, setRecordError]   = useState(null)
-  const mediaRecorder  = useRef(null)
-  const audioChunks    = useRef([])
+  const [recording, setRecording]   = useState(false)
+  const [recordSecs, setRecordSecs] = useState(0)
+  const [recordError, setRecordError] = useState(null)
+  const recognitionRef = useRef(null)
   const recordTimer    = useRef(null)
+  const interimRef     = useRef('')   // live partial transcript (not yet appended)
 
   // ── Review state ─────────────────────────────────────────────────────────
   const [suggestions, setSuggestions]   = useState([])
@@ -315,77 +316,82 @@ export default function NoteSheet({ open, onClose, weddings = [], defaultWedding
       setRecordError(null)
       setRecordSecs(0)
       setShowWeddingPicker(false)
+      interimRef.current = ''
     }
   }, [open, defaultWeddingId])
 
-  // ── Clean up recording if sheet closed mid-record ────────────────────────
+  // ── Clean up if sheet closed mid-record ──────────────────────────────────
   useEffect(() => {
-    if (!open && recording) stopRecording(false)
+    if (!open && recording) stopRecording()
   }, [open]) // eslint-disable-line
 
-  // ── Recording helpers ────────────────────────────────────────────────────
-  const startRecording = useCallback(async () => {
+  // ── Speech recognition helpers ───────────────────────────────────────────
+  const startRecording = useCallback(() => {
     setRecordError(null)
+    if (!SpeechRecognition) {
+      setRecordError('Speech recognition is not supported in this browser. Try Chrome or Edge.')
+      return
+    }
+    const sr = new SpeechRecognition()
+    sr.continuous      = true   // keep listening until stopped
+    sr.interimResults  = true   // show partial results in real-time
+    sr.lang            = 'en-US'
+    recognitionRef.current = sr
+    interimRef.current     = ''
+
+    sr.onresult = (e) => {
+      let finalChunk = ''
+      let interimChunk = ''
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript
+        if (e.results[i].isFinal) finalChunk += t + ' '
+        else interimChunk += t
+      }
+      // Append finalized words to the textarea immediately
+      if (finalChunk) {
+        setNoteText(prev => {
+          const sep = prev.trim() && !prev.endsWith(' ') && !prev.endsWith('\n') ? ' ' : ''
+          return prev + sep + finalChunk
+        })
+        setCharCount(prev => prev + finalChunk.length)
+      }
+      interimRef.current = interimChunk
+    }
+
+    sr.onerror = (e) => {
+      if (e.error === 'not-allowed') {
+        setRecordError('Microphone access was denied. Please allow mic access and try again.')
+      } else if (e.error !== 'aborted') {
+        setRecordError(`Speech recognition error: ${e.error}`)
+      }
+      stopRecording()
+    }
+
+    sr.onend = () => {
+      // Auto-restart if still in recording state (Chrome stops after ~60s silence)
+      if (recognitionRef.current && recording) {
+        try { sr.start() } catch (_) { /* ignore */ }
+      }
+    }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg'
-      const mr = new MediaRecorder(stream, { mimeType })
-      mediaRecorder.current = mr
-      audioChunks.current   = []
-      mr.ondataavailable = e => { if (e.data.size > 0) audioChunks.current.push(e.data) }
-      mr.start(250)
+      sr.start()
       setRecording(true)
       setRecordSecs(0)
       recordTimer.current = setInterval(() => setRecordSecs(s => s + 1), 1000)
     } catch (err) {
-      setRecordError(err.name === 'NotAllowedError'
-        ? 'Microphone access was denied. Please allow mic access and try again.'
-        : `Could not start recording: ${err.message}`)
+      setRecordError(`Could not start: ${err.message}`)
     }
-  }, [])
+  }, [recording])
 
-  const stopRecording = useCallback((andTranscribe = true) => {
+  const stopRecording = useCallback(() => {
     clearInterval(recordTimer.current)
     setRecording(false)
     setRecordSecs(0)
-    const mr = mediaRecorder.current
-    if (!mr) return
-    if (andTranscribe) {
-      mr.onstop = async () => {
-        const blob = new Blob(audioChunks.current, { type: mr.mimeType })
-        mr.stream?.getTracks().forEach(t => t.stop())
-        mediaRecorder.current = null
-        setTranscribing(true)
-        try {
-          const fd = new FormData()
-          fd.append('audio', blob, `recording.${mr.mimeType.includes('ogg') ? 'ogg' : 'webm'}`)
-          const res = await fetch(TRANSCRIBE_FN, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${SUPABASE_ANON}` },
-            body: fd,
-          })
-          const json = await res.json()
-          if (!res.ok || json.error) throw new Error(json.error || 'Transcription failed')
-          if (json.transcript) {
-            setNoteText(prev => {
-              const sep = prev.trim() ? '\n\n' : ''
-              return prev + sep + json.transcript
-            })
-            setCharCount(prev => prev + json.transcript.length)
-          }
-        } catch (err) {
-          setRecordError(`Transcription failed: ${err.message}`)
-        } finally {
-          setTranscribing(false)
-        }
-      }
-      mr.stop()
-    } else {
-      mr.stream?.getTracks().forEach(t => t.stop())
-      if (mr.state !== 'inactive') mr.stop()
-      mediaRecorder.current = null
+    interimRef.current = ''
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop() } catch (_) { /* ignore */ }
+      recognitionRef.current = null
     }
   }, [])
 
@@ -568,36 +574,34 @@ export default function NoteSheet({ open, onClose, weddings = [], defaultWedding
                   )}
 
                   {/* Record strip */}
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     {recording ? (
                       <>
                         <button
-                          onClick={() => stopRecording(true)}
+                          onClick={stopRecording}
                           className="flex items-center gap-2 bg-red-500 text-white px-4 py-2.5 rounded-xl font-medium text-sm hover:bg-red-600 transition-colors"
                         >
                           <Square className="w-4 h-4 fill-white" />
-                          Stop & Transcribe
+                          Stop
                         </button>
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                           <span className="text-sm font-mono text-gray-600">{formatSecs(recordSecs)}</span>
+                          <span className="text-xs text-gray-400">Listening…</span>
                         </div>
                       </>
-                    ) : transcribing ? (
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <Loader2 className="w-4 h-4 animate-spin text-cowc-gold" />
-                        Transcribing…
-                      </div>
                     ) : (
                       <button
                         onClick={startRecording}
                         className="flex items-center gap-2 bg-gray-100 text-gray-600 px-4 py-2.5 rounded-xl text-sm hover:bg-gray-200 transition-colors"
                       >
                         <Mic className="w-4 h-4" />
-                        Record audio
+                        Speak note
                       </button>
                     )}
-                    <span className="text-xs text-gray-400">Transcription only — audio is never saved</span>
+                    {!recording && (
+                      <span className="text-xs text-gray-400">Words appear as you speak — nothing is recorded</span>
+                    )}
                   </div>
                 </div>
 
