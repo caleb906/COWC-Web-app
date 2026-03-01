@@ -357,21 +357,24 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
   return (
     <div className="min-h-screen pb-24" style={{ background: pageBg }}>
 
-      {/* ── Hero Header ─────────────────────────────────────── */}
+      {/* ── Hero — couple identity + countdown as the centrepiece ── */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="relative text-white overflow-hidden"
         style={{ background: heroBg }}
       >
-        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full blur-3xl opacity-20 pointer-events-none" style={{ background: 'white' }} />
-        <div className="absolute -bottom-16 -left-16 w-72 h-72 rounded-full blur-3xl opacity-10 pointer-events-none" style={{ background: 'white' }} />
+        {/* Subtle radial glow top-right */}
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse at 80% 10%, rgba(255,255,255,0.18) 0%, transparent 60%)' }} />
+        {/* Soft glow bottom-left */}
+        <div className="absolute -bottom-20 -left-20 w-72 h-72 rounded-full blur-3xl opacity-10 pointer-events-none"
+          style={{ background: 'white' }} />
 
-        {/* Single nav bar — couple name centred, icons right */}
-        <div className="relative z-10 max-w-lg mx-auto px-4 pt-3 pb-7">
-          <div className="flex items-center gap-2">
+        <div className="relative z-10 max-w-lg mx-auto px-5">
 
-            {/* Left slot — notification bell or preview badge */}
+          {/* Minimal top bar — icons only, don't compete with the hero */}
+          <div className="flex items-center justify-between pt-12 pb-0">
             <div className="flex-shrink-0">
               {!isPreview && <NotificationBell iconColor="white" />}
               {isPreview && (
@@ -380,14 +383,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                 </div>
               )}
             </div>
-
-            {/* Centre — couple name */}
-            <h1 className="flex-1 text-center text-xl font-serif font-light tracking-widest text-white truncate">
-              {wedding.couple_name}
-            </h1>
-
-            {/* Right — settings + signout */}
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => {
                   setNewEmail(user?.email || '')
@@ -409,71 +405,72 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
+          </div>
 
+          {/* Couple name + countdown — the real hero */}
+          <div className="text-center pt-5 pb-10">
+            <p className="text-white/60 text-[11px] uppercase tracking-[0.2em] mb-2">
+              {days < 0 ? 'Married' : days === 0 ? 'Wedding Day' : 'Counting down'}
+            </p>
+
+            {days > 0 ? (
+              <motion.div
+                initial={{ scale: 0.85, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.1, type: 'spring', stiffness: 180 }}
+              >
+                <span className="text-[88px] font-serif font-light leading-none text-white block">{days}</span>
+                <span className="text-white/70 text-sm uppercase tracking-widest -mt-2 block">
+                  {days === 1 ? 'day' : 'days'} to go
+                </span>
+              </motion.div>
+            ) : (
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.1 }}
+                className="text-5xl font-serif font-light text-white"
+              >
+                {days === 0 ? '🎊 Today!' : '🎉'}
+              </motion.div>
+            )}
+
+            <h1 className="mt-5 text-2xl font-serif font-light tracking-widest text-white">
+              {wedding.couple_name}
+            </h1>
+
+            <div className="flex items-center justify-center gap-2 mt-2 text-white/55 text-xs">
+              <span>{formatDate(wedding.wedding_date, 'MMMM d, yyyy')}</span>
+              {wedding.venue_name && (
+                <>
+                  <span>·</span>
+                  <span className="truncate max-w-[140px]">{wedding.venue_name}</span>
+                </>
+              )}
+            </div>
+
+            {/* Progress bar — elegant, lives in the hero, part of the story */}
+            {totalCount > 0 && (
+              <div className="mt-6 mx-auto max-w-[220px]">
+                <div className="h-[3px] rounded-full overflow-hidden bg-white/20">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progress}%` }}
+                    transition={{ delay: 0.5, duration: 0.9, ease: 'easeOut' }}
+                    className="h-full rounded-full bg-white/80"
+                  />
+                </div>
+                <p className="text-white/50 text-[11px] mt-1.5 tracking-wide">
+                  {completedCount} of {totalCount} tasks complete
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </motion.div>
 
       {/* ── Tab Content ─────────────────────────────────────────── */}
-      <div className="max-w-lg mx-auto px-4 -mt-5 relative z-20 space-y-3">
-
-        {/* Countdown card — overlaps hero */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="bg-white rounded-2xl shadow-lg overflow-hidden"
-        >
-          <div className="flex items-center gap-3 px-4 py-3">
-            {/* Big number */}
-            <div className="flex-shrink-0 w-16 text-right">
-              <span className="text-4xl font-serif font-light leading-none" style={{ color: accent }}>
-                {days < 0 ? '🎉' : days === 0 ? '🎊' : days}
-              </span>
-            </div>
-            <div className="w-px h-10 bg-gray-100 flex-shrink-0" />
-            {/* Label + meta */}
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-cowc-dark text-sm leading-tight mb-0.5">
-                {days < 0 ? 'Congratulations!' : days === 0 ? "It's your wedding day!" : `day${days !== 1 ? 's' : ''} until your wedding`}
-              </p>
-              <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs text-cowc-gray">
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-3 h-3 flex-shrink-0" style={{ color: accent }} />
-                  <span>{formatDate(wedding.wedding_date, 'MMM d, yyyy')}</span>
-                </div>
-                {wedding.venue_name && (
-                  <>
-                    <span className="text-cowc-light-gray">·</span>
-                    <div className="flex items-center gap-1 min-w-0">
-                      <MapPin className="w-3 h-3 flex-shrink-0" style={{ color: accent }} />
-                      <span className="truncate">{wedding.venue_name}</span>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-          {/* Progress bar integrated into card bottom */}
-          {totalCount > 0 && (
-            <div className="border-t border-gray-50 px-4 py-2.5 flex items-center gap-3">
-              <div className="flex-1">
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: primaryAlpha(theme.primary, 0.12) }}>
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progress}%` }}
-                    transition={{ delay: 0.4, duration: 0.7 }}
-                    className="h-full rounded-full"
-                    style={{ background: accent }}
-                  />
-                </div>
-              </div>
-              <span className="text-xs font-semibold flex-shrink-0" style={{ color: accent }}>
-                {completedCount}/{totalCount} tasks
-              </span>
-            </div>
-          )}
-        </motion.div>
+      <div className="max-w-lg mx-auto px-4 -mt-4 relative z-20 space-y-3">
 
         {/* ── HOME TAB ─────────────────────────────────────── */}
         {activeTab === 'home' && (<>
