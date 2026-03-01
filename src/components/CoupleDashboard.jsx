@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Home, Heart, Calendar, MapPin, CheckCircle2, Circle, LogOut, ChevronRight, ExternalLink, X, Users, ShoppingBag, Palette, Package, Camera, Video, Flower2, Music2, UtensilsCrossed, Cake, Sparkles, BookOpen, Building2, Car, Settings, Loader2, Eye, EyeOff, Plus, Trash2, Upload, FileText, Search, Check, Phone, Mail, ChevronDown, ChevronUp } from 'lucide-react'
+import { Home, Heart, Calendar, MapPin, CheckCircle2, Circle, LogOut, ChevronRight, ExternalLink, X, Users, ShoppingBag, Palette, Package, Camera, Video, Flower2, Music2, UtensilsCrossed, Cake, Sparkles, BookOpen, Building2, Car, Settings, Loader2, Eye, EyeOff, Plus, Trash2, Upload, FileText, Search, Check, Phone, Mail, ChevronDown, ChevronUp, Pencil } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 import { useAuthStore } from '../stores/appStore'
 import { weddingsAPI, tasksAPI, vendorsAPI, logChangeAndNotify } from '../services/unifiedAPI'
@@ -77,6 +77,9 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
   const [cvSaving, setCvSaving] = useState(false)
   const [cvUploadingId, setCvUploadingId] = useState(null)
   const [cvExpandedId, setCvExpandedId] = useState(null)
+  const [cvEditingId, setCvEditingId] = useState(null)
+  const [cvEditForm, setCvEditForm] = useState({ name: '', category: '', phone: '', email: '', notes: '' })
+  const [cvEditSaving, setCvEditSaving] = useState(false)
 
   // Palette editing
   const [editingPalette, setEditingPalette] = useState(false)
@@ -243,6 +246,29 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
       setCoupleVendors(prev => prev.filter(x => x.id !== id))
       toast.success('Vendor removed')
     } catch { toast.error('Failed to remove vendor') }
+  }
+
+  const handleCvStartEdit = (v) => {
+    setCvEditForm({ name: v.name, category: v.category || '', phone: v.phone || '', email: v.email || '', notes: v.notes || '' })
+    setCvEditingId(v.id)
+  }
+
+  const handleCvUpdate = async () => {
+    if (!cvEditForm.name.trim() || !cvEditForm.category) return
+    setCvEditSaving(true)
+    try {
+      const updated = await coupleVendorsAPI.update(cvEditingId, {
+        name: cvEditForm.name.trim(),
+        category: cvEditForm.category,
+        phone: cvEditForm.phone,
+        email: cvEditForm.email,
+        notes: cvEditForm.notes,
+      })
+      setCoupleVendors(prev => prev.map(x => x.id === cvEditingId ? updated : x))
+      setCvEditingId(null)
+      toast.success('Vendor updated!')
+    } catch (err) { toast.error(err.message || 'Failed to update vendor') }
+    finally { setCvEditSaving(false) }
   }
 
   const handleSignOut = async () => {
@@ -1140,41 +1166,103 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                             className="overflow-hidden"
                           >
                             <div className="px-4 pb-4 space-y-3 bg-gray-50/60 border-t border-gray-100">
-                              {(v.phone || v.email) && (
-                                <div className="pt-3 space-y-1">
-                                  {v.phone && (
-                                    <a href={`tel:${v.phone}`} className="flex items-center gap-2 text-sm text-cowc-dark hover:underline">
-                                      <Phone className="w-3.5 h-3.5 text-cowc-gray" /> {v.phone}
-                                    </a>
-                                  )}
-                                  {v.email && (
-                                    <a href={`mailto:${v.email}`} className="flex items-center gap-2 text-sm text-cowc-dark hover:underline">
-                                      <Mail className="w-3.5 h-3.5 text-cowc-gray" /> {v.email}
-                                    </a>
-                                  )}
+                              {cvEditingId === v.id ? (
+                                /* ── Inline edit form ── */
+                                <div className="pt-3 space-y-2">
+                                  <input
+                                    type="text"
+                                    value={cvEditForm.name}
+                                    onChange={e => setCvEditForm(f => ({ ...f, name: e.target.value }))}
+                                    placeholder="Vendor name"
+                                    className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cowc-gold/30"
+                                  />
+                                  <select
+                                    value={cvEditForm.category}
+                                    onChange={e => setCvEditForm(f => ({ ...f, category: e.target.value }))}
+                                    className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cowc-gold/30 bg-white"
+                                  >
+                                    <option value="">Category…</option>
+                                    {VENDOR_SLOTS.map(s => (
+                                      <option key={s.category} value={s.category}>{s.label}</option>
+                                    ))}
+                                    <option value="other">Other</option>
+                                  </select>
+                                  <input
+                                    type="tel"
+                                    value={cvEditForm.phone}
+                                    onChange={e => setCvEditForm(f => ({ ...f, phone: e.target.value }))}
+                                    placeholder="Phone (optional)"
+                                    className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cowc-gold/30"
+                                  />
+                                  <input
+                                    type="email"
+                                    value={cvEditForm.email}
+                                    onChange={e => setCvEditForm(f => ({ ...f, email: e.target.value }))}
+                                    placeholder="Email (optional)"
+                                    className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cowc-gold/30"
+                                  />
+                                  <div className="flex gap-2 pt-1">
+                                    <button
+                                      onClick={() => setCvEditingId(null)}
+                                      className="flex-1 py-2 rounded-xl text-xs font-semibold bg-gray-100 text-cowc-gray hover:bg-gray-200 transition"
+                                    >Cancel</button>
+                                    <button
+                                      onClick={handleCvUpdate}
+                                      disabled={!cvEditForm.name.trim() || !cvEditForm.category || cvEditSaving}
+                                      className="flex-1 py-2 rounded-xl text-xs font-semibold text-white transition disabled:opacity-40"
+                                      style={{ background: accent }}
+                                    >
+                                      {cvEditSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" /> : 'Save changes'}
+                                    </button>
+                                  </div>
                                 </div>
+                              ) : (
+                                /* ── Read view ── */
+                                <>
+                                  {(v.phone || v.email) && (
+                                    <div className="pt-3 space-y-1">
+                                      {v.phone && (
+                                        <a href={`tel:${v.phone}`} className="flex items-center gap-2 text-sm text-cowc-dark hover:underline">
+                                          <Phone className="w-3.5 h-3.5 text-cowc-gray" /> {v.phone}
+                                        </a>
+                                      )}
+                                      {v.email && (
+                                        <a href={`mailto:${v.email}`} className="flex items-center gap-2 text-sm text-cowc-dark hover:underline">
+                                          <Mail className="w-3.5 h-3.5 text-cowc-gray" /> {v.email}
+                                        </a>
+                                      )}
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <button
+                                      onClick={() => handleCvStartEdit(v)}
+                                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition-all hover:opacity-80"
+                                      style={{ background: primaryAlpha(theme.primary, 0.12), color: accent }}
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" /> Edit
+                                    </button>
+                                    <label className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl cursor-pointer transition-all ${cvUploadingId === v.id ? 'opacity-50 pointer-events-none' : 'hover:opacity-80'}`}
+                                      style={{ background: primaryAlpha(theme.primary, 0.12), color: accent }}>
+                                      {cvUploadingId === v.id
+                                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…</>
+                                        : <><Upload className="w-3.5 h-3.5" /> {v.contract_url ? 'Replace Contract' : 'Upload Contract'}</>
+                                      }
+                                      <input type="file" accept=".pdf,.doc,.docx,.png,.jpg" className="hidden"
+                                        onChange={e => handleCvUploadContract(v, e.target.files?.[0])} />
+                                    </label>
+                                    {v.contract_url && (
+                                      <a href={v.contract_url} target="_blank" rel="noopener noreferrer"
+                                        className="text-xs text-blue-500 underline truncate max-w-[120px]">
+                                        {v.contract_filename || 'View contract'}
+                                      </a>
+                                    )}
+                                  </div>
+                                  <button onClick={() => handleCvDelete(v.id)}
+                                    className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-600 transition-colors">
+                                    <Trash2 className="w-3.5 h-3.5" /> Remove vendor
+                                  </button>
+                                </>
                               )}
-                              <div className="flex items-center gap-2">
-                                <label className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl cursor-pointer transition-all ${cvUploadingId === v.id ? 'opacity-50 pointer-events-none' : 'hover:opacity-80'}`}
-                                  style={{ background: primaryAlpha(theme.primary, 0.12), color: accent }}>
-                                  {cvUploadingId === v.id
-                                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…</>
-                                    : <><Upload className="w-3.5 h-3.5" /> {v.contract_url ? 'Replace Contract' : 'Upload Contract'}</>
-                                  }
-                                  <input type="file" accept=".pdf,.doc,.docx,.png,.jpg" className="hidden"
-                                    onChange={e => handleCvUploadContract(v, e.target.files?.[0])} />
-                                </label>
-                                {v.contract_url && (
-                                  <a href={v.contract_url} target="_blank" rel="noopener noreferrer"
-                                    className="text-xs text-blue-500 underline truncate max-w-[120px]">
-                                    {v.contract_filename || 'View contract'}
-                                  </a>
-                                )}
-                              </div>
-                              <button onClick={() => handleCvDelete(v.id)}
-                                className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-600 transition-colors">
-                                <Trash2 className="w-3.5 h-3.5" /> Remove vendor
-                              </button>
                             </div>
                           </motion.div>
                         )}

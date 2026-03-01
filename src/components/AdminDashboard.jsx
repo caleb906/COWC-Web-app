@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../stores/appStore'
 import { weddingsAPI, vendorsAPI } from '../services/unifiedAPI'
+import { coordinatorAssignmentsAPI, profilesAPI } from '../services/supabaseAPI'
 import { supabase } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { formatDate, daysUntil } from '../utils/dates'
@@ -107,10 +108,86 @@ function StatusPill({ wedding, onStatusChange }) {
   )
 }
 
+// ─── Coordinator assignment pill ────────────────────────────────────────────
+function CoordinatorPill({ wedding, coordinators, onAssign }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  const leadAssignment = wedding.coordinators?.find(c => c.is_lead)
+  const leadCoord = leadAssignment?.coordinator
+  const leadName  = leadCoord?.full_name?.split(' ')[0] || null
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    if (open) document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const handlePick = (e, coord) => {
+    e.stopPropagation()
+    setOpen(false)
+    onAssign(wedding, coord)
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(!open) }}
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all hover:opacity-80 bg-gray-100 text-gray-600"
+      >
+        <Users className="w-3 h-3" />
+        {leadName || 'Assign'}
+        <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 4, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.95 }}
+            transition={{ duration: 0.12 }}
+            className="absolute left-0 top-8 w-44 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50"
+          >
+            {coordinators.length === 0 && (
+              <p className="text-xs text-gray-400 px-3 py-3">No coordinators found</p>
+            )}
+            {coordinators.map(coord => {
+              const isLead = wedding.coordinators?.find(c => c.coordinator?.id === coord.id && c.is_lead)
+              const isAssigned = wedding.coordinators?.some(c => c.coordinator?.id === coord.id)
+              return (
+                <button
+                  key={coord.id}
+                  onClick={(e) => handlePick(e, coord)}
+                  className={`w-full text-left px-3 py-2 text-xs font-semibold flex items-center gap-2 hover:bg-gray-50 transition-colors ${isLead ? 'bg-gray-50' : ''}`}
+                >
+                  <span className="truncate flex-1">{coord.full_name}</span>
+                  {isLead && <CheckCircle className="w-3 h-3 flex-shrink-0 text-cowc-gold" />}
+                  {isAssigned && !isLead && <span className="flex-shrink-0 text-[10px] text-gray-400">+</span>}
+                </button>
+              )
+            })}
+            {leadCoord && (
+              <>
+                <div className="border-t border-gray-100" />
+                <button
+                  onClick={(e) => { e.stopPropagation(); setOpen(false); onAssign(wedding, null) }}
+                  className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-50 transition-colors font-semibold"
+                >
+                  Remove assignment
+                </button>
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 // ─── Shared card sub-components ─────────────────────────────────────────────
 
 // Featured (first in group) — dark, prominent
-function WeddingFeaturedCard({ wedding, i, navigate, handleStatusChange }) {
+function WeddingFeaturedCard({ wedding, i, navigate, handleStatusChange, coordinators, onAssign }) {
   const days = daysUntil(wedding.wedding_date)
   const isUrgent = days >= 0 && days <= 30
 
@@ -146,11 +223,9 @@ function WeddingFeaturedCard({ wedding, i, navigate, handleStatusChange }) {
             <p className="text-white/40 text-xs uppercase tracking-wider">Date</p>
             <p className="text-white/80 text-sm mt-0.5">{formatDate(wedding.wedding_date, 'MMM d, yyyy')}</p>
           </div>
-          <div>
-            <p className="text-white/40 text-xs uppercase tracking-wider">Coordinator</p>
-            <p className="text-white/80 text-sm mt-0.5">
-              {wedding.coordinatorNames?.length > 0 ? wedding.coordinatorNames[0].replace(' ✦', '') : 'Not assigned'}
-            </p>
+          <div onClick={e => e.stopPropagation()}>
+            <p className="text-white/40 text-xs uppercase tracking-wider mb-1">Coordinator</p>
+            <CoordinatorPill wedding={wedding} coordinators={coordinators} onAssign={onAssign} />
           </div>
           <div>
             <p className="text-white/40 text-xs uppercase tracking-wider">Tasks</p>
@@ -210,7 +285,7 @@ function WeddingGridCard({ wedding, i, navigate, handleStatusChange }) {
   )
 }
 
-function WeddingListRow({ wedding, navigate, handleStatusChange }) {
+function WeddingListRow({ wedding, navigate, handleStatusChange, coordinators, onAssign }) {
   const days = daysUntil(wedding.wedding_date)
   const isUrgent = days >= 0 && days <= 30
   return (
@@ -238,7 +313,10 @@ function WeddingListRow({ wedding, navigate, handleStatusChange }) {
           </span>}
         </p>
       </div>
-      <StatusPill wedding={wedding} onStatusChange={handleStatusChange} />
+      <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
+        <CoordinatorPill wedding={wedding} coordinators={coordinators} onAssign={onAssign} />
+        <StatusPill wedding={wedding} onStatusChange={handleStatusChange} />
+      </div>
       <ChevronRight className="w-4 h-4 text-cowc-light-gray flex-shrink-0" />
     </div>
   )
@@ -257,6 +335,7 @@ export default function AdminDashboard() {
   const [packageFilter, setPackageFilter] = useState('all') // 'all' | 'FP' | 'PP' | 'DOC'
   const [showArchived, setShowArchived] = useState(false)
   const [showFABTray, setShowFABTray] = useState(false)
+  const [allCoordinators, setAllCoordinators] = useState([])
   const [showSettings, setShowSettings] = useState(false)
   const [weddings, setWeddings] = useState([])
   const [stats, setStats] = useState({
@@ -268,10 +347,12 @@ export default function AdminDashboard() {
 
   const loadDashboardData = async () => {
     try {
-      const [allWeddings, allVendors] = await Promise.all([
+      const [allWeddings, allVendors, coordList] = await Promise.all([
         weddingsAPI.getAll(),
         vendorsAPI.getAll().catch(() => []),
+        profilesAPI.getCoordinators().catch(() => []),
       ])
+      setAllCoordinators(coordList)
       const now = new Date()
       const in30 = new Date(); in30.setDate(in30.getDate() + 30)
 
@@ -352,6 +433,69 @@ export default function AdminDashboard() {
   }
 
   const handleSignOut = async () => { await supabase.auth.signOut() }
+
+  // coord = coordinator profile object, null = remove all assignments
+  const handleAssignCoordinator = async (wedding, coord) => {
+    try {
+      const currentAssignments = wedding.coordinators || []
+      if (coord === null) {
+        // Remove all coordinator assignments
+        await Promise.all(currentAssignments.map(c =>
+          coordinatorAssignmentsAPI.unassign(wedding.id, c.coordinator?.id || c.coordinator_id)
+        ))
+        setWeddings(prev => prev.map(w => w.id === wedding.id
+          ? { ...w, coordinators: [], coordinatorNames: [] }
+          : w
+        ))
+        toast.success('Coordinator removed')
+        return
+      }
+      const isAlreadyLead = currentAssignments.find(c => c.coordinator?.id === coord.id && c.is_lead)
+      const isAssigned    = currentAssignments.find(c => c.coordinator?.id === coord.id)
+      if (isAlreadyLead) {
+        // Toggle off: unassign
+        await coordinatorAssignmentsAPI.unassign(wedding.id, coord.id)
+        setWeddings(prev => prev.map(w => w.id === wedding.id
+          ? {
+              ...w,
+              coordinators: w.coordinators.filter(c => c.coordinator?.id !== coord.id),
+              coordinatorNames: w.coordinatorNames.filter(n => !n.startsWith(coord.full_name)),
+            }
+          : w
+        ))
+        toast.success(`${coord.full_name} unassigned`)
+      } else if (isAssigned) {
+        // Already there, promote to lead
+        await coordinatorAssignmentsAPI.setLead(wedding.id, coord.id)
+        // Refresh to get updated is_lead flags
+        const updated = await weddingsAPI.getById(wedding.id)
+        setWeddings(prev => prev.map(w => w.id === wedding.id
+          ? {
+              ...w,
+              coordinators: updated.coordinators || [],
+              coordinatorNames: (updated.coordinators || []).map(c => `${c.coordinator?.full_name || ''}${c.is_lead ? ' ✦' : ''}`),
+            }
+          : w
+        ))
+        toast.success(`${coord.full_name} set as lead`)
+      } else {
+        // New assignment — make them lead
+        await coordinatorAssignmentsAPI.assign(wedding.id, coord.id, true)
+        const updated = await weddingsAPI.getById(wedding.id)
+        setWeddings(prev => prev.map(w => w.id === wedding.id
+          ? {
+              ...w,
+              coordinators: updated.coordinators || [],
+              coordinatorNames: (updated.coordinators || []).map(c => `${c.coordinator?.full_name || ''}${c.is_lead ? ' ✦' : ''}`),
+            }
+          : w
+        ))
+        toast.success(`${coord.full_name} assigned`)
+      }
+    } catch {
+      toast.error('Failed to update coordinator')
+    }
+  }
 
   // Active (non-archived) weddings → filtered by pipeline stage + package + search
   // In 'all' view, Completed and Cancelled are hidden by default (use status tabs to view them)
@@ -652,7 +796,7 @@ export default function AdminDashboard() {
                     {view === 'grid' ? (
                       <div>
                         {/* First wedding: featured dark card */}
-                        <WeddingFeaturedCard key={group.weddings[0].id} wedding={group.weddings[0]} i={0} navigate={navigate} handleStatusChange={handleStatusChange} />
+                        <WeddingFeaturedCard key={group.weddings[0].id} wedding={group.weddings[0]} i={0} navigate={navigate} handleStatusChange={handleStatusChange} coordinators={allCoordinators} onAssign={handleAssignCoordinator} />
                         {/* Rest: 2-col minimal cards */}
                         {group.weddings.length > 1 && (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -664,7 +808,7 @@ export default function AdminDashboard() {
                       </div>
                     ) : (
                       <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
-                        {group.weddings.map(wedding => <WeddingListRow key={wedding.id} wedding={wedding} navigate={navigate} handleStatusChange={handleStatusChange} />)}
+                        {group.weddings.map(wedding => <WeddingListRow key={wedding.id} wedding={wedding} navigate={navigate} handleStatusChange={handleStatusChange} coordinators={allCoordinators} onAssign={handleAssignCoordinator} />)}
                       </div>
                     )}
                   </div>
@@ -674,7 +818,7 @@ export default function AdminDashboard() {
           ) : view === 'grid' ? (
             /* ── Flat grid (single-status filter) — Option C: first featured, rest 2-col ── */
             <div>
-              <WeddingFeaturedCard wedding={activeWeddings[0]} i={0} navigate={navigate} handleStatusChange={handleStatusChange} />
+              <WeddingFeaturedCard wedding={activeWeddings[0]} i={0} navigate={navigate} handleStatusChange={handleStatusChange} coordinators={allCoordinators} onAssign={handleAssignCoordinator} />
               {activeWeddings.length > 1 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {activeWeddings.slice(1).map((wedding, i) => (
@@ -687,7 +831,7 @@ export default function AdminDashboard() {
             /* ── Flat list (single-status filter) ── */
             <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
               {activeWeddings.map(wedding => (
-                <WeddingListRow key={wedding.id} wedding={wedding} navigate={navigate} handleStatusChange={handleStatusChange} />
+                <WeddingListRow key={wedding.id} wedding={wedding} navigate={navigate} handleStatusChange={handleStatusChange} coordinators={allCoordinators} onAssign={handleAssignCoordinator} />
               ))}
             </div>
           )}
