@@ -102,9 +102,9 @@ export const weddingsAPI = {
 
     if (error) throw error
 
-    // Transform to match app format, exclude dev/test weddings
+    // Transform to match app format, exclude hidden dev-only weddings
     return data
-      .filter(w => !w.couple?.email?.endsWith('@cowc.dev'))
+      .filter(w => !w.is_dev_only)
       .map(transformWedding)
   },
 
@@ -878,6 +878,7 @@ function transformWedding(data) {
     status: data.status,
     package_type: data.package_type || null,
     archived: data.archived || false,
+    is_dev_only: data.is_dev_only || false,
     notes: data.notes,
     coordinator_count: data.coordinator_count ?? null,
     support_staff_count: data.support_staff_count ?? null,
