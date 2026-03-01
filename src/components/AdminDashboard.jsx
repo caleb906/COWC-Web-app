@@ -17,16 +17,16 @@ import { useToast } from './Toast'
 // ─── Pipeline config ───────────────────────────────────────────────────────
 const PIPELINE_STAGES = [
   { value: 'all',       label: 'All',        color: 'bg-gray-100 text-gray-600',      dot: 'bg-gray-400' },
+  { value: 'Inquiry',   label: 'Inquiry',    color: 'bg-slate-100 text-slate-600',    dot: 'bg-slate-400' },
+  { value: 'In Talks',  label: 'In Talks',   color: 'bg-violet-100 text-violet-700',  dot: 'bg-violet-500' },
   { value: 'Planning',  label: 'Planning',   color: 'bg-amber-100 text-amber-700',    dot: 'bg-amber-500' },
   { value: 'Signed',    label: 'Signed',     color: 'bg-emerald-100 text-emerald-700',dot: 'bg-emerald-500' },
-  { value: 'In Talks',  label: 'In Talks',   color: 'bg-violet-100 text-violet-700',  dot: 'bg-violet-500' },
-  { value: 'Inquiry',   label: 'Inquiry',    color: 'bg-slate-100 text-slate-600',    dot: 'bg-slate-400' },
-  { value: 'Completed', label: 'Completed',  color: 'bg-green-100 text-green-700',    dot: 'bg-green-600' },
+  { value: 'Completed', label: 'Completed',  color: 'bg-sky-100 text-sky-700',        dot: 'bg-sky-500' },
   { value: 'Cancelled', label: 'Cancelled',  color: 'bg-red-100 text-red-600',        dot: 'bg-red-500' },
 ]
 
 // Display order index for sorting (lower = shown first)
-const STAGE_ORDER = { Planning: 0, Signed: 1, 'In Talks': 2, Inquiry: 3, Completed: 4, Cancelled: 5 }
+const STAGE_ORDER = { Inquiry: 0, 'In Talks': 1, Planning: 2, Signed: 3, Completed: 4, Cancelled: 5 }
 
 const stageFor = (status) =>
   PIPELINE_STAGES.find((s) => s.value === status) || PIPELINE_STAGES[0]

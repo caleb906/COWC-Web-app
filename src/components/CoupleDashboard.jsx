@@ -664,7 +664,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                     {previewItems.length === 0 ? (
                       <div className="bg-white rounded-2xl shadow-sm px-5 py-6 text-center">
                         <Calendar className="w-6 h-6 mx-auto mb-2 opacity-30" style={{ color: accent }} />
-                        <p className="text-sm text-gray-400">Your coordinator will build your day-of schedule here.</p>
+                        <p className="text-sm text-cowc-light-gray">Your coordinator will build your day-of schedule here.</p>
                       </div>
                     ) : (
                       <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
@@ -712,7 +712,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                     </div>
                     {filledSlots.length === 0 ? (
                       <div className="bg-white rounded-2xl shadow-sm px-5 py-6 text-center">
-                        <p className="text-sm text-gray-400">Your coordinator will add vendors as they're booked.</p>
+                        <p className="text-sm text-cowc-light-gray">Your coordinator will add vendors as they're booked.</p>
                       </div>
                     ) : (
                       <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
@@ -847,7 +847,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
           if (items.length === 0) return (
             <div className="bg-white rounded-2xl shadow-sm px-5 py-12 text-center">
               <Calendar className="w-8 h-8 mx-auto mb-3 opacity-30" style={{ color: accent }} />
-              <p className="text-sm text-gray-400">Your day-of timeline will appear here once your coordinator builds it.</p>
+              <p className="text-sm text-cowc-light-gray">Your day-of timeline will appear here once your coordinator builds it.</p>
             </div>
           )
           return (
@@ -872,7 +872,7 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                   <p className="text-xs uppercase tracking-widest font-semibold text-cowc-gray px-1 mb-2">Your Vendor Team</p>
                   {filledSlots.length === 0 ? (
                     <div className="bg-white rounded-2xl shadow-sm px-5 py-8 text-center">
-                      <p className="text-sm text-gray-400">Your coordinator will add vendors here as they're booked.</p>
+                      <p className="text-sm text-cowc-light-gray">Your coordinator will add vendors here as they're booked.</p>
                     </div>
                   ) : (
                     <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">

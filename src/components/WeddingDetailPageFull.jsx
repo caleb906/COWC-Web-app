@@ -66,6 +66,7 @@ export default function WeddingDetailPageFull() {
 
   // Modal states
   const [showAddTask, setShowAddTask] = useState(false)
+  const [showCompletedTasks, setShowCompletedTasks] = useState(false)
   const [showAddVendor, setShowAddVendor] = useState(false)
   const [showAddTimeline, setShowAddTimeline] = useState(false)
   const [addTimelineTime, setAddTimelineTime] = useState(null)
@@ -1109,7 +1110,23 @@ export default function WeddingDetailPageFull() {
               )}
               
               {wedding.tasks && wedding.tasks.length > 0 ? (
-                wedding.tasks.map((task) => (
+                (() => {
+                  const completedTasks = wedding.tasks.filter(t => t.completed)
+                  const visibleTasks = showCompletedTasks
+                    ? wedding.tasks
+                    : wedding.tasks.filter(t => !t.completed)
+                  return (
+                    <>
+                      {completedTasks.length > 0 && (
+                        <button
+                          onClick={() => setShowCompletedTasks(v => !v)}
+                          className="text-xs font-semibold text-cowc-gray hover:text-cowc-dark transition-colors flex items-center gap-1.5 px-1"
+                        >
+                          <CheckCircle2 className={`w-3.5 h-3.5 ${showCompletedTasks ? 'text-green-500' : 'text-cowc-light-gray'}`} />
+                          {showCompletedTasks ? 'Hide' : 'Show'} {completedTasks.length} completed
+                        </button>
+                      )}
+                      {visibleTasks.map((task) => (
                   <div key={task.id} className="card-premium p-6">
                     {editingTaskId === task.id ? (
                       <div className="space-y-4">
@@ -1213,7 +1230,10 @@ export default function WeddingDetailPageFull() {
                       </div>
                     )}
                   </div>
-                ))
+                      ))}
+                    </>
+                  )
+                })()
               ) : (
                 !canEdit && (
                   <div className="card-premium p-12 text-center">
