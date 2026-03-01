@@ -10,7 +10,6 @@ import ScrollToTop from './components/ScrollToTop'
 // Always-needed — tiny, required on first render
 import LoginScreen from './components/LoginScreenNew'
 import ChangePasswordModal from './components/ChangePasswordModal'
-import DevSwitcher from './components/DevSwitcher'
 
 // Role-gated — load on demand via code splitting
 const CoupleDashboard        = lazy(() => import('./components/CoupleDashboard'))
@@ -42,22 +41,14 @@ function RouteLoader() {
   )
 }
 
-// Renders the couple-view overlay for the dev switcher.
-// Lives inside BrowserRouter so hooks like useNavigate work normally.
-function DevCoupleOverlay({ devWeddingId }) {
+function _unused_DevCoupleOverlay({ devWeddingId }) {
   const navigate = useNavigate()
-  const [devCoupleTab, setDevCoupleTab] = useState('home') // 'home' | 'catalogue'
-
+  const [devCoupleTab, setDevCoupleTab] = useState('home')
   const handlePreviewNavigate = (path) => {
-    if (path === '/catalogue') {
-      setDevCoupleTab('catalogue')
-    } else if (path.startsWith('/wedding/')) {
-      navigate(path) // pass through to real BrowserRouter — WeddingDetailPage
-    } else {
-      setDevCoupleTab('home')
-    }
+    if (path === '/catalogue') setDevCoupleTab('catalogue')
+    else if (path.startsWith('/wedding/')) navigate(path)
+    else setDevCoupleTab('home')
   }
-
   return (
     <div className="fixed inset-0 z-[9000] overflow-auto bg-cowc-cream">
       <Suspense fallback={<RouteLoader />}>
@@ -78,10 +69,6 @@ function DevCoupleOverlay({ devWeddingId }) {
 function App() {
   const { user, session, loading, setUser, setSession, setLoading } = useAuthStore()
 
-  // Dev account view switching (test@cowc.dev only)
-  const [devViewAs, setDevViewAs] = useState(null)       // null=admin, 'coordinator', 'couple'
-  const [devWeddingId, setDevWeddingId] = useState(null)
-  const isDev = user?.email === 'test@cowc.dev'
 
   // Welcome screen: shown when couple lands via invite link with ?setup=PASSWORD
   // Forces them to set their own permanent password before entering the app
@@ -293,25 +280,6 @@ function App() {
           )}
           <ScrollToTop />
 
-          {/* Dev account view overlays */}
-          {isDev && devViewAs === 'coordinator' && (
-            <div className="fixed inset-0 z-[9000] overflow-auto bg-cowc-cream">
-              <CoordinatorDashboard />
-            </div>
-          )}
-          {isDev && devViewAs === 'couple' && devWeddingId && (
-            <DevCoupleOverlay devWeddingId={devWeddingId} />
-          )}
-
-          {/* Dev switcher pill */}
-          {isDev && (
-            <DevSwitcher
-              viewAs={devViewAs}
-              setViewAs={setDevViewAs}
-              devWeddingId={devWeddingId}
-              setDevWeddingId={setDevWeddingId}
-            />
-          )}
 
           <Suspense fallback={<RouteLoader />}>
           <AnimatePresence mode="wait">
