@@ -1,30 +1,47 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from './lib/supabase'
 import { useAuthStore } from './stores/appStore'
 import { WeddingThemeProvider } from './contexts/WeddingThemeContext'
 import { ToastProvider } from './components/Toast'
+import ScrollToTop from './components/ScrollToTop'
+
+// Always-needed — tiny, required on first render
 import LoginScreen from './components/LoginScreenNew'
 import ChangePasswordModal from './components/ChangePasswordModal'
 import IssueFlagger from './components/IssueFlagger'
-import CoordinatorDashboard from './components/CoordinatorDashboard'
-import CoupleDashboard from './components/CoupleDashboard'
-import AdminDashboard from './components/AdminDashboard'
-import CreateWeddingScreen from './components/CreateWeddingScreenSimple'
-import WeddingDetailPage from './components/WeddingDetailPageFull'
-import InviteUsersScreen from './components/InviteUsersScreenNew'
-import AssignCoordinatorsScreen from './components/AssignCoordinatorsScreenNew'
-import UsersManagementScreen from './components/UsersManagementScreenNew'
-import TasksListScreen from './components/TasksListScreen'
-import VendorListScreen from './components/VendorListScreen'
-import CatalogueManagementScreen from './components/CatalogueManagementScreen'
-import VenuesScreen from './components/VenuesScreen'
-import AdminNotesScreen from './components/AdminNotesScreen'
-import CatalogueScreen from './components/CatalogueScreen'
-import DevPreview from './components/DevPreview'
 import DevSwitcher from './components/DevSwitcher'
-import ScrollToTop from './components/ScrollToTop'
+
+// Role-gated — load on demand via code splitting
+const CoupleDashboard        = lazy(() => import('./components/CoupleDashboard'))
+const CatalogueScreen        = lazy(() => import('./components/CatalogueScreen'))
+const CoordinatorDashboard   = lazy(() => import('./components/CoordinatorDashboard'))
+const WeddingDetailPage      = lazy(() => import('./components/WeddingDetailPageFull'))
+const AdminDashboard         = lazy(() => import('./components/AdminDashboard'))
+const CreateWeddingScreen    = lazy(() => import('./components/CreateWeddingScreenSimple'))
+const InviteUsersScreen      = lazy(() => import('./components/InviteUsersScreenNew'))
+const AssignCoordinatorsScreen = lazy(() => import('./components/AssignCoordinatorsScreenNew'))
+const UsersManagementScreen  = lazy(() => import('./components/UsersManagementScreenNew'))
+const TasksListScreen        = lazy(() => import('./components/TasksListScreen'))
+const VendorListScreen       = lazy(() => import('./components/VendorListScreen'))
+const CatalogueManagementScreen = lazy(() => import('./components/CatalogueManagementScreen'))
+const VenuesScreen           = lazy(() => import('./components/VenuesScreen'))
+const AdminNotesScreen       = lazy(() => import('./components/AdminNotesScreen'))
+const DevPreview             = lazy(() => import('./components/DevPreview'))
+
+// Minimal spinner shown while a lazy chunk loads
+function RouteLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-cowc-cream">
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+        className="w-10 h-10 border-4 border-cowc-gold border-t-transparent rounded-full"
+      />
+    </div>
+  )
+}
 
 // Renders the couple-view overlay for the dev switcher.
 // Lives inside BrowserRouter so hooks like useNavigate work normally.
@@ -44,15 +61,17 @@ function DevCoupleOverlay({ devWeddingId }) {
 
   return (
     <div className="fixed inset-0 z-[9000] overflow-auto bg-cowc-cream">
-      {devCoupleTab === 'catalogue' ? (
-        <CatalogueScreen onPreviewNavigate={handlePreviewNavigate} />
-      ) : (
-        <CoupleDashboard
-          previewWeddingId={devWeddingId}
-          isPreview
-          onPreviewNavigate={handlePreviewNavigate}
-        />
-      )}
+      <Suspense fallback={<RouteLoader />}>
+        {devCoupleTab === 'catalogue' ? (
+          <CatalogueScreen onPreviewNavigate={handlePreviewNavigate} />
+        ) : (
+          <CoupleDashboard
+            previewWeddingId={devWeddingId}
+            isPreview
+            onPreviewNavigate={handlePreviewNavigate}
+          />
+        )}
+      </Suspense>
     </div>
   )
 }
@@ -296,6 +315,7 @@ function App() {
             />
           )}
 
+          <Suspense fallback={<RouteLoader />}>
           <AnimatePresence mode="wait">
             <Routes>
             {!user ? (
@@ -335,6 +355,7 @@ function App() {
             )}
             </Routes>
           </AnimatePresence>
+          </Suspense>
         </BrowserRouter>
       </WeddingThemeProvider>
     </ToastProvider>
