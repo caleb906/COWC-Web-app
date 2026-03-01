@@ -541,88 +541,177 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                 </motion.div>
               )}
 
-              {/* ── 2. QUICK LINKS — timeline + catalogue ── */}
+              {/* ── 2. UPCOMING TASKS ── */}
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label: 'Timeline',  sub: 'Day-of schedule', Icon: Calendar,    tab: 'timeline' },
-                    { label: 'Catalogue', sub: 'Reserve items',   Icon: ShoppingBag, path: '/catalogue' },
-                  ].map(({ label, sub, Icon, tab, path }) => (
-                    <button key={label}
-                      onClick={() => tab ? setActiveTab(tab) : safeNavigate(path)}
-                      className="bg-white rounded-2xl shadow-sm hover:shadow-md border border-transparent hover:border-cowc-gold/20 transition-all active:scale-[0.97] p-5 flex flex-col items-start gap-3">
-                      <div className="rounded-2xl flex items-center justify-center flex-shrink-0"
-                        style={{ width: 52, height: 52, background: softRing }}>
-                        <Icon className="w-6 h-6" style={{ color: accent }} />
-                      </div>
-                      <div className="text-left">
-                        <span className="font-serif text-base text-cowc-dark leading-tight block">{label}</span>
-                        <span className="text-xs text-cowc-gray mt-0.5 block">{sub}</span>
-                      </div>
+                <div className="flex items-center justify-between px-1 mb-3">
+                  <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-cowc-gray">What's next</p>
+                  {sortedPending.length > 3 && (
+                    <button onClick={() => setActiveTab('timeline')}
+                      className="text-xs font-semibold" style={{ color: accent }}>
+                      View all {sortedPending.length} →
                     </button>
-                  ))}
+                  )}
                 </div>
+                {sortedPending.length === 0 ? (
+                  <div className="bg-white rounded-2xl shadow-sm px-5 py-4 flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 flex-shrink-0" style={{ color: accent }} />
+                    <p className="text-sm text-cowc-gray">All tasks complete — you're ready 🎉</p>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
+                    {sortedPending.slice(0, 3).map(task => {
+                      const overdue = isPastDue(task.due_date)
+                      return (
+                        <div key={task.id} className="flex items-center gap-4 px-5 py-3.5">
+                          <button
+                            onClick={() => handleTaskToggle(task)}
+                            className="w-8 h-8 rounded-full border-2 flex-shrink-0 flex items-center justify-center hover:opacity-70 transition-opacity"
+                            style={{ borderColor: overdue ? '#f87171' : accent }}>
+                            <Circle className="w-3.5 h-3.5" style={{ color: overdue ? '#f87171' : accent }} />
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-cowc-dark truncate">{task.title}</p>
+                            {task.due_date && (
+                              <p className={`text-xs mt-0.5 ${overdue ? 'text-red-400 font-semibold' : 'text-cowc-gray'}`}>
+                                Due {formatDate(task.due_date, 'MMM d')}
+                              </p>
+                            )}
+                          </div>
+                          {overdue && <span className="text-red-400 text-[10px] font-bold uppercase tracking-wide flex-shrink-0">Overdue</span>}
+                        </div>
+                      )
+                    })}
+                    {sortedPending.length > 3 && (
+                      <button onClick={() => setActiveTab('timeline')}
+                        className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                        style={{ color: accent }}>
+                        <span className="text-xs font-semibold">+{sortedPending.length - 3} more tasks</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                )}
               </motion.div>
 
-              {/* ── 3. TASK NUDGE — subtle, not the star ── */}
-              {sortedPending.length > 0 && (() => {
-                const nextTask = sortedPending[0]
-                const overdue = isPastDue(nextTask.due_date)
-                const remaining = sortedPending.length - 1
+              {/* ── 3. DAY-OF SCHEDULE PREVIEW ── */}
+              {(() => {
+                const timelineItems = [...(wedding.timeline_items || [])].sort((a, b) => {
+                  if (a.time && b.time) return a.time.localeCompare(b.time)
+                  return (a.sort_order ?? 0) - (b.sort_order ?? 0)
+                })
+                const previewItems = timelineItems.slice(0, 4)
                 return (
                   <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
-                    <p className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-3 px-1"
-                      style={{ color: overdue ? '#f87171' : accent }}>
-                      {overdue ? '⚠️ Overdue task' : '⚡ What\'s next'}
-                    </p>
-                    <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                      <div className="flex items-center gap-4 px-5 py-4">
-                        <button
-                          onClick={() => handleTaskToggle(nextTask)}
-                          className="w-9 h-9 rounded-full border-2 flex-shrink-0 flex items-center justify-center hover:opacity-80 transition-opacity"
-                          style={{ borderColor: overdue ? '#f87171' : accent }}>
-                          <Circle className="w-4 h-4" style={{ color: overdue ? '#f87171' : accent }} />
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-cowc-dark leading-snug">{nextTask.title}</p>
-                          {nextTask.due_date && (
-                            <p className={`text-xs mt-0.5 ${overdue ? 'text-red-400 font-semibold' : 'text-cowc-gray'}`}>
-                              Due {formatDate(nextTask.due_date, 'MMM d')}
-                            </p>
-                          )}
-                        </div>
-                        {remaining > 0 && (
+                    <div className="flex items-center justify-between px-1 mb-3">
+                      <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-cowc-gray">Day-of Schedule</p>
+                      <button onClick={() => setActiveTab('timeline')}
+                        className="text-xs font-semibold" style={{ color: accent }}>
+                        Full schedule →
+                      </button>
+                    </div>
+                    {previewItems.length === 0 ? (
+                      <div className="bg-white rounded-2xl shadow-sm px-5 py-6 text-center">
+                        <Calendar className="w-6 h-6 mx-auto mb-2 opacity-30" style={{ color: accent }} />
+                        <p className="text-sm text-gray-400">Your coordinator will build your day-of schedule here.</p>
+                      </div>
+                    ) : (
+                      <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
+                        {previewItems.map(item => (
+                          <div key={item.id} className="flex items-start gap-4 px-5 py-3.5">
+                            <div className="w-12 flex-shrink-0 pt-0.5">
+                              <span className="text-sm font-bold text-cowc-dark">{item.time || '—'}</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-cowc-dark">{item.title}</p>
+                              {item.description && (
+                                <p className="text-xs text-cowc-gray mt-0.5 truncate">{item.description}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        {timelineItems.length > 4 && (
                           <button onClick={() => setActiveTab('timeline')}
-                            className="text-xs font-semibold flex-shrink-0 px-3 py-1.5 rounded-full"
-                            style={{ background: softRing, color: accent }}>
-                            +{remaining} more
+                            className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                            style={{ color: accent }}>
+                            <span className="text-xs font-semibold">+{timelineItems.length - 4} more events</span>
+                            <ChevronRight className="w-4 h-4" />
                           </button>
                         )}
                       </div>
-                      {allDone && (
-                        <div className="px-5 pb-4 pt-1 flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: accent }} />
-                          <p className="text-xs text-cowc-gray">All tasks complete — you're ready 🎉</p>
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </motion.div>
                 )
               })()}
 
-              {allDone && sortedPending.length === 0 && (
-                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}
-                  className="bg-white rounded-2xl shadow-sm px-5 py-5 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{ background: softRing }}>
-                    <CheckCircle2 className="w-5 h-5" style={{ color: accent }} />
+              {/* ── 4. VENDOR TEAM PREVIEW ── */}
+              {(() => {
+                const filledSlots = VENDOR_SLOTS.filter(slot =>
+                  wedding.vendors?.find(v => slot.covers.includes(v.category))
+                )
+                return (
+                  <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.34 }}>
+                    <div className="flex items-center justify-between px-1 mb-3">
+                      <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-cowc-gray">Your Vendors</p>
+                      <button onClick={() => setActiveTab('vendors')}
+                        className="text-xs font-semibold" style={{ color: accent }}>
+                        Manage →
+                      </button>
+                    </div>
+                    {filledSlots.length === 0 ? (
+                      <div className="bg-white rounded-2xl shadow-sm px-5 py-6 text-center">
+                        <p className="text-sm text-gray-400">Your coordinator will add vendors as they're booked.</p>
+                      </div>
+                    ) : (
+                      <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
+                        {filledSlots.map(slot => {
+                          const vendor = wedding.vendors.find(v => slot.covers.includes(v.category))
+                          const confirmed = vendor?.status === 'confirmed'
+                          const SlotIcon = slot.icon
+                          return (
+                            <div key={slot.category} className="flex items-center gap-3 px-5 py-3">
+                              <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                                style={{ background: softRing }}>
+                                <SlotIcon className="w-4 h-4" style={{ color: accent }} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[10px] uppercase tracking-widest font-semibold text-cowc-gray">{slot.label}</p>
+                                <p className="text-sm font-semibold truncate text-cowc-dark leading-tight mt-0.5">{vendor.name}</p>
+                              </div>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 ${
+                                confirmed ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {confirmed ? '✓ Confirmed' : 'Booked'}
+                              </span>
+                            </div>
+                          )
+                        })}
+                        <button onClick={() => setActiveTab('vendors')}
+                          className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                          style={{ color: accent }}>
+                          <span className="text-xs font-semibold">View &amp; manage all vendors</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </motion.div>
+                )
+              })()}
+
+              {/* ── 5. CATALOGUE ── */}
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.40 }}>
+                <button onClick={() => safeNavigate('/catalogue')}
+                  className="w-full bg-white rounded-2xl shadow-sm hover:shadow-md border border-transparent hover:border-cowc-gold/20 transition-all active:scale-[0.97] px-5 py-4 flex items-center gap-4">
+                  <div className="rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ width: 44, height: 44, background: softRing }}>
+                    <ShoppingBag className="w-5 h-5" style={{ color: accent }} />
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-cowc-dark">All tasks complete</p>
-                    <p className="text-xs text-cowc-gray mt-0.5">You're ready for the big day 🎉</p>
+                  <div className="text-left flex-1">
+                    <span className="font-serif text-base text-cowc-dark leading-tight block">Catalogue</span>
+                    <span className="text-xs text-cowc-gray">Browse &amp; reserve rental items</span>
                   </div>
-                </motion.div>
-              )}
+                  <ChevronRight className="w-4 h-4 text-cowc-light-gray" />
+                </button>
+              </motion.div>
 
               {/* ── 4. RENTALS — horizontal scroll, if any ── */}
               {myReservations.length > 0 && (
