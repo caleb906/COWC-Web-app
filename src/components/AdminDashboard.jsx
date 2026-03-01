@@ -437,24 +437,22 @@ export default function AdminDashboard() {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-cowc-dark text-white safe-top relative overflow-hidden"
+        className="bg-gradient-to-br from-cowc-dark via-cowc-dark to-gray-800 text-white safe-top relative overflow-hidden"
       >
         <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse at 90% 15%, rgba(212,165,116,0.15) 0%, transparent 60%)' }} />
+          style={{ background: 'radial-gradient(ellipse at 85% 5%, rgba(201,169,110,0.18) 0%, transparent 55%)' }} />
 
         <div className="max-w-7xl mx-auto px-5 relative z-10">
-
           {/* Top bar */}
           <div className="flex items-center justify-between pt-12 pb-0">
-            <div className="flex items-center gap-0.5">
-              <p className="text-white/30 text-[10px] uppercase tracking-[0.2em] mr-1">Admin</p>
+            <div className="flex items-center gap-1">
               <button onClick={() => navigate('/admin/users')}
                 className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors" title="Users">
                 <Users className="w-4 h-4" />
               </button>
               <NotificationBell iconColor="white" />
             </div>
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-1">
               <button onClick={() => setShowSettings(true)}
                 className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
                 <Settings className="w-4 h-4" />
@@ -466,73 +464,32 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Name left — total active right */}
-          <div className="flex items-end justify-between pt-5 pb-5">
-            <div className="flex-1 pr-4">
-              <h1 className="font-serif text-[38px] font-light text-white leading-none mb-2">
-                {user?.full_name?.split(' ')[0] || 'Admin'}
-              </h1>
-              <p className="text-white/35 text-xs">
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-              </p>
-            </div>
-            <div className="text-right flex-shrink-0">
-              <p className="font-serif text-[72px] font-light leading-none text-cowc-gold">{stats.totalWeddings}</p>
-              <p className="text-white/40 text-[10px] uppercase tracking-widest -mt-1">active</p>
+          {/* Identity + big stats */}
+          <div className="pt-4 pb-10">
+            <p className="text-white/50 text-xs uppercase tracking-[0.2em] mb-1">Admin</p>
+            <h1 className="text-3xl font-serif font-light text-white mb-6">
+              {user?.full_name?.split(' ')[0] || 'Admin'}
+            </h1>
+
+            {/* Stats row — numbers as the language */}
+            <div className="flex items-start gap-0 flex-wrap">
+              {[
+                { value: stats.totalWeddings, label: 'Weddings', click: null },
+                { value: stats.next30Days,    label: 'Next 30d', urgent: stats.next30Days > 0, click: null },
+                { value: stats.tasksRemaining,label: 'Tasks',    urgent: stats.tasksRemaining > 0, click: () => navigate('/admin/tasks') },
+                { value: stats.totalVendors,  label: 'Vendors',  click: () => navigate('/admin/vendors') },
+              ].map(({ value, label, urgent, click }) => (
+                <button key={label} onClick={click || undefined}
+                  disabled={!click}
+                  className={`flex-1 min-w-[70px] text-center py-2 ${click ? 'cursor-pointer hover:bg-white/5 rounded-xl transition-colors' : 'cursor-default'}`}>
+                  <span className={`block text-4xl font-serif font-light leading-none ${urgent ? 'text-red-300' : 'text-white'}`}>
+                    {value}
+                  </span>
+                  <span className="block text-white/45 text-xs uppercase tracking-wider mt-1">{label}</span>
+                </button>
+              ))}
             </div>
           </div>
-
-          {/* Secondary stats — tasks, upcoming, vendors */}
-          <div className="flex items-center gap-4 pb-5 -mt-1">
-            <button onClick={() => navigate('/admin/tasks')}
-              className="flex items-center gap-2 group hover:opacity-100 opacity-80 transition-opacity">
-              <span className={`font-serif text-2xl font-light leading-none ${stats.tasksRemaining > 0 ? 'text-amber-300' : 'text-white/50'}`}>
-                {stats.tasksRemaining}
-              </span>
-              <span className="text-white/40 text-[10px] uppercase tracking-wider group-hover:text-white/60 transition-colors">tasks open</span>
-            </button>
-            <div className="w-px h-4 bg-white/10 flex-shrink-0" />
-            <div className="flex items-center gap-2 opacity-80">
-              <span className={`font-serif text-2xl font-light leading-none ${stats.next30Days > 0 ? 'text-red-300' : 'text-white/50'}`}>
-                {stats.next30Days}
-              </span>
-              <span className="text-white/40 text-[10px] uppercase tracking-wider">next 30d</span>
-            </div>
-            <div className="w-px h-4 bg-white/10 flex-shrink-0" />
-            <button onClick={() => navigate('/admin/vendors')}
-              className="flex items-center gap-2 group hover:opacity-100 opacity-80 transition-opacity">
-              <span className="font-serif text-2xl font-light leading-none text-white/50">{stats.totalVendors}</span>
-              <span className="text-white/40 text-[10px] uppercase tracking-wider group-hover:text-white/60 transition-colors">vendors</span>
-            </button>
-          </div>
-
-          {/* Pipeline segmented bar */}
-          <div className="pb-8">
-            <p className="text-white/25 text-[9px] uppercase tracking-[0.2em] mb-2.5">Pipeline</p>
-            <div className="flex items-stretch rounded-xl overflow-hidden">
-              <div className="flex-1 px-3 py-2.5 text-center border-r border-white/5"
-                style={{ background: 'rgba(100,116,139,0.3)' }}>
-                <p className="font-serif text-xl font-light text-white/70 leading-none">{stats.inquiry}</p>
-                <p className="text-white/35 text-[9px] uppercase tracking-wide mt-0.5">Inquiry</p>
-              </div>
-              <div className="flex-1 px-3 py-2.5 text-center border-r border-white/5"
-                style={{ background: 'rgba(139,92,246,0.25)' }}>
-                <p className="font-serif text-xl font-light leading-none" style={{ color: '#c4b5fd' }}>{stats.inTalks}</p>
-                <p className="text-[9px] uppercase tracking-wide mt-0.5" style={{ color: 'rgba(196,181,253,0.55)' }}>In Talks</p>
-              </div>
-              <div className="flex-1 px-3 py-2.5 text-center border-r border-white/5"
-                style={{ background: 'rgba(245,158,11,0.25)' }}>
-                <p className="font-serif text-xl font-light leading-none" style={{ color: '#fcd34d' }}>{stats.signed}</p>
-                <p className="text-[9px] uppercase tracking-wide mt-0.5" style={{ color: 'rgba(252,211,77,0.55)' }}>Signed</p>
-              </div>
-              <div className="flex-1 px-3 py-2.5 text-center"
-                style={{ background: 'rgba(212,165,116,0.22)' }}>
-                <p className="font-serif text-xl font-light leading-none text-cowc-gold">{stats.planning}</p>
-                <p className="text-[9px] uppercase tracking-wide mt-0.5" style={{ color: 'rgba(212,165,116,0.6)' }}>Planning</p>
-              </div>
-            </div>
-          </div>
-
         </div>
       </motion.div>
 
@@ -543,7 +500,7 @@ export default function AdminDashboard() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8"
+          className="grid grid-cols-3 gap-4 mb-8"
         >
           {[
             { label: 'New Wedding',  sub: 'Add a new couple',       path: '/admin/create-wedding',      Icon: Plus },
@@ -554,14 +511,16 @@ export default function AdminDashboard() {
             { label: 'Venues',       sub: 'Venue directory',        path: '/admin/venues',              Icon: Building2 },
           ].map(({ label, sub, path, Icon }) => (
             <button key={label} onClick={() => navigate(path)}
-              className="bg-white rounded-2xl shadow-sm hover:shadow-md border border-transparent hover:border-cowc-gold/20 transition-all active:scale-[0.97] group p-5 flex flex-col items-start gap-3">
+              className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-[0.97] group
+                py-5 flex flex-col items-center gap-2
+                md:p-5 md:flex-row md:items-center md:gap-4 md:text-left">
               <div className="rounded-2xl bg-cowc-cream group-hover:bg-cowc-gold/10 transition-colors flex items-center justify-center flex-shrink-0"
-                style={{ width: 48, height: 48 }}>
-                <Icon className="w-5 h-5 text-cowc-gold" />
+                style={{ width: 52, height: 52 }}>
+                <Icon className="w-6 h-6 md:w-7 md:h-7 text-cowc-gold" />
               </div>
-              <div className="text-left">
-                <span className="font-serif text-base text-cowc-dark leading-tight block">{label}</span>
-                <span className="text-xs text-cowc-gray mt-0.5 block">{sub}</span>
+              <div className="text-center md:text-left">
+                <span className="font-serif text-sm md:text-base text-cowc-dark leading-tight block">{label}</span>
+                <span className="hidden md:block text-sm text-cowc-gray mt-0.5">{sub}</span>
               </div>
             </button>
           ))}

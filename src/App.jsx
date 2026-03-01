@@ -10,7 +10,6 @@ import ScrollToTop from './components/ScrollToTop'
 // Always-needed — tiny, required on first render
 import LoginScreen from './components/LoginScreenNew'
 import ChangePasswordModal from './components/ChangePasswordModal'
-import IssueFlagger from './components/IssueFlagger'
 import DevSwitcher from './components/DevSwitcher'
 
 // Role-gated — load on demand via code splitting
@@ -205,7 +204,6 @@ function App() {
           {user && user.force_password_change && (
             <ChangePasswordModal user={user} onComplete={handlePasswordChangeComplete} />
           )}
-          {user && user.role !== 'couple' && <IssueFlagger />}
 
           {/* Welcome overlay — shown when couple lands via invite link */}
           {/* Forces couple to set their own permanent password before entering the app */}

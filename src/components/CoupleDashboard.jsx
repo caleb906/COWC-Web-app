@@ -541,15 +541,12 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
                 </motion.div>
               )}
 
-              {/* ── 2. HUB — navigate your wedding world ── */}
+              {/* ── 2. QUICK LINKS — timeline + catalogue ── */}
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
-                <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-cowc-gray mb-3 px-1">Your wedding</p>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { label: 'Timeline',  sub: 'Day-of schedule',  Icon: Calendar,    tab: 'timeline' },
-                    { label: 'Vendors',   sub: 'Your vendor team', Icon: Users,       tab: 'vendors' },
-                    { label: 'Style',     sub: 'Colours & palette',Icon: Palette,     tab: 'style' },
-                    { label: 'Catalogue', sub: 'Reserve items',    Icon: ShoppingBag, path: '/catalogue' },
+                    { label: 'Timeline',  sub: 'Day-of schedule', Icon: Calendar,    tab: 'timeline' },
+                    { label: 'Catalogue', sub: 'Reserve items',   Icon: ShoppingBag, path: '/catalogue' },
                   ].map(({ label, sub, Icon, tab, path }) => (
                     <button key={label}
                       onClick={() => tab ? setActiveTab(tab) : safeNavigate(path)}
