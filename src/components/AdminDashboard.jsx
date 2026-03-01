@@ -113,9 +113,13 @@ function CoordinatorPill({ wedding, coordinators, onAssign }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
-  const leadAssignment = wedding.coordinators?.find(c => c.is_lead)
-  const leadCoord = leadAssignment?.coordinator
-  const leadName  = leadCoord?.full_name?.split(' ')[0] || null
+  const allAssigned   = wedding.coordinators || []
+  const accepted      = allAssigned.filter(c => c.status !== 'declined')
+  const pending       = allAssigned.filter(c => c.status === 'pending')
+  const leadAssignment = allAssigned.find(c => c.is_lead && c.status === 'accepted')
+  const leadName      = leadAssignment?.coordinator?.full_name?.split(' ')[0] || null
+  const needed        = wedding.coordinator_count || null
+  const acceptedCount = accepted.length
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
@@ -129,15 +133,33 @@ function CoordinatorPill({ wedding, coordinators, onAssign }) {
     onAssign(wedding, coord)
   }
 
+  // Pill colour: red if understaffed, gold if pending, green if staffed, gray if empty
+  const pillStyle = acceptedCount === 0
+    ? 'bg-gray-100 text-gray-500'
+    : needed && acceptedCount < needed
+      ? 'bg-red-50 text-red-600'
+      : pending.length > 0
+        ? 'bg-amber-50 text-amber-700'
+        : 'bg-green-50 text-green-700'
+
+  const label = acceptedCount === 0
+    ? 'Assign'
+    : needed
+      ? `${leadName || accepted[0]?.coordinator?.full_name?.split(' ')[0]} ${acceptedCount}/${needed}`
+      : `${leadName || accepted[0]?.coordinator?.full_name?.split(' ')[0]}${acceptedCount > 1 ? ` +${acceptedCount - 1}` : ''}`
+
   return (
     <div className="relative" ref={ref}>
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(!open) }}
-        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all hover:opacity-80 bg-gray-100 text-gray-600"
+        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all hover:opacity-80 ${pillStyle}`}
       >
-        <Users className="w-3 h-3" />
-        {leadName || 'Assign'}
-        <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <Users className="w-3 h-3 flex-shrink-0" />
+        <span className="truncate max-w-[100px]">{label}</span>
+        {pending.length > 0 && (
+          <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-amber-500" title={`${pending.length} pending`} />
+        )}
+        <ChevronDown className={`w-3 h-3 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       <AnimatePresence>
         {open && (
@@ -146,34 +168,43 @@ function CoordinatorPill({ wedding, coordinators, onAssign }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.95 }}
             transition={{ duration: 0.12 }}
-            className="absolute left-0 top-8 w-44 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-[200]"
+            className="absolute left-0 top-8 w-52 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-[200]"
           >
+            <div className="px-3 pt-2 pb-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                {needed ? `${acceptedCount} of ${needed} needed` : `${acceptedCount} assigned`}
+              </p>
+            </div>
             {coordinators.length === 0 && (
               <p className="text-xs text-gray-400 px-3 py-3">No coordinators found</p>
             )}
             {coordinators.map(coord => {
-              const isLead = wedding.coordinators?.find(c => c.coordinator?.id === coord.id && c.is_lead)
-              const isAssigned = wedding.coordinators?.some(c => c.coordinator?.id === coord.id)
+              const assignment = allAssigned.find(c => c.coordinator?.id === coord.id)
+              const isLead     = assignment?.is_lead
+              const isPending  = assignment?.status === 'pending'
+              const isAccepted = assignment?.status === 'accepted'
+              const isAssigned = !!assignment && assignment.status !== 'declined'
               return (
                 <button
                   key={coord.id}
                   onClick={(e) => handlePick(e, coord)}
-                  className={`w-full text-left px-3 py-2 text-xs font-semibold flex items-center gap-2 hover:bg-gray-50 transition-colors ${isLead ? 'bg-gray-50' : ''}`}
+                  className={`w-full text-left px-3 py-2 text-xs font-semibold flex items-center gap-2 hover:bg-gray-50 transition-colors ${isAssigned ? 'bg-gray-50/50' : ''}`}
                 >
                   <span className="truncate flex-1">{coord.full_name}</span>
-                  {isLead && <CheckCircle className="w-3 h-3 flex-shrink-0 text-cowc-gold" />}
-                  {isAssigned && !isLead && <span className="flex-shrink-0 text-[10px] text-gray-400">+</span>}
+                  {isLead && isAccepted && <span className="flex-shrink-0 text-[9px] font-bold text-cowc-gold uppercase">Lead</span>}
+                  {isPending && <span className="flex-shrink-0 text-[9px] font-bold text-amber-500 uppercase">Pending</span>}
+                  {isAssigned && !isLead && isAccepted && <CheckCircle className="w-3 h-3 flex-shrink-0 text-green-500" />}
                 </button>
               )
             })}
-            {leadCoord && (
+            {acceptedCount > 0 && (
               <>
                 <div className="border-t border-gray-100" />
                 <button
                   onClick={(e) => { e.stopPropagation(); setOpen(false); onAssign(wedding, null) }}
                   className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-50 transition-colors font-semibold"
                 >
-                  Remove assignment
+                  Remove all
                 </button>
               </>
             )}
@@ -447,50 +478,48 @@ export default function AdminDashboard() {
           ? { ...w, coordinators: [], coordinatorNames: [] }
           : w
         ))
-        toast.success('Coordinator removed')
+        toast.success('All coordinators removed')
         return
       }
-      const isAlreadyLead = currentAssignments.find(c => c.coordinator?.id === coord.id && c.is_lead)
-      const isAssigned    = currentAssignments.find(c => c.coordinator?.id === coord.id)
-      if (isAlreadyLead) {
-        // Toggle off: unassign
-        await coordinatorAssignmentsAPI.unassign(wedding.id, coord.id)
-        setWeddings(prev => prev.map(w => w.id === wedding.id
-          ? {
-              ...w,
-              coordinators: w.coordinators.filter(c => c.coordinator?.id !== coord.id),
-              coordinatorNames: w.coordinatorNames.filter(n => !n.startsWith(coord.full_name)),
-            }
-          : w
-        ))
-        toast.success(`${coord.full_name} unassigned`)
-      } else if (isAssigned) {
-        // Already there, promote to lead
-        await coordinatorAssignmentsAPI.setLead(wedding.id, coord.id)
-        // Refresh to get updated is_lead flags
-        const updated = await weddingsAPI.getById(wedding.id)
-        setWeddings(prev => prev.map(w => w.id === wedding.id
-          ? {
-              ...w,
-              coordinators: updated.coordinators || [],
-              coordinatorNames: (updated.coordinators || []).map(c => `${c.coordinator?.full_name || ''}${c.is_lead ? ' ✦' : ''}`),
-            }
-          : w
-        ))
-        toast.success(`${coord.full_name} set as lead`)
+      const existing = currentAssignments.find(c => c.coordinator?.id === coord.id)
+      if (existing) {
+        if (existing.status === 'pending') {
+          // Pending — clicking again cancels the request
+          await coordinatorAssignmentsAPI.unassign(wedding.id, coord.id)
+          setWeddings(prev => prev.map(w => w.id === wedding.id
+            ? { ...w, coordinators: w.coordinators.filter(c => c.coordinator?.id !== coord.id) }
+            : w
+          ))
+          toast.success(`Request to ${coord.full_name} cancelled`)
+        } else if (existing.is_lead) {
+          // Lead — clicking again removes them
+          await coordinatorAssignmentsAPI.unassign(wedding.id, coord.id)
+          const updated = await weddingsAPI.getById(wedding.id)
+          setWeddings(prev => prev.map(w => w.id === wedding.id
+            ? { ...w, coordinators: updated.coordinators || [] }
+            : w
+          ))
+          toast.success(`${coord.full_name} removed`)
+        } else {
+          // Accepted non-lead — promote to lead
+          await coordinatorAssignmentsAPI.setLead(wedding.id, coord.id)
+          const updated = await weddingsAPI.getById(wedding.id)
+          setWeddings(prev => prev.map(w => w.id === wedding.id
+            ? { ...w, coordinators: updated.coordinators || [] }
+            : w
+          ))
+          toast.success(`${coord.full_name} set as lead`)
+        }
       } else {
-        // New assignment — make them lead
-        await coordinatorAssignmentsAPI.assign(wedding.id, coord.id, true)
+        // New assignment — send request (pending), mark as lead if first one
+        const isFirst = currentAssignments.filter(c => c.status !== 'declined').length === 0
+        await coordinatorAssignmentsAPI.assign(wedding.id, coord.id, isFirst, 'pending')
         const updated = await weddingsAPI.getById(wedding.id)
         setWeddings(prev => prev.map(w => w.id === wedding.id
-          ? {
-              ...w,
-              coordinators: updated.coordinators || [],
-              coordinatorNames: (updated.coordinators || []).map(c => `${c.coordinator?.full_name || ''}${c.is_lead ? ' ✦' : ''}`),
-            }
+          ? { ...w, coordinators: updated.coordinators || [] }
           : w
         ))
-        toast.success(`${coord.full_name} assigned`)
+        toast.success(`Request sent to ${coord.full_name}`)
       }
     } catch {
       toast.error('Failed to update coordinator')

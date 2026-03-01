@@ -95,6 +95,7 @@ export const weddingsAPI = {
         coordinator_assignments(
           id,
           is_lead,
+          status,
           coordinator:profiles(id, full_name, email)
         )
       `)
@@ -120,6 +121,7 @@ export const weddingsAPI = {
         coordinator_assignments(
           id,
           is_lead,
+          status,
           coordinator:profiles(id, full_name, email, phone)
         )
       `)
@@ -168,6 +170,7 @@ export const weddingsAPI = {
         coordinator_assignments(
           id,
           is_lead,
+          status,
           coordinator:profiles(id, full_name, email)
         )
       `)
@@ -665,13 +668,30 @@ export const coordinatorAssignmentsAPI = {
     return data
   },
 
-  async assign(weddingId, coordinatorId, isLead = false) {
+  // Get all pending invites for a specific coordinator
+  async getPendingForCoordinator(coordinatorId) {
+    const { data, error } = await supabase
+      .from('coordinator_assignments')
+      .select(`
+        *,
+        wedding:weddings(id, couple_name, wedding_date, venue_name, package)
+      `)
+      .eq('coordinator_id', coordinatorId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  },
+
+  async assign(weddingId, coordinatorId, isLead = false, status = 'pending') {
     const { data, error } = await supabase
       .from('coordinator_assignments')
       .insert({
         wedding_id: weddingId,
         coordinator_id: coordinatorId,
         is_lead: isLead,
+        status,
       })
       .select()
       .single()
@@ -681,6 +701,30 @@ export const coordinatorAssignmentsAPI = {
   },
 
   async unassign(weddingId, coordinatorId) {
+    const { error } = await supabase
+      .from('coordinator_assignments')
+      .delete()
+      .eq('wedding_id', weddingId)
+      .eq('coordinator_id', coordinatorId)
+
+    if (error) throw error
+    return true
+  },
+
+  async accept(weddingId, coordinatorId) {
+    const { data, error } = await supabase
+      .from('coordinator_assignments')
+      .update({ status: 'accepted', responded_at: new Date().toISOString() })
+      .eq('wedding_id', weddingId)
+      .eq('coordinator_id', coordinatorId)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  async decline(weddingId, coordinatorId) {
     const { error } = await supabase
       .from('coordinator_assignments')
       .delete()

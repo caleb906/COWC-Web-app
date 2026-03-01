@@ -3,11 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Calendar, LogOut, Heart, ChevronRight, CheckCircle2,
   Circle, Clock, Home, ListChecks, AlertCircle,
-  RefreshCw, Zap, Radio,
+  RefreshCw, Zap, Radio, Users,
   ArrowRight, PenSquare,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/appStore'
 import { weddingsAPI, tasksAPI } from '../services/unifiedAPI'
+import { coordinatorAssignmentsAPI } from '../services/supabaseAPI'
 import { formatDate, formatTime, daysUntil, timeAgo } from '../utils/dates'
 import { supabase } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
@@ -320,19 +321,52 @@ export default function CoordinatorDashboard() {
   const [taskFilter, setTaskFilter]     = useState('open')  // 'open' | 'mine' | 'overdue' | 'done'
   const [togglingId, setTogglingId]     = useState(null)
   const [noteSheetOpen, setNoteSheetOpen] = useState(false)
+  const [pendingInvites, setPendingInvites] = useState([])
+  const [respondingId, setRespondingId]  = useState(null)
 
   useEffect(() => { loadData() }, [user])
 
   const loadData = async () => {
     if (!user) return
     try {
-      const data = await weddingsAPI.getForCoordinator(user.id)
+      const [data, invites] = await Promise.all([
+        weddingsAPI.getForCoordinator(user.id),
+        coordinatorAssignmentsAPI.getPendingForCoordinator(user.id),
+      ])
       const active = data.filter(w => !['Completed', 'Cancelled'].includes(w.status))
       setWeddings(active)
+      setPendingInvites(invites)
     } catch (e) {
       console.error('Error loading data:', e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleAcceptInvite = async (invite) => {
+    setRespondingId(invite.id)
+    try {
+      await coordinatorAssignmentsAPI.accept(invite.wedding_id, user.id)
+      setPendingInvites(prev => prev.filter(i => i.id !== invite.id))
+      await loadData()
+      toast.success(`Accepted — ${invite.wedding?.couple_name}`)
+    } catch {
+      toast.error('Failed to accept')
+    } finally {
+      setRespondingId(null)
+    }
+  }
+
+  const handleDeclineInvite = async (invite) => {
+    setRespondingId(invite.id)
+    try {
+      await coordinatorAssignmentsAPI.decline(invite.wedding_id, user.id)
+      setPendingInvites(prev => prev.filter(i => i.id !== invite.id))
+      toast.success('Invitation declined')
+    } catch {
+      toast.error('Failed to decline')
+    } finally {
+      setRespondingId(null)
     }
   }
 
@@ -496,6 +530,51 @@ export default function CoordinatorDashboard() {
         {/* ══════════════════ HOME TAB ══════════════════════════════════════ */}
         {activeTab === 'home' && (
           <>
+            {/* ── Pending invites ─────────────────────────────────────── */}
+            <AnimatePresence>
+              {pendingInvites.map(invite => {
+                const w = invite.wedding
+                const dateStr = w?.wedding_date ? new Date(w.wedding_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBD'
+                const isResponding = respondingId === invite.id
+                return (
+                  <motion.div
+                    key={invite.id}
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    className="bg-white border-2 border-cowc-gold/40 rounded-2xl px-4 py-3 shadow-sm"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-cowc-gold/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Users className="w-4 h-4 text-cowc-gold" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-cowc-gold uppercase tracking-wider mb-0.5">Wedding Invitation</p>
+                        <p className="text-sm font-bold text-gray-900 truncate">{w?.couple_name || 'A Wedding'}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{dateStr}{w?.venue_name ? ` · ${w.venue_name}` : ''}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={() => handleAcceptInvite(invite)}
+                        disabled={isResponding}
+                        className="flex-1 py-2 rounded-xl bg-cowc-gold text-white text-xs font-bold hover:bg-cowc-gold/90 transition-colors disabled:opacity-50"
+                      >
+                        {isResponding ? 'Accepting…' : 'Accept'}
+                      </button>
+                      <button
+                        onClick={() => handleDeclineInvite(invite)}
+                        disabled={isResponding}
+                        className="flex-1 py-2 rounded-xl bg-gray-100 text-gray-600 text-xs font-bold hover:bg-gray-200 transition-colors disabled:opacity-50"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </AnimatePresence>
+
             {/* Day-of live card */}
             {todayWedding && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
