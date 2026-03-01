@@ -367,9 +367,9 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
         <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full blur-3xl opacity-20 pointer-events-none" style={{ background: 'white' }} />
         <div className="absolute -bottom-16 -left-16 w-72 h-72 rounded-full blur-3xl opacity-10 pointer-events-none" style={{ background: 'white' }} />
 
-        <div className="relative z-10 max-w-lg mx-auto px-6 pt-6 pb-6 sm:pt-10 sm:pb-10">
+        <div className="relative z-10 max-w-lg mx-auto px-6 pt-8 pb-6 sm:pt-10 sm:pb-10">
           {/* Top nav */}
-          <div className="flex items-center justify-between mb-5 sm:mb-10">
+          <div className="flex items-center justify-between mb-6 sm:mb-10">
             <p className="text-white/45 text-xs uppercase tracking-[0.18em] font-medium">
               Welcome back, {user?.full_name?.split(' ')[0]}
             </p>
@@ -403,43 +403,55 @@ export default function CoupleDashboard({ previewWeddingId, isPreview, onPreview
             </div>
           </div>
 
-          {/* Couple name */}
-          <div className="text-center mb-5 sm:mb-10">
-            <p className="text-white/40 text-[10px] uppercase tracking-[0.25em] mb-3 sm:mb-5">Your Wedding</p>
-            <h1 className="text-4xl sm:text-5xl font-serif font-light tracking-wide leading-tight">
-              {wedding.couple_name}
-            </h1>
-            <div className="flex items-center justify-center gap-3 mt-3 sm:mt-6">
+          {/* Couple name + Countdown — unified block */}
+          <div className="mb-5 sm:mb-8">
+            {/* Couple name */}
+            <div className="text-center mb-4 sm:mb-6">
+              <p className="text-white/40 text-[10px] uppercase tracking-[0.25em] mb-2">Your Wedding</p>
+              <h1 className="text-4xl sm:text-5xl font-serif font-light tracking-wide leading-tight">
+                {wedding.couple_name}
+              </h1>
+            </div>
+
+            {/* Countdown — number left, label right on mobile; stacked centered on desktop */}
+            <div className="flex items-center gap-4 sm:block sm:text-center">
+              <div className="flex items-center gap-2 sm:hidden flex-shrink-0">
+                <div className="h-px w-8 bg-white/25" />
+              </div>
+              <div className="flex-1 flex items-baseline gap-3 sm:block">
+                <div className="text-[4.5rem] sm:text-[6rem] leading-none font-serif font-extralight tracking-tight flex-shrink-0">
+                  {days < 0 ? '🎉' : days === 0 ? '🎊' : days}
+                </div>
+                <div className="sm:mt-2 sm:mb-3">
+                  <div className="text-white/65 text-sm sm:text-base font-light tracking-wide">
+                    {days < 0 ? 'Congratulations!'
+                      : days === 0 ? "It's your wedding day!"
+                      : `day${days !== 1 ? 's' : ''} until your wedding`}
+                  </div>
+                  <div className="flex items-center sm:justify-center flex-wrap gap-x-3 gap-y-1 mt-1.5 sm:mt-3 text-white/45 text-[11px] uppercase tracking-[0.15em]">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="w-3 h-3" />
+                      <span>{formatDate(wedding.wedding_date, 'MMM d, yyyy')}</span>
+                    </div>
+                    {wedding.venue_name && (
+                      <>
+                        <span className="text-white/25">·</span>
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="w-3 h-3" />
+                          <span>{wedding.venue_name}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop-only decorative divider */}
+            <div className="hidden sm:flex items-center justify-center gap-3 mt-5">
               <div className="h-px w-10 bg-white/25" />
               <Heart className="w-2.5 h-2.5 text-white/40 fill-current" />
               <div className="h-px w-10 bg-white/25" />
-            </div>
-          </div>
-
-          {/* Countdown */}
-          <div className="text-center mb-4 sm:mb-8">
-            <div className="text-[3.5rem] sm:text-[6rem] leading-none font-serif font-extralight tracking-tight">
-              {days < 0 ? '🎉' : days === 0 ? '🎊' : days}
-            </div>
-            <div className="text-white/65 text-sm sm:text-base font-light mt-2 sm:mt-3 tracking-wide">
-              {days < 0 ? 'Congratulations!'
-                : days === 0 ? "It's your wedding day!"
-                : `day${days !== 1 ? 's' : ''} until your wedding`}
-            </div>
-            <div className="flex items-center justify-center flex-wrap gap-x-3 gap-y-1 mt-3 sm:mt-5 text-white/45 text-[11px] uppercase tracking-[0.15em]">
-              <div className="flex items-center gap-1.5">
-                <Calendar className="w-3 h-3" />
-                <span>{formatDate(wedding.wedding_date, 'MMM d, yyyy')}</span>
-              </div>
-              {wedding.venue_name && (
-                <>
-                  <span className="text-white/25">·</span>
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="w-3 h-3" />
-                    <span>{wedding.venue_name}</span>
-                  </div>
-                </>
-              )}
             </div>
           </div>
 

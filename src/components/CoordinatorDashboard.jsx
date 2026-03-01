@@ -203,47 +203,43 @@ export default function CoordinatorDashboard() {
                     onClick={() => navigate(`/wedding/${wedding.id}`)}
                     className="card-premium p-4 sm:p-6 cursor-pointer group"
                   >
-                    <div className="flex items-start justify-between mb-3 sm:mb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
-                          <h3 className="text-xl sm:text-2xl font-serif text-cowc-dark group-hover:text-cowc-gold transition-colors">
-                            {wedding.couple_name}
-                          </h3>
-                          {lead && (
-                            <span className="badge-lead">Lead</span>
-                          )}
-                        </div>
+                    {/* Card header: name + badges */}
+                    <div className="flex items-start justify-between mb-2.5 sm:mb-4">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <h3 className="text-xl sm:text-2xl font-serif text-cowc-dark group-hover:text-cowc-gold transition-colors truncate">
+                          {wedding.couple_name}
+                        </h3>
+                        {lead && (
+                          <span className="badge-lead flex-shrink-0">Lead</span>
+                        )}
                       </div>
-                      <ChevronRight className="w-6 h-6 text-cowc-light-gray group-hover:text-cowc-gold group-hover:translate-x-1 transition-all" />
+                      <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                          days < 0 ? 'bg-gray-100 text-cowc-gray' :
+                          days <= 30 ? 'bg-red-100 text-red-600' :
+                          'bg-cowc-gold/15 text-cowc-gold'
+                        }`}>
+                          {days < 0 ? `${Math.abs(days)}d ago` : days === 0 ? 'Today!' : `${days}d`}
+                        </span>
+                        <ChevronRight className="w-5 h-5 text-cowc-light-gray group-hover:text-cowc-gold group-hover:translate-x-1 transition-all" />
+                      </div>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2 text-cowc-gray">
-                        <Calendar className="w-4 h-4 text-cowc-gold flex-shrink-0" />
-                        <span className="font-sans text-sm">
-                          {formatDate(wedding.wedding_date, 'EEEE, MMMM d, yyyy')}
-                        </span>
+                    {/* Date + venue on one compact row */}
+                    <div className="flex items-center gap-3 text-sm text-cowc-gray flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-cowc-gold flex-shrink-0" />
+                        <span>{formatDate(wedding.wedding_date, 'MMM d, yyyy')}</span>
                       </div>
-
-                      <div className="flex items-center gap-2 text-cowc-gray">
-                        <MapPin className="w-4 h-4 text-cowc-gold flex-shrink-0" />
-                        <span className="font-sans text-sm">{wedding.venue_name}</span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-cowc-gold flex-shrink-0" />
-                        <span className={`font-sans text-sm font-semibold ${
-                          days < 0 ? 'text-cowc-light-gray' :
-                          days <= 30 ? 'text-red-500' :
-                          'text-cowc-gold'
-                        }`}>
-                          {days < 0
-                            ? `${Math.abs(days)} days ago`
-                            : days === 0
-                            ? 'Today!'
-                            : `${days} days away`}
-                        </span>
-                      </div>
+                      {wedding.venue_name && (
+                        <>
+                          <span className="text-cowc-light-gray">·</span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <MapPin className="w-3.5 h-3.5 text-cowc-gold flex-shrink-0" />
+                            <span className="truncate">{wedding.venue_name}</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </motion.div>
                 )
