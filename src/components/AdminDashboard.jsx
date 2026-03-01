@@ -647,9 +647,8 @@ export default function AdminDashboard() {
           className="grid grid-cols-3 gap-4 mb-8"
         >
           {[
-            { label: 'New Wedding',  sub: 'Add a new couple',       path: '/admin/create-wedding',      Icon: Plus },
-            { label: 'Invite Users', sub: 'Couples & coordinators', path: '/admin/invite-users',        Icon: UserPlus },
-            { label: 'Coordinators', sub: 'Assign to weddings',     path: '/admin/assign-coordinators', Icon: Calendar },
+            { label: 'New Wedding',  sub: 'Add a new couple',       path: '/admin/create-wedding', Icon: Plus },
+            { label: 'Users',        sub: 'Manage & invite users',  path: '/admin/users',          Icon: UserPlus },
             { label: 'Catalogue',    sub: 'Manage rental items',    path: '/admin/catalogue',           Icon: ShoppingBag },
             { label: 'Vendors',      sub: 'Vendor directory',       path: '/admin/vendors',             Icon: Users },
             { label: 'Venues',       sub: 'Venue directory',        path: '/admin/venues',              Icon: Building2 },
@@ -908,8 +907,7 @@ export default function AdminDashboard() {
             >
               {[
                 { icon: Heart,        label: 'New Wedding',       action: () => navigate('/admin/create-wedding') },
-                { icon: UserPlus,     label: 'Invite User',       action: () => navigate('/admin/invite-users') },
-                { icon: Users,        label: 'Assign Coordinator',action: () => navigate('/admin/assign-coordinators') },
+                { icon: UserPlus,     label: 'Manage Users',      action: () => navigate('/admin/users') },
                 { icon: ClipboardList,label: 'All Tasks',         action: () => navigate('/admin/tasks') },
                 { icon: ShoppingBag,  label: 'All Vendors',       action: () => navigate('/admin/vendors') },
                 { icon: Package,      label: 'Catalogue',         action: () => navigate('/admin/catalogue') },

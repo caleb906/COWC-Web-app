@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Users, Mail, Phone, Edit2, Save, X, Trash2, Search,
-  ShieldOff, ShieldCheck, KeyRound, Loader2, Copy, Check, UserCircle2
+  ShieldOff, ShieldCheck, KeyRound, Loader2, Copy, Check, UserCircle2,
+  UserPlus, Send, CheckCircle2
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -11,17 +12,32 @@ import { useToast } from './Toast'
 export default function UsersManagementScreenNew() {
   const navigate = useNavigate()
   const toast = useToast()
-  const [activeTab, setActiveTab] = useState('coordinators')  // 'coordinators' | 'couples' | 'admins'
+  const [activeTab, setActiveTab] = useState('coordinators')
   const [searchQuery, setSearchQuery] = useState('')
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState({})
-  const [busyId, setBusyId] = useState(null)   // userId currently being acted on
-  const [recoveryLink, setRecoveryLink] = useState(null)  // { userId, link }
+  const [busyId, setBusyId] = useState(null)
+  const [recoveryLink, setRecoveryLink] = useState(null)
   const [copied, setCopied] = useState(false)
 
+  // Add user modal state
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [addForm, setAddForm] = useState({ fullName: '', email: '', phone: '', role: 'coordinator' })
+  const [addSending, setAddSending] = useState(false)
+  const [createdUser, setCreatedUser] = useState(null)
+
   useEffect(() => { loadUsers() }, [activeTab])
+
+  // Pre-fill role when opening modal based on active tab
+  useEffect(() => {
+    if (showAddModal) {
+      const roleMap = { coordinators: 'coordinator', couples: 'couple', admins: 'admin' }
+      setAddForm(f => ({ ...f, role: roleMap[activeTab] || 'coordinator' }))
+      setCreatedUser(null)
+    }
+  }, [showAddModal, activeTab])
 
   const loadUsers = async () => {
     setLoading(true)
@@ -43,7 +59,13 @@ export default function UsersManagementScreenNew() {
 
   // Call admin-user-ops edge function
   const adminOp = async (body) => {
-    const res = await supabase.functions.invoke('admin-user-ops', { body })
+    await supabase.auth.refreshSession()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) throw new Error('Not authenticated — please log in again')
+    const res = await supabase.functions.invoke('admin-user-ops', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body,
+    })
     if (res.error) throw new Error(res.data?.error || res.error.message)
     if (res.data?.error) throw new Error(res.data.error)
     return res.data
@@ -65,10 +87,9 @@ export default function UsersManagementScreenNew() {
 
   const handleToggleActive = async (user) => {
     const isActive = (user.status || 'Active').toLowerCase() !== 'inactive'
-    const action = isActive ? 'deactivate' : 'reactivate'
     setBusyId(user.id)
     try {
-      await adminOp({ action, userId: user.id })
+      await adminOp({ action: isActive ? 'deactivate' : 'reactivate', userId: user.id })
       setUsers(u => u.map(x => x.id === user.id
         ? { ...x, status: isActive ? 'Inactive' : 'Active' }
         : x
@@ -115,6 +136,45 @@ export default function UsersManagementScreenNew() {
     }
   }
 
+  const handleAddUser = async (e) => {
+    e.preventDefault()
+    if (!addForm.fullName || !addForm.email) {
+      toast.error('Name and email are required')
+      return
+    }
+    setAddSending(true)
+    try {
+      await supabase.auth.refreshSession()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Not authenticated')
+
+      const response = await supabase.functions.invoke('create-user', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: {
+          fullName: addForm.fullName,
+          email: addForm.email,
+          phone: addForm.phone || '',
+          role: addForm.role,
+        },
+      })
+      if (response.error) throw response.error
+      const result = response.data
+      if (result?.error) throw new Error(result.error)
+
+      toast.success(`${addForm.fullName} created successfully!`)
+      setCreatedUser(result.user)
+      setAddForm(f => ({ ...f, fullName: '', email: '', phone: '' }))
+
+      // Reload if the new user's role matches the active tab
+      const roleMap = { coordinators: 'coordinator', couples: 'couple', admins: 'admin' }
+      if (roleMap[activeTab] === addForm.role) await loadUsers()
+    } catch (error) {
+      toast.error('Failed to create user: ' + (error.message || 'Unknown error'))
+    } finally {
+      setAddSending(false)
+    }
+  }
+
   const handleCopyLink = () => {
     if (!recoveryLink?.link) return
     navigator.clipboard.writeText(recoveryLink.link)
@@ -127,6 +187,8 @@ export default function UsersManagementScreenNew() {
     u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.email?.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  const tabLabel = activeTab === 'coordinators' ? 'coordinator' : activeTab === 'admins' ? 'admin' : 'couple'
 
   return (
     <div className="min-h-screen bg-cowc-cream pb-24">
@@ -142,13 +204,20 @@ export default function UsersManagementScreenNew() {
           </button>
 
           <div className="flex items-center gap-4 mb-8">
-            <div className="w-16 h-16 bg-cowc-gold rounded-full flex items-center justify-center">
+            <div className="w-16 h-16 bg-cowc-gold rounded-full flex items-center justify-center flex-shrink-0">
               <Users className="w-8 h-8 text-white" />
             </div>
             <div className="flex-1">
               <h1 className="text-5xl font-serif font-light">Users</h1>
-              <p className="text-white/70 mt-2">{users.length} {activeTab === 'coordinators' ? 'coordinator' : activeTab === 'admins' ? 'admin' : 'couple'}{users.length !== 1 ? 's' : ''}</p>
+              <p className="text-white/70 mt-2">{users.length} {tabLabel}{users.length !== 1 ? 's' : ''}</p>
             </div>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cowc-gold text-white font-semibold hover:bg-opacity-90 transition-all flex-shrink-0"
+            >
+              <UserPlus className="w-4 h-4" />
+              Add User
+            </button>
           </div>
 
           {/* Tabs */}
@@ -219,7 +288,17 @@ export default function UsersManagementScreenNew() {
         ) : filteredUsers.length === 0 ? (
           <div className="card-premium p-16 text-center">
             <UserCircle2 className="w-16 h-16 text-cowc-light-gray mx-auto mb-4" />
-            <p className="text-xl text-cowc-gray">{searchQuery ? 'No users match your search' : `No ${activeTab === 'admins' ? 'admins' : activeTab} yet`}</p>
+            <p className="text-xl text-cowc-gray mb-6">
+              {searchQuery ? 'No users match your search' : `No ${tabLabel}s yet`}
+            </p>
+            {!searchQuery && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cowc-gold text-white font-semibold hover:bg-opacity-90 transition-all"
+              >
+                <UserPlus className="w-4 h-4" /> Add {tabLabel}
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
@@ -230,7 +309,6 @@ export default function UsersManagementScreenNew() {
               return (
                 <motion.div key={user.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card-premium p-5">
                   {editingId === user.id ? (
-                    // Edit mode
                     <div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                         <input
@@ -245,7 +323,6 @@ export default function UsersManagementScreenNew() {
                           value={user.email}
                           disabled
                           className="input-premium opacity-50 cursor-not-allowed"
-                          placeholder="Email"
                         />
                         <input
                           type="tel"
@@ -270,7 +347,6 @@ export default function UsersManagementScreenNew() {
                       </div>
                     </div>
                   ) : (
-                    // View mode
                     <div className="flex items-start gap-4">
                       <div className="w-10 h-10 bg-cowc-gold/10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                         <UserCircle2 className="w-5 h-5 text-cowc-gold" />
@@ -279,9 +355,7 @@ export default function UsersManagementScreenNew() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-cowc-dark text-lg">{user.full_name || '(no name)'}</p>
                           <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                            isActive
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-gray-100 text-gray-500'
+                            isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                           }`}>
                             {isActive ? 'Active' : 'Inactive'}
                           </span>
@@ -300,22 +374,19 @@ export default function UsersManagementScreenNew() {
                         )}
                       </div>
 
-                      {/* Actions */}
-                      <div className="flex gap-1 flex-shrink-0 flex-wrap justify-end">
-                        {/* Recovery link */}
+                      <div className="flex gap-1 flex-shrink-0">
                         <button
                           onClick={() => handleRecovery(user)}
                           disabled={isBusy}
-                          title="Generate recovery link"
+                          title="Generate password recovery link"
                           className="p-2 hover:bg-cowc-cream rounded-lg transition-colors disabled:opacity-40"
                         >
-                          {isBusy && busyId === user.id && recoveryLink?.userId !== user.id
+                          {isBusy && recoveryLink?.userId !== user.id
                             ? <Loader2 className="w-4 h-4 text-cowc-gold animate-spin" />
                             : <KeyRound className="w-4 h-4 text-cowc-gold" />
                           }
                         </button>
 
-                        {/* Deactivate / Reactivate */}
                         <button
                           onClick={() => handleToggleActive(user)}
                           disabled={isBusy}
@@ -330,7 +401,6 @@ export default function UsersManagementScreenNew() {
                           }
                         </button>
 
-                        {/* Edit */}
                         <button
                           onClick={() => {
                             setEditingId(user.id)
@@ -342,7 +412,6 @@ export default function UsersManagementScreenNew() {
                           <Edit2 className="w-4 h-4 text-cowc-dark" />
                         </button>
 
-                        {/* Delete */}
                         <button
                           onClick={() => handleDelete(user)}
                           disabled={isBusy}
@@ -363,6 +432,151 @@ export default function UsersManagementScreenNew() {
           </div>
         )}
       </div>
+
+      {/* ── Add User Modal ────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showAddModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setShowAddModal(false); setCreatedUser(null) }}
+              className="fixed inset-0 bg-black/40 z-40"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-lg mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden"
+            >
+              {/* Modal header */}
+              <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-cowc-gold/10 flex items-center justify-center">
+                    <UserPlus className="w-5 h-5 text-cowc-gold" />
+                  </div>
+                  <div>
+                    <h2 className="font-serif text-xl text-cowc-dark">Add User</h2>
+                    <p className="text-xs text-cowc-gray">Create account & send invite</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setShowAddModal(false); setCreatedUser(null) }}
+                  className="p-2 hover:bg-cowc-cream rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-cowc-gray" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddUser} className="px-6 py-5 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-semibold text-cowc-dark mb-1.5">Full Name *</label>
+                    <input
+                      type="text"
+                      value={addForm.fullName}
+                      onChange={e => setAddForm(f => ({ ...f, fullName: e.target.value }))}
+                      className="input-premium"
+                      placeholder="Jane Smith"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-cowc-dark mb-1.5">Email *</label>
+                    <input
+                      type="email"
+                      value={addForm.email}
+                      onChange={e => setAddForm(f => ({ ...f, email: e.target.value }))}
+                      className="input-premium"
+                      placeholder="jane@email.com"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-cowc-dark mb-1.5">Phone</label>
+                    <input
+                      type="tel"
+                      value={addForm.phone}
+                      onChange={e => setAddForm(f => ({ ...f, phone: e.target.value }))}
+                      className="input-premium"
+                      placeholder="(555) 123-4567"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-semibold text-cowc-dark mb-1.5">Role *</label>
+                    <select
+                      value={addForm.role}
+                      onChange={e => setAddForm(f => ({ ...f, role: e.target.value }))}
+                      className="input-premium"
+                    >
+                      <option value="coordinator">Coordinator</option>
+                      <option value="couple">Couple</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Success confirmation */}
+                {createdUser && (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                    <div className="flex gap-3">
+                      <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-semibold text-green-900 mb-1">Account Created!</p>
+                        <p className="text-sm text-green-800 mb-2">
+                          Login info sent to <strong>{createdUser.email}</strong>.
+                        </p>
+                        {createdUser.tempPassword && (
+                          <div className="bg-white rounded-lg p-2.5 border border-green-200">
+                            <p className="text-xs font-semibold text-amber-700 mb-1">Temporary Password:</p>
+                            <div className="flex items-center gap-2">
+                              <code className="flex-1 bg-amber-50 border border-amber-200 rounded px-2 py-1 text-sm font-mono text-amber-900 select-all">
+                                {createdUser.tempPassword}
+                              </code>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(createdUser.tempPassword)
+                                  toast.success('Copied!')
+                                }}
+                                className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-800 hover:bg-amber-200 font-semibold"
+                              >
+                                Copy
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setShowAddModal(false); setCreatedUser(null) }}
+                    className="flex-1 py-2.5 px-4 rounded-xl font-semibold text-cowc-gray hover:bg-cowc-cream transition-all border border-gray-200"
+                  >
+                    {createdUser ? 'Done' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={addSending}
+                    className="flex-1 py-2.5 px-4 rounded-xl font-semibold bg-cowc-gold text-white hover:bg-opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {addSending
+                      ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating…</>
+                      : <><Send className="w-4 h-4" /> Create & Invite</>
+                    }
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
