@@ -186,7 +186,7 @@ function App() {
           {user && user.force_password_change && (
             <ChangePasswordModal user={user} onComplete={handlePasswordChangeComplete} />
           )}
-          {user && <IssueFlagger />}
+          {user && user.role !== 'couple' && <IssueFlagger />}
 
           {/* Welcome overlay — shown when couple lands via invite link */}
           {/* Forces couple to set their own permanent password before entering the app */}
@@ -328,7 +328,6 @@ function App() {
               <>
                 <Route path="/" element={<CoupleDashboard />} />
                 <Route path="/catalogue" element={<CatalogueScreen />} />
-                <Route path="/wedding/:id" element={<WeddingDetailPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </>
             ) : (
