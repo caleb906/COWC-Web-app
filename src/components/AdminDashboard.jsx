@@ -436,11 +436,11 @@ export default function AdminDashboard() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
+          <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-4">
             {[
-              { icon: Heart,       label: 'Active Weddings', value: stats.totalWeddings,  fill: true },
+              { icon: Heart,       label: 'Weddings',        value: stats.totalWeddings,  fill: true },
               { icon: Calendar,    label: 'Next 30 Days',    value: stats.next30Days      },
-              { icon: TrendingUp,  label: 'Tasks Remaining', value: stats.tasksRemaining, click: () => navigate('/admin/tasks') },
+              { icon: TrendingUp,  label: 'Tasks Left',      value: stats.tasksRemaining, click: () => navigate('/admin/tasks') },
               { icon: ShoppingBag, label: 'Vendors',         value: stats.totalVendors,   click: () => navigate('/admin/vendors') },
               { icon: Users,       label: 'In Pipeline',     value: stats.inquiry + stats.inTalks + stats.signed },
             ].map(({ icon: Icon, label, value, fill, click }, i) => (
@@ -450,11 +450,11 @@ export default function AdminDashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 + i * 0.1 }}
                 onClick={click}
-                className={`bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-6 ${click ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}
+                className={`bg-white/95 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg p-3 sm:p-6 ${click ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}
               >
-                <Icon className={`w-8 h-8 text-cowc-gold mb-3 ${fill ? 'fill-cowc-gold' : ''}`} />
-                <div className="text-3xl font-serif font-light text-cowc-dark mb-1">{value}</div>
-                <div className="text-sm text-cowc-gray">{label}</div>
+                <Icon className={`w-5 h-5 sm:w-8 sm:h-8 text-cowc-gold mb-1.5 sm:mb-3 ${fill ? 'fill-cowc-gold' : ''}`} />
+                <div className="text-2xl sm:text-3xl font-serif font-light text-cowc-dark mb-0.5 sm:mb-1">{value}</div>
+                <div className="text-[10px] sm:text-sm text-cowc-gray leading-tight">{label}</div>
               </motion.div>
             ))}
           </div>
@@ -468,24 +468,25 @@ export default function AdminDashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12"
+          className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-10 sm:mb-12"
         >
           {[
-            { label: 'Create Wedding',      sub: 'Add a new couple and wedding details',     path: '/admin/create-wedding',      Icon: Plus },
-            { label: 'Invite Users',         sub: 'Send invites to couples & coordinators',   path: '/admin/invite-users',         Icon: UserPlus },
-            { label: 'Assign Coordinators',  sub: 'Match coordinators to weddings',           path: '/admin/assign-coordinators',  Icon: Calendar },
-            { label: 'Catalogue',            sub: 'Manage items couples can reserve',         path: '/admin/catalogue',            Icon: ShoppingBag },
-            { label: 'Vendors',              sub: 'Browse and manage your vendor directory',  path: '/admin/vendors',              Icon: Users },
-            { label: 'Venues',               sub: 'Browse and manage your venue directory',   path: '/admin/venues',               Icon: Building2 },
+            { label: 'Create Wedding',      sub: 'Add a new couple',              path: '/admin/create-wedding',      Icon: Plus },
+            { label: 'Invite Users',        sub: 'Couples & coordinators',        path: '/admin/invite-users',        Icon: UserPlus },
+            { label: 'Assign Coordinators', sub: 'Match to weddings',             path: '/admin/assign-coordinators', Icon: Calendar },
+            { label: 'Catalogue',           sub: 'Manage rental items',           path: '/admin/catalogue',           Icon: ShoppingBag },
+            { label: 'Vendors',             sub: 'Vendor directory',              path: '/admin/vendors',             Icon: Users },
+            { label: 'Venues',              sub: 'Venue directory',               path: '/admin/venues',              Icon: Building2 },
           ].map(({ label, sub, path, Icon }) => (
             <button key={label} onClick={() => navigate(path)}
-              className="card-premium p-8 text-left group hover:scale-105 transition-transform">
-              <div className="flex items-center justify-between mb-4">
-                <Icon className="w-10 h-10 text-cowc-gold" />
-                <span className="text-3xl group-hover:translate-x-2 transition-transform">→</span>
+              className="card-premium p-4 sm:p-8 text-left group hover:scale-105 transition-transform active:scale-95">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <Icon className="w-7 h-7 sm:w-10 sm:h-10 text-cowc-gold" />
+                <span className="text-xl sm:text-3xl group-hover:translate-x-1 transition-transform text-cowc-light-gray">→</span>
               </div>
-              <h3 className="text-2xl font-serif text-cowc-dark mb-2">{label}</h3>
-              <p className="text-cowc-gray">{sub}</p>
+              <h3 className="text-base sm:text-2xl font-serif text-cowc-dark mb-0.5 sm:mb-2 leading-tight">{label}</h3>
+              <p className="text-cowc-gray text-xs sm:text-base hidden sm:block">{sub}</p>
+              <p className="text-cowc-gray text-[10px] sm:hidden leading-tight">{sub}</p>
             </button>
           ))}
         </motion.div>

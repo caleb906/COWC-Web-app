@@ -93,13 +93,13 @@ export default function CoordinatorDashboard() {
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-cowc-gold opacity-10 rounded-full blur-3xl" />
         
         <div className="max-w-4xl mx-auto relative z-10">
-          <div className="flex items-start justify-between mb-8">
+          <div className="flex items-start justify-between mb-6 sm:mb-8">
             <div>
               <motion.h1
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.2 }}
-                className="text-5xl font-serif font-light mb-2"
+                className="text-3xl sm:text-5xl font-serif font-light mb-1 sm:mb-2"
               >
                 Welcome, {user?.full_name?.split(' ')[0]}
               </motion.h1>
@@ -107,22 +107,22 @@ export default function CoordinatorDashboard() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 }}
-                className="text-white/70 text-sm uppercase tracking-widest"
+                className="text-white/70 text-xs sm:text-sm uppercase tracking-widest"
               >
                 Wedding Coordinator
               </motion.p>
             </div>
-            
-            <div className="flex items-center gap-2">
+
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <NotificationBell iconColor="white" />
               <motion.button
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.4 }}
                 onClick={handleSignOut}
-                className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all active:scale-95"
+                className="p-2.5 sm:p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all active:scale-95"
               >
-                <LogOut className="w-5 h-5" />
+                <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
               </motion.button>
             </div>
           </div>
@@ -132,25 +132,25 @@ export default function CoordinatorDashboard() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-8 text-center"
+            className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-5 sm:p-8 text-center"
           >
-            <div className="flex items-center justify-center mb-4">
-              <Heart className="w-8 h-8 text-cowc-gold fill-cowc-gold" />
+            <div className="flex items-center justify-center mb-2 sm:mb-4">
+              <Heart className="w-6 h-6 sm:w-8 sm:h-8 text-cowc-gold fill-cowc-gold" />
             </div>
-            <div className="text-6xl font-serif font-light text-cowc-dark mb-2">
+            <div className="text-4xl sm:text-6xl font-serif font-light text-cowc-dark mb-1 sm:mb-2">
               {upcomingCount}
             </div>
-            <div className="text-xl text-cowc-dark mb-1">
+            <div className="text-base sm:text-xl text-cowc-dark mb-0.5 sm:mb-1">
               Upcoming {upcomingCount === 1 ? 'Wedding' : 'Weddings'}
             </div>
-            <div className="text-sm text-cowc-gray uppercase tracking-wider">
+            <div className="text-xs sm:text-sm text-cowc-gray uppercase tracking-wider">
               Next 6 Months
             </div>
           </motion.div>
         </div>
       </motion.div>
 
-      <div className="max-w-4xl mx-auto px-6 -mt-10 relative z-20">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 -mt-8 sm:-mt-10 relative z-20">
         {/* Pull to refresh indicator */}
         {refreshing && (
           <motion.div
@@ -164,9 +164,9 @@ export default function CoordinatorDashboard() {
         )}
 
         {/* Your Weddings */}
-        <section className="mb-12">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-3xl font-serif font-light text-cowc-dark">
+        <section className="mb-10 sm:mb-12">
+          <div className="flex items-center justify-between mb-4 sm:mb-6">
+            <h2 className="text-2xl sm:text-3xl font-serif font-light text-cowc-dark">
               Your Weddings
             </h2>
             <button
@@ -201,12 +201,12 @@ export default function CoordinatorDashboard() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
                     onClick={() => navigate(`/wedding/${wedding.id}`)}
-                    className="card-premium p-6 cursor-pointer group"
+                    className="card-premium p-4 sm:p-6 cursor-pointer group"
                   >
-                    <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start justify-between mb-3 sm:mb-4">
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-2xl font-serif text-cowc-dark group-hover:text-cowc-gold transition-colors">
+                        <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+                          <h3 className="text-xl sm:text-2xl font-serif text-cowc-dark group-hover:text-cowc-gold transition-colors">
                             {wedding.couple_name}
                           </h3>
                           {lead && (
@@ -254,9 +254,9 @@ export default function CoordinatorDashboard() {
 
         {/* Recent Changes */}
         <section>
-          <div className="flex items-center gap-3 mb-6">
-            <Bell className="w-6 h-6 text-cowc-gold" />
-            <h2 className="text-3xl font-serif font-light text-cowc-dark">
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-cowc-gold" />
+            <h2 className="text-2xl sm:text-3xl font-serif font-light text-cowc-dark">
               Recent Changes
             </h2>
           </div>
