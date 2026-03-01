@@ -4,7 +4,7 @@ import {
   Calendar, LogOut, Heart, ChevronRight, CheckCircle2,
   Circle, Clock, Home, ListChecks, AlertCircle,
   RefreshCw, Zap, Radio,
-  ArrowRight,
+  ArrowRight, NotebookPen,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/appStore'
 import { weddingsAPI, tasksAPI } from '../services/unifiedAPI'
@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom'
 import InternalNotesWidget from './InternalNotesWidget'
 import NotificationBell from './NotificationBell'
 import { useToast } from './Toast'
+import NoteSheet from './NoteSheet'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -318,6 +319,7 @@ export default function CoordinatorDashboard() {
   const [activeTab, setActiveTab]       = useState('home')
   const [taskFilter, setTaskFilter]     = useState('open')  // 'open' | 'mine' | 'overdue' | 'done'
   const [togglingId, setTogglingId]     = useState(null)
+  const [noteSheetOpen, setNoteSheetOpen] = useState(false)
 
   useEffect(() => { loadData() }, [user])
 
@@ -744,6 +746,27 @@ export default function CoordinatorDashboard() {
       </div>
 
       <InternalNotesWidget compactMode={true} />
+
+      {/* ── Quick Note FAB ─────────────────────────────────────────────────── */}
+      <motion.button
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.3, type: 'spring', damping: 14 }}
+        onClick={() => setNoteSheetOpen(true)}
+        className="fixed bottom-24 right-5 w-14 h-14 bg-cowc-gold text-white rounded-full shadow-lg flex items-center justify-center hover:bg-cowc-gold/90 active:scale-95 transition-all z-30"
+        title="Quick Note"
+      >
+        <NotebookPen className="w-6 h-6" />
+      </motion.button>
+
+      {/* ── NoteSheet ──────────────────────────────────────────────────────── */}
+      <NoteSheet
+        open={noteSheetOpen}
+        onClose={() => setNoteSheetOpen(false)}
+        weddings={weddings.map(w => ({ id: w.id, couple_name: w.couple_name, wedding_date: w.wedding_date }))}
+        userId={user?.id}
+        onApplied={loadData}
+      />
     </div>
   )
 }

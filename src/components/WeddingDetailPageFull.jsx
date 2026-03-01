@@ -8,7 +8,7 @@ import {
   CheckCircle2, Circle, AlertCircle, DollarSign, Edit2,
   Palette, ExternalLink, Link, Sparkles, Loader2, RefreshCw,
   Eye, ClipboardList, ShoppingBag, ListMusic, UserPlus, ChevronDown, ChevronUp, GripVertical,
-  Send, Package, Tag, Check, Copy, Settings, ArrowUp, ArrowDown
+  Send, Package, Tag, Check, Copy, Settings, ArrowUp, ArrowDown, NotebookPen
 } from 'lucide-react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../stores/appStore'
@@ -21,6 +21,7 @@ import { formatDate, daysUntil, isPastDue } from '../utils/dates'
 import { primaryGradient, primaryAccent, primaryAlpha, primaryPageBg, primaryCardBg } from '../utils/colorUtils'
 import { AddTaskModal, AddVendorModal, AddTimelineModal } from './AddModals'
 import InternalNotesWidget from './InternalNotesWidget'
+import NoteSheet from './NoteSheet'
 
 
 export default function WeddingDetailPageFull() {
@@ -86,6 +87,7 @@ export default function WeddingDetailPageFull() {
   const [clearingTimeline, setClearingTimeline] = useState(false)
   const [reClassifying, setReClassifying] = useState(false)
   const [showFABTray, setShowFABTray] = useState(false)
+  const [showNoteSheet, setShowNoteSheet] = useState(false)
 
   // Edit states for items
   const [editingTaskId, setEditingTaskId] = useState(null)
@@ -2095,6 +2097,7 @@ export default function WeddingDetailPageFull() {
                 className="fixed bottom-24 right-5 z-50 flex flex-col items-end gap-2"
               >
                 {[
+                  { icon: NotebookPen,   label: 'Quick Note',        action: () => setShowNoteSheet(true) },
                   { icon: ClipboardList, label: 'Add Task',         action: () => { setActiveTab('tasks');    setShowAddTask(true) } },
                   { icon: ShoppingBag,   label: 'Add Vendor',       action: () => { setActiveTab('vendors');  setShowAddVendor(true) } },
                   { icon: ListMusic,     label: 'Add Timeline Item', action: () => { setActiveTab('timeline'); setShowAddTimeline(true) } },
@@ -2128,6 +2131,18 @@ export default function WeddingDetailPageFull() {
             <div className="fixed inset-0 z-40" onClick={() => setShowFABTray(false)} />
           )}
         </>
+      )}
+
+      {/* ── NoteSheet (coordinator / admin) ─────────────────────────────── */}
+      {canEdit && (
+        <NoteSheet
+          open={showNoteSheet}
+          onClose={() => setShowNoteSheet(false)}
+          weddings={wedding ? [{ id: wedding.id, couple_name: wedding.couple_name, wedding_date: wedding.wedding_date }] : []}
+          defaultWeddingId={id}
+          userId={user?.id}
+          onApplied={loadWedding}
+        />
       )}
     </div>
   )
