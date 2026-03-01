@@ -82,77 +82,65 @@ export default function CoordinatorDashboard() {
 
   return (
     <div className="min-h-screen bg-cowc-cream pb-24">
-      {/* Hero Header */}
+      {/* Hero — single nav bar, no greeting text */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-cowc-dark via-cowc-dark to-gray-800 text-white pt-8 pb-14 px-4 sm:px-6 safe-top relative overflow-hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="bg-gradient-to-br from-cowc-dark via-cowc-dark to-gray-800 text-white relative overflow-hidden"
       >
-        {/* Decorative elements */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-cowc-gold opacity-10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-cowc-gold opacity-10 rounded-full blur-3xl" />
-        
-        <div className="max-w-4xl mx-auto relative z-10">
-          <div className="flex items-start justify-between mb-6 sm:mb-8">
-            <div>
-              <motion.h1
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-                className="text-3xl sm:text-5xl font-serif font-light mb-1 sm:mb-2"
-              >
-                Welcome, {user?.full_name?.split(' ')[0]}
-              </motion.h1>
-              <motion.p
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
-                className="text-white/70 text-xs sm:text-sm uppercase tracking-widest"
-              >
-                Wedding Coordinator
-              </motion.p>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-cowc-gold opacity-10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-cowc-gold opacity-10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 pt-3 pb-7">
+          <div className="flex items-center gap-2">
+            {/* Left: notification bell */}
+            <div className="flex-shrink-0">
+              <NotificationBell iconColor="white" />
             </div>
 
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <NotificationBell iconColor="white" />
-              <motion.button
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.4 }}
+            {/* Centre: coordinator name */}
+            <h1 className="flex-1 text-center text-xl font-serif font-light tracking-widest text-white truncate">
+              {user?.full_name?.split(' ')[0]}
+            </h1>
+
+            {/* Right: sign out */}
+            <div className="flex-shrink-0">
+              <button
                 onClick={handleSignOut}
-                className="p-2.5 sm:p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all active:scale-95"
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all active:scale-95"
+                aria-label="Sign out"
               >
-                <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
-              </motion.button>
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
           </div>
-
-          {/* Stats Card — inline horizontal layout */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg px-6 py-4 sm:px-8 sm:py-6 flex items-center gap-4"
-          >
-            <Heart className="w-8 h-8 sm:w-10 sm:h-10 text-cowc-gold fill-cowc-gold flex-shrink-0" />
-            <div className="flex items-baseline gap-2 flex-1">
-              <span className="text-4xl sm:text-5xl font-serif font-light text-cowc-dark leading-none">
-                {upcomingCount}
-              </span>
-              <div>
-                <div className="text-sm sm:text-base text-cowc-dark font-medium leading-tight">
-                  Upcoming {upcomingCount === 1 ? 'Wedding' : 'Weddings'}
-                </div>
-                <div className="text-[11px] text-cowc-gray uppercase tracking-wider">
-                  Next 6 Months
-                </div>
-              </div>
-            </div>
-          </motion.div>
         </div>
       </motion.div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 -mt-8 sm:-mt-10 relative z-20">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 -mt-5 relative z-20">
+
+        {/* Stats card — overlaps hero, same pattern as CoupleDashboard countdown */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-white rounded-2xl shadow-lg flex items-center gap-3 px-4 py-3 mb-3"
+        >
+          <Heart className="w-7 h-7 text-cowc-gold fill-cowc-gold flex-shrink-0" />
+          <div className="flex items-baseline gap-2 flex-1">
+            <span className="text-4xl font-serif font-light text-cowc-dark leading-none">
+              {upcomingCount}
+            </span>
+            <div>
+              <div className="text-sm text-cowc-dark font-medium leading-tight">
+                Upcoming {upcomingCount === 1 ? 'Wedding' : 'Weddings'}
+              </div>
+              <div className="text-[10px] text-cowc-gray uppercase tracking-wider">
+                Next 6 Months
+              </div>
+            </div>
+          </div>
+        </motion.div>
         {/* Pull to refresh indicator */}
         {refreshing && (
           <motion.div
@@ -166,9 +154,9 @@ export default function CoordinatorDashboard() {
         )}
 
         {/* Your Weddings */}
-        <section className="mb-10 sm:mb-12">
-          <div className="flex items-center justify-between mb-4 sm:mb-6">
-            <h2 className="text-2xl sm:text-3xl font-serif font-light text-cowc-dark">
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xl font-serif font-light text-cowc-dark">
               Your Weddings
             </h2>
             <button
@@ -252,9 +240,9 @@ export default function CoordinatorDashboard() {
 
         {/* Recent Changes */}
         <section>
-          <div className="flex items-center gap-3 mb-4 sm:mb-6">
-            <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-cowc-gold" />
-            <h2 className="text-2xl sm:text-3xl font-serif font-light text-cowc-dark">
+          <div className="flex items-center gap-2 mb-3">
+            <Bell className="w-4 h-4 text-cowc-gold" />
+            <h2 className="text-xl font-serif font-light text-cowc-dark">
               Recent Changes
             </h2>
           </div>
