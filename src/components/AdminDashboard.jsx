@@ -621,7 +621,7 @@ export default function AdminDashboard() {
     }, [])
   })()
 
-  const archivedWeddings = weddings.filter((w) => w.archived)
+  const archivedWeddings = weddings.filter((w) => w.archived || HIDDEN_IN_ALL.includes(w.status))
 
   // Count per stage for filter tabs
   const countFor = (val) => {
@@ -809,7 +809,7 @@ export default function AdminDashboard() {
 
           {/* Pipeline filter tabs (hidden in date-group mode since status pills still show on cards) */}
           <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-hide">
-            {PIPELINE_STAGES.filter(s => s.value === 'all' || countFor(s.value) > 0).map((s) => {
+            {PIPELINE_STAGES.filter(s => !HIDDEN_IN_ALL.includes(s.value) && (s.value === 'all' || countFor(s.value) > 0)).map((s) => {
               const count = countFor(s.value)
               const active = statusFilter === s.value
               return (
