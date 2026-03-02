@@ -692,7 +692,7 @@ export default function AdminDashboard() {
                 { value: stats.totalWeddings,     label: 'Weddings',      click: null },
                 { value: stats.next30Days,        label: 'Next 30 Days',  click: null },
                 { value: stats.tasksRemaining,    label: 'Open Tasks',    click: () => navigate('/admin/tasks') },
-                { value: stats.needsCoordinator,  label: 'Needs Coord',   click: () => setStatusFilter('needs_coord') },
+                { value: stats.needsCoordinator,  label: 'Needs Coord',   click: () => navigate('/admin/assign-coordinators') },
               ].map(({ value, label, click }) => (
                 <button key={label} onClick={click || undefined}
                   disabled={!click}
