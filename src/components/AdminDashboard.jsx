@@ -18,8 +18,9 @@ import { useToast } from './Toast'
 
 // ─── Pipeline config ───────────────────────────────────────────────────────
 const PIPELINE_STAGES = [
-  { value: 'all',       label: 'All',        color: 'bg-gray-100 text-gray-600',      dot: 'bg-gray-400' },
-  { value: 'Inquiry',   label: 'Inquiry',    color: 'bg-slate-100 text-slate-600',    dot: 'bg-slate-400' },
+  { value: 'all',          label: 'All',          color: 'bg-gray-100 text-gray-600',      dot: 'bg-gray-400' },
+  { value: 'needs_coord',  label: 'Needs Coord',  color: 'bg-rose-50 text-rose-700',       dot: 'bg-rose-400' },
+  { value: 'Inquiry',      label: 'Inquiry',      color: 'bg-slate-100 text-slate-600',    dot: 'bg-slate-400' },
   { value: 'In Talks',  label: 'In Talks',   color: 'bg-violet-100 text-violet-700',  dot: 'bg-violet-500' },
   { value: 'Planning',  label: 'Planning',   color: 'bg-amber-100 text-amber-700',    dot: 'bg-amber-500' },
   { value: 'Signed',    label: 'Signed',     color: 'bg-emerald-100 text-emerald-700',dot: 'bg-emerald-500' },
@@ -428,6 +429,12 @@ export default function AdminDashboard() {
         }).length,
         tasksRemaining: enriched.reduce((s, w) => s + (w.totalTasks - w.tasksCompleted), 0),
         totalVendors: allVendors.length,
+        needsCoordinator: enriched.filter((w) => {
+          if (w.archived) return false
+          const assigned = (w.coordinators || []).filter(c => c.status !== 'declined').length
+          if (w.coordinator_count) return assigned < w.coordinator_count
+          return assigned === 0
+        }).length,
         inquiry:  enriched.filter((w) => w.status === 'Inquiry'  && !w.archived).length,
         inTalks:  enriched.filter((w) => w.status === 'In Talks' && !w.archived).length,
         signed:   enriched.filter((w) => w.status === 'Signed'   && !w.archived).length,
@@ -557,9 +564,13 @@ export default function AdminDashboard() {
   const HIDDEN_IN_ALL = ['Completed', 'Cancelled']
   const activeWeddings = weddings
     .filter((w) => !w.archived)
-    .filter((w) => statusFilter === 'all'
-      ? !HIDDEN_IN_ALL.includes(w.status)
-      : w.status === statusFilter)
+    .filter((w) => {
+      if (statusFilter === 'needs_coord') {
+        const assigned = (w.coordinators || []).filter(c => c.status !== 'declined').length
+        return w.coordinator_count ? assigned < w.coordinator_count : assigned === 0
+      }
+      return statusFilter === 'all' ? !HIDDEN_IN_ALL.includes(w.status) : w.status === statusFilter
+    })
     .filter((w) => packageFilter === 'all' || w.package_type === packageFilter)
     .filter((w) =>
       !searchQuery.trim() ||
@@ -600,8 +611,8 @@ export default function AdminDashboard() {
 
     // groupBy === 'status'
     // Only use grouped view if showing all statuses (statusFilter === 'all')
-    if (statusFilter !== 'all') return null // flat list for single-status filter
-    return PIPELINE_STAGES.filter(s => s.value !== 'all').reduce((acc, stage) => {
+    if (statusFilter !== 'all') return null // flat list for single-status filter (incl. needs_coord)
+    return PIPELINE_STAGES.filter(s => s.value !== 'all' && s.value !== 'needs_coord').reduce((acc, stage) => {
       const group = [...activeWeddings]
         .filter(w => w.status === stage.value)
         .sort((a, b) => (STAGE_ORDER[a.status] ?? 99) - (STAGE_ORDER[b.status] ?? 99))
@@ -613,10 +624,15 @@ export default function AdminDashboard() {
   const archivedWeddings = weddings.filter((w) => w.archived)
 
   // Count per stage for filter tabs
-  const countFor = (val) =>
-    val === 'all'
-      ? weddings.filter((w) => !w.archived).length
-      : weddings.filter((w) => !w.archived && w.status === val).length
+  const countFor = (val) => {
+    if (val === 'all') return weddings.filter((w) => !w.archived).length
+    if (val === 'needs_coord') return weddings.filter((w) => {
+      if (w.archived) return false
+      const assigned = (w.coordinators || []).filter(c => c.status !== 'declined').length
+      return w.coordinator_count ? assigned < w.coordinator_count : assigned === 0
+    }).length
+    return weddings.filter((w) => !w.archived && w.status === val).length
+  }
 
   if (loading) {
     return (
@@ -673,15 +689,15 @@ export default function AdminDashboard() {
             {/* Stats row — numbers as the language */}
             <div className="flex items-start gap-0 flex-wrap">
               {[
-                { value: stats.totalWeddings, label: 'Weddings', click: null },
-                { value: stats.next30Days,    label: 'Next 30d', urgent: stats.next30Days > 0, click: null },
-                { value: stats.tasksRemaining,label: 'Tasks',    urgent: stats.tasksRemaining > 0, click: () => navigate('/admin/tasks') },
-                { value: stats.totalVendors,  label: 'Vendors',  click: () => navigate('/admin/vendors') },
-              ].map(({ value, label, urgent, click }) => (
+                { value: stats.totalWeddings,     label: 'Weddings',      click: null },
+                { value: stats.next30Days,        label: 'Next 30 Days',  click: null },
+                { value: stats.tasksRemaining,    label: 'Open Tasks',    click: () => navigate('/admin/tasks') },
+                { value: stats.needsCoordinator,  label: 'Needs Coord',   click: () => setStatusFilter('needs_coord') },
+              ].map(({ value, label, click }) => (
                 <button key={label} onClick={click || undefined}
                   disabled={!click}
                   className={`flex-1 min-w-[70px] text-center py-2 ${click ? 'cursor-pointer hover:bg-white/5 rounded-xl transition-colors' : 'cursor-default'}`}>
-                  <span className={`block text-4xl font-serif font-light leading-none ${urgent ? 'text-red-300' : 'text-white'}`}>
+                  <span className="block text-4xl font-serif font-light leading-none text-white">
                     {value}
                   </span>
                   <span className="block text-white/45 text-xs uppercase tracking-wider mt-1">{label}</span>
@@ -793,7 +809,7 @@ export default function AdminDashboard() {
 
           {/* Pipeline filter tabs (hidden in date-group mode since status pills still show on cards) */}
           <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-hide">
-            {PIPELINE_STAGES.map((s) => {
+            {PIPELINE_STAGES.filter(s => s.value === 'all' || countFor(s.value) > 0).map((s) => {
               const count = countFor(s.value)
               const active = statusFilter === s.value
               return (
