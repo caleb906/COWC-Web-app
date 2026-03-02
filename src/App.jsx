@@ -26,6 +26,7 @@ const VendorListScreen       = lazy(() => import('./components/VendorListScreen'
 const CatalogueManagementScreen = lazy(() => import('./components/CatalogueManagementScreen'))
 const VenuesScreen           = lazy(() => import('./components/VenuesScreen'))
 const AdminNotesScreen       = lazy(() => import('./components/AdminNotesScreen'))
+const IntegrationsScreen     = lazy(() => import('./components/IntegrationsScreen'))
 const DevPreview             = lazy(() => import('./components/DevPreview'))
 
 // Minimal spinner shown while a lazy chunk loads
@@ -267,7 +268,7 @@ function App() {
                         <p className="text-[#6b6b6b] text-sm mt-1">Your password has been saved. Welcome to your wedding portal.</p>
                       </div>
                       <button
-                        onClick={() => { setSetupPassword(null); setSetupPwDone(false); setNewSetupPw(''); setConfirmSetupPw('') }}
+                        onClick={() => { setSetupPassword(null); setSetupPwDone(false); setNewSetupPw(''); setConfirmSetupPv('') }}
                         className="w-full py-3 rounded-xl bg-[#c9a96e] text-white font-semibold text-sm hover:bg-[#b8954f] transition-colors"
                       >
                         Enter my portal →
@@ -299,6 +300,7 @@ function App() {
                 <Route path="/admin/catalogue" element={<CatalogueManagementScreen />} />
                 <Route path="/admin/venues" element={<VenuesScreen />} />
                 <Route path="/admin/notes" element={<AdminNotesScreen />} />
+                <Route path="/admin/integrations" element={<IntegrationsScreen />} />
                 <Route path="/admin/preview/couple/:id" element={<DevPreview />} />
                 <Route path="/wedding/:id" element={<WeddingDetailPage />} />
                 <Route path="*" element={<Navigate to="/admin" replace />} />
@@ -306,7 +308,7 @@ function App() {
             ) : user.role === 'coordinator' ? (
               <>
                 <Route path="/" element={<CoordinatorDashboard />} />
-                <Route path="/wedding/:id" element={<WeddingDetailPage />} />
+                <Route path="/wedding/:id" element={<WeddingDetailPage />| />
                 <Route path="/admin/preview/couple/:id" element={<DevPreview />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </>
